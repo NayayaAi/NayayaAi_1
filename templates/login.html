@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title> Login</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="auth-page">
+        <div class="auth-card">
+            <h2>Welcome Back</h2>
+            <p>Please enter your details</p>
+
+            <form id="loginForm" class="auth-form" autocomplete="off">
+                <div class="input-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" placeholder="Enter your email" required>
+                </div>
+
+                <div class="input-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" placeholder="Enter your password" required>
+                </div>
+
+                <button type="submit" class="auth-btn">Login</button>
+                <div id="message"></div>
+
+                <div class="form-footer">
+                    <a href="#">Forgot Password?</a>
+                    <span>Don't have an account? <a href="/signup">Sign Up</a></span>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const data = {
+                email: document.getElementById('email').value,
+                password: document.getElementById('password').value
+            };
+            
+            fetch('/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.error) {
+                    document.getElementById('message').innerHTML = '<p style="color: red;">' + result.error + '</p>';
+                } else {
+                    document.getElementById('message').innerHTML = '<p style="color: green;">' + result.message + '<br>Role: ' + result.role + '<br>Unique ID: ' + result.unique_id + '</p>';
+                    // Redirect to main system after 2 seconds
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 2000);
+                }
+            })
+            .catch(error => {
+                document.getElementById('message').innerHTML = '<p style="color: red;">An error occurred. Please try again.</p>';
+            });
+        });
+    </script>
+</body>
+</html>

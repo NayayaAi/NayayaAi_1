@@ -1,71 +1,192 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title> Login</title>
-    <link rel="stylesheet" href="/static/style.css">
-</head>
-<body>
-    <div class="auth-page">
-        <div class="auth-card">
-            <h2>Welcome Back</h2>
-            <p>Please enter your details</p>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --deep:#050d1f;--navy:#0a1628;--blue-dark:#0f2044;--blue-mid:#1a3a6e;
+    --blue:#1e4d9b;--blue-bright:#2563eb;--blue-light:#3b82f6;
+    --blue-glow:#60a5fa;--blue-soft:#93c5fd;--white:#ffffff;
+    --text-muted:#94a3b8;--border:rgba(59,130,246,0.2);
+  }
+  .page{
+    font-family:'DM Sans',sans-serif;
+    background:var(--deep);
+    min-height:100vh;
+    display:flex;align-items:center;justify-content:center;
+    position:relative;overflow:hidden;padding:40px 20px;
+  }
+  .bg1{position:absolute;inset:0;background:radial-gradient(ellipse 70% 60% at 15% 20%,rgba(37,99,235,0.18) 0%,transparent 55%),radial-gradient(ellipse 60% 70% at 85% 80%,rgba(30,77,155,0.2) 0%,transparent 55%);pointer-events:none;}
+  .grid{position:absolute;inset:0;background-image:linear-gradient(rgba(37,99,235,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(37,99,235,0.04) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;}
+  .orb{position:absolute;border-radius:50%;filter:blur(60px);pointer-events:none;}
+  .o1{width:400px;height:400px;top:-100px;left:-100px;background:radial-gradient(circle,rgba(37,99,235,0.25),transparent 70%);}
+  .o2{width:350px;height:350px;bottom:-80px;right:-80px;background:radial-gradient(circle,rgba(59,130,246,0.2),transparent 70%);}
+  .o3{width:200px;height:200px;top:40%;right:10%;background:radial-gradient(circle,rgba(96,165,250,0.12),transparent 70%);}
+  .card{
+    position:relative;z-index:1;
+    width:100%;max-width:420px;
+    background:rgba(10,22,40,0.85);
+    backdrop-filter:blur(20px);
+    border:1px solid rgba(59,130,246,0.18);
+    border-radius:16px;
+    box-shadow:0 0 0 1px rgba(37,99,235,0.1),0 24px 80px rgba(5,13,31,0.6),0 0 60px rgba(37,99,235,0.08) inset;
+    overflow:hidden;
+    animation:slideUp 0.65s cubic-bezier(0.16,1,0.3,1) both;
+  }
+  @keyframes slideUp{from{opacity:0;transform:translateY(36px)}to{opacity:1;transform:translateY(0)}}
+  .glow-line{height:2px;background:linear-gradient(90deg,transparent,var(--blue-bright),var(--blue-glow),var(--blue-bright),transparent);animation:glowPulse 3s ease-in-out infinite;}
+  @keyframes glowPulse{0%,100%{opacity:0.7}50%{opacity:1}}
+  .header{padding:32px 36px 24px;}
+  .hicon{
+    width:44px;height:44px;
+    background:linear-gradient(135deg,var(--blue-bright),var(--blue-glow));
+    border-radius:12px;
+    display:flex;align-items:center;justify-content:center;
+    margin-bottom:16px;
+    box-shadow:0 4px 20px rgba(37,99,235,0.4);
+  }
+  .hicon svg{width:22px;height:22px;fill:white;}
+  .header h2{font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:var(--white);letter-spacing:-0.02em;margin-bottom:6px;}
+  .header p{color:var(--text-muted);font-size:14px;font-weight:300;}
+  .body{padding:0 36px 36px;}
+  .igroup{margin-bottom:14px;}
+  .igroup label{display:block;font-size:11px;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:var(--blue-glow);margin-bottom:7px;opacity:0.8;}
+  .iwrap{position:relative;}
+  .iwrap .ico{position:absolute;left:13px;top:50%;transform:translateY(-50%);width:16px;height:16px;opacity:0.35;pointer-events:none;}
+  .igroup input{
+    width:100%;padding:11px 14px 11px 38px;
+    border:1px solid rgba(59,130,246,0.18);border-radius:8px;
+    background:rgba(255,255,255,0.04);
+    font-family:'DM Sans',sans-serif;font-size:14px;color:var(--white);
+    outline:none;transition:all 0.22s ease;
+  }
+  .igroup input::placeholder{color:rgba(148,163,184,0.45);}
+  .igroup input:focus{border-color:var(--blue-bright);background:rgba(37,99,235,0.06);box-shadow:0 0 0 3px rgba(37,99,235,0.15),0 0 20px rgba(37,99,235,0.08);}
+  .row-meta{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;}
+  .row-meta label{font-size:11px;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:var(--blue-glow);opacity:0.8;}
+  .row-meta a{font-size:11px;color:var(--blue-glow);text-decoration:none;opacity:0.75;transition:opacity 0.2s;}
+  .row-meta a:hover{opacity:1;}
+  .btn{
+    width:100%;padding:13px;
+    background:linear-gradient(135deg,var(--blue-bright),var(--blue-light));
+    color:var(--white);border:none;border-radius:9px;
+    font-family:'Syne',sans-serif;font-size:14px;font-weight:700;
+    letter-spacing:0.06em;text-transform:uppercase;
+    cursor:pointer;position:relative;overflow:hidden;
+    transition:all 0.25s ease;margin-top:6px;
+    box-shadow:0 4px 24px rgba(37,99,235,0.35);
+  }
+  .btn::before{content:'';position:absolute;top:0;left:-100%;width:100%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.12),transparent);transition:left 0.55s ease;}
+  .btn:hover::before{left:100%;}
+  .btn:hover{background:linear-gradient(135deg,#1d4ed8,var(--blue-bright));transform:translateY(-1px);box-shadow:0 8px 32px rgba(37,99,235,0.5);}
+  .btn:active{transform:translateY(0);box-shadow:0 4px 16px rgba(37,99,235,0.3);}
+  .divider{display:flex;align-items:center;gap:10px;margin:20px 0;}
+  .divider span{font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);white-space:nowrap;opacity:0.5;}
+  .divider-line{flex:1;height:1px;background:var(--border);}
+  .social-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;}
+  .social-btn{
+    display:flex;align-items:center;justify-content:center;gap:8px;
+    padding:10px;border:1px solid rgba(59,130,246,0.18);border-radius:8px;
+    background:rgba(255,255,255,0.02);cursor:pointer;
+    font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text-muted);
+    transition:all 0.22s ease;
+  }
+  .social-btn:hover{border-color:rgba(59,130,246,0.35);background:rgba(37,99,235,0.06);color:var(--white);}
+  .social-btn svg{width:16px;height:16px;flex-shrink:0;}
+  .footer{text-align:center;margin-top:18px;font-size:13px;color:var(--text-muted);}
+  .footer a{color:var(--blue-glow);font-weight:500;text-decoration:none;transition:color 0.2s;}
+  .footer a:hover{color:var(--blue-soft);}
+  #msg{margin-top:12px;min-height:16px;}
+  #msg p{padding:10px 14px;border-radius:8px;font-size:13px;animation:fadeIn 0.3s ease;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+  @media(max-width:520px){.header,.body{padding-left:22px;padding-right:22px;}.social-row{grid-template-columns:1fr;}}
+</style>
 
-            <form id="loginForm" class="auth-form" autocomplete="off">
-                <div class="input-group">
-                    <label for="email">Email</label>
-                    <input type="email" id="email" placeholder="Enter your email" required>
-                </div>
-
-                <div class="input-group">
-                    <label for="password">Password</label>
-                    <input type="password" id="password" placeholder="Enter your password" required>
-                </div>
-
-                <button type="submit" class="auth-btn">Login</button>
-                <div id="message"></div>
-
-                <div class="form-footer">
-                    <a href="#">Forgot Password?</a>
-                    <span>Don't have an account? <a href="/signup">Sign Up</a></span>
-                </div>
-            </form>
-        </div>
+<div class="page">
+  <div class="bg1"></div><div class="grid"></div>
+  <div class="orb o1"></div><div class="orb o2"></div><div class="orb o3"></div>
+  <div class="card">
+    <div class="glow-line"></div>
+    <div class="header">
+      <div class="hicon">
+        <svg viewBox="0 0 24 24"><path d="M12 2L3 7v5c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5z"/></svg>
+      </div>
+      <h2>Welcome Back</h2>
+      <p>Sign in to continue to your account.</p>
     </div>
+    <div class="body">
+      <div class="igroup">
+        <label for="email">Email Address</label>
+        <div class="iwrap">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 7l10 7 10-7"/></svg>
+          <input type="email" id="email" placeholder="example@mail.com" required>
+        </div>
+      </div>
 
-    <script>
-        document.getElementById('loginForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            const data = {
-                email: document.getElementById('email').value,
-                password: document.getElementById('password').value
-            };
-            
-            fetch('/login', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(data)
-            })
-            .then(response => response.json())
-            .then(result => {
-                if (result.error) {
-                    document.getElementById('message').innerHTML = '<p style="color: red;">' + result.error + '</p>';
-                } else {
-                    document.getElementById('message').innerHTML = '<p style="color: green;">' + result.message + '<br>Role: ' + result.role + '<br>Unique ID: ' + result.unique_id + '</p>';
-                    // Redirect to main system after 2 seconds
-                    setTimeout(() => {
-                        window.location.href = '/';
-                    }, 2000);
-                }
-            })
-            .catch(error => {
-                document.getElementById('message').innerHTML = '<p style="color: red;">An error occurred. Please try again.</p>';
-            });
-        });
-    </script>
-</body>
-</html>
+      <div class="igroup">
+        <div class="row-meta">
+          <label for="password">Password</label>
+          <a href="/forgot-password">Forgot password?</a>
+        </div>
+        <div class="iwrap">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+          <input type="password" id="password" placeholder="Enter your password" required>
+        </div>
+      </div>
+
+      <button class="btn" onclick="handleLogin()">Sign In</button>
+
+      <div id="msg"></div>
+
+      <div class="divider">
+        <div class="divider-line"></div>
+        <span>or continue with</span>
+        <div class="divider-line"></div>
+      </div>
+
+      <div class="social-row">
+        <button class="social-btn">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+          Google
+        </button>
+        <button class="social-btn">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+          GitHub
+        </button>
+      </div>
+
+      <div class="footer">
+        Don't have an account? <a href="/signup">Create one</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function handleLogin() {
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+  const msg = document.getElementById('msg');
+  if (!email || !password) {
+    msg.innerHTML = '<p style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);color:#fca5a5;">Please fill in all fields.</p>';
+    return;
+  }
+  msg.innerHTML = '';
+  fetch('/login', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({email, password})
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.error) {
+      msg.innerHTML = '<p style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);color:#fca5a5;">' + data.error + '</p>';
+    } else {
+      msg.innerHTML = '<p style="background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.25);color:#86efac;">' + data.message + '</p>';
+      setTimeout(() => { window.location.href = '/'; }, 1500);
+    }
+  })
+  .catch(() => {
+    msg.innerHTML = '<p style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);color:#fca5a5;">An error occurred. Please try again.</p>';
+  });
+}
+document.addEventListener('keydown', e => { if (e.key === 'Enter') handleLogin(); });
+</script>

@@ -181,7 +181,25 @@ function handleLogin() {
       msg.innerHTML = '<p style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);color:#fca5a5;">' + data.error + '</p>';
     } else {
       msg.innerHTML = '<p style="background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.25);color:#86efac;">' + data.message + '</p>';
-      setTimeout(() => { window.location.href = '/'; }, 1500);
+      setTimeout(() => {
+
+  if (data.role === "citizen") {
+    window.location.href = "/citizen_dashboard";
+  }
+
+  else if (data.role === "police") {
+    window.location.href = "/";   // index.html contains police module
+  }
+
+  else if (data.role === "lawyer") {
+    window.location.href = "/lawyer_dashboard";
+  }
+
+  else {
+    window.location.href = "/";
+  }
+
+}, 1200);
     }
   })
   .catch(() => {

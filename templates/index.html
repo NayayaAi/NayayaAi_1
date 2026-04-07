@@ -101,7 +101,6 @@
         }
 
         section {
-            padding-top: 100px;
             min-height: 100vh;
             scroll-margin-top: 100px;
         }
@@ -176,18 +175,19 @@
                 <!-- Evidence Locker -->
                 <a href="#"
                     class="sidebar-link flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors"
+                    onclick="secureLockerAccess()"
                     data-section="evidence-locker">
                     <i data-lucide="folder" class="w-5 h-5"></i>
                     <span>Evidence Locker</span>
                 </a>
 
                 <!-- Language -->
-                <a href="#e"
+                <!--<a href="#e"
                     class="sidebar-link flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors"
                     data-section="language">
                     <i data-lucide="languages" class="w-5 h-5"></i>
                     <span>Language</span>
-                </a>
+                </a>-->
 
                 <!-- Settings -->
                 <a href="#"
@@ -224,11 +224,11 @@
                 </div>
                 <span class="text-2xl font-serif font-bold text-blue-950">NyayaAI</span>
             </div>
-            <div class="hidden md:flex space-x-10 font-semibold text-slate-600">
+            <!--<div class="hidden md:flex space-x-10 font-semibold text-slate-600">
                 <a href="#" class="hover:text-blue-600 transition">Home</a>
                 <a href="#features" class="hover:text-blue-600 transition" onclick="showSection('features')">Features</a>
                 <a href="#how-it-works" class="hover:text-blue-600 transition" onclick="showSection('how-it-works')">How it Works</a>
-            </div>
+            </div> -->
             <div class="hidden md:flex space-x-4">
                 <a href="/login"
                     class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-full font-bold transition shadow-lg shadow-blue-200">
@@ -269,11 +269,38 @@
                     </a>
                 </div>
             </div>
+
+            <div class="text-center mb-16 pt-20">
+                <h2 class="text-4xl font-serif font-bold text-blue-950 mb-4 text-white">Powerful Features</h2>
+                <div class="w-20 h-1.5 bg-blue-600 mx-auto rounded-full"></div>
+            </div>
+            <div class="grid md:grid-cols-4 gap-8 mt-8 max-w-6xl mx-auto">
+                <div class="feature-card p-8 bg-slate-50 rounded-3xl border border-slate-100">
+                    <div class="text-blue-600 mb-4"><i data-lucide="zap" class="w-10 h-10"></i></div>
+                    <h3 class="font-bold text-xl mb-2 text-blue-900">Instant Generation</h3>
+                    <p class="text-slate-600">Complex legal language simplified into a clear FIR draft in seconds.</p>
+                </div>
+                <div class="feature-card p-8 bg-slate-50 rounded-3xl border border-slate-100">
+                    <div class="text-blue-600 mb-4"><i data-lucide="gavel" class="w-10 h-10"></i></div>
+                    <h3 class="font-bold text-xl mb-2 text-blue-900">Section Analysis</h3>
+                    <p class="text-slate-600">Automatic mapping to relevant IPC/BNS sections for better accuracy.</p>
+                </div>
+                <div class="feature-card p-8 bg-slate-50 rounded-3xl border border-slate-100">
+                    <div class="text-blue-600 mb-4"><i data-lucide="file-text" class="w-10 h-10"></i></div>
+                    <h3 class="font-bold text-xl mb-2 text-blue-900">PDF Export</h3>
+                    <p class="text-slate-600">Format ready for print or digital submission to authorities.</p>
+                </div>
+                <div class="feature-card p-8 bg-slate-50 rounded-3xl border border-slate-100">
+                    <div class="text-blue-600 mb-4"><i data-lucide="shield-check" class="w-10 h-10"></i></div>
+                    <h3 class="font-bold text-xl mb-2 text-blue-900">Verified Logic</h3>
+                    <p class="text-slate-600">Built on verified legal frameworks to ensure procedural validity.</p>
+                </div>
+            </div>
         </section>
 
-        <section id="create-fir" class="relative mt-20 px-6 z-20 hidden">
-            <div class="w-full px-6">
-                <div class="bg-white rounded-xl shadow">
+        <section id="create-fir" class="px-6 pt-28 pb-20 hidden">
+            <div class="w-full max-w-5xl mx-auto px-6">
+                <div class="bg-white rounded-xl shadow pb-8">
                     <!-- Form Header -->
                     <div class="bg-gradient-to-r from-blue-600 to-blue-800 px-8 py-6 text-white">
                         <h2 class="text-3xl font-serif font-bold mb-2">FORM IF-1</h2>
@@ -356,7 +383,7 @@
                                         class="block text-sm font-semibold text-slate-700 mb-1">Police-entered
                                         Act/Section (optional)</label>
                                     <textarea id="policeActSections" rows="2"
-                                        class="w-full border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition"
+                                        class="w-full border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition resize-none"
                                         placeholder="E.g., IPC Section 302, IPC Section 34"></textarea>
                                     <p class="text-xs text-slate-500 mt-1">If filled, this value is used. Otherwise AI
                                         suggests sections from narrative.</p>
@@ -429,8 +456,10 @@
                                     <input type="text" id="direction_distance"
                                         placeholder="Direction & Distance from P.S. / Beat No."
                                         class="w-full border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition" />
+
                                     <textarea id="place_address" placeholder="Exact Address" rows="2"
-                                        class="w-full border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition"></textarea>
+                                        class="w-full border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition resize-none"></textarea>
+
                                     <input type="text" id="ps_outside"
                                         placeholder="Other P.S./District Name (if outside limit)"
                                         class="w-full border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition" />
@@ -448,26 +477,34 @@
                                 <div class="space-y-3">
                                     <input type="text" id="comp_name" placeholder="Full Name *"
                                         class="w-full border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition" />
+
                                     <input type="text" id="father_name" placeholder="Father's / Husband's Name"
                                         class="w-full border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition" />
+
                                     <div class="grid grid-cols-2 gap-3">
                                         <input type="text" id="dob" placeholder="Date/Year of Birth"
                                             class="border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition" />
+
                                         <input type="text" id="nationality" placeholder="Nationality"
                                             class="border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition" />
+
                                     </div>
                                     <div class="grid grid-cols-3 gap-3">
                                         <input type="text" id="passport" placeholder="Passport No."
                                             class="border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition" />
+
                                         <input type="date" id="passport_issue_date"
                                             class="border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition" />
+
                                         <input type="text" id="passport_place" placeholder="Place of Issue"
                                             class="border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition" />
+
                                     </div>
                                     <input type="text" id="occupation" placeholder="Occupation"
                                         class="w-full border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition" />
+
                                     <textarea id="comp_address" placeholder="Complete Address" rows="2"
-                                        class="w-full border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition"></textarea>
+                                        class="w-full border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition resize-none"></textarea>
                                 </div>
                             </div>
 
@@ -480,8 +517,9 @@
                                             7</div>
                                         <h4 class="font-bold text-blue-900">Accused Details</h4>
                                     </div>
+
                                     <textarea id="accused_details" placeholder="Full particulars of accused..." rows="4"
-                                        class="w-full border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition text-sm"></textarea>
+                                        class="w-full border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition text-sm resize-none"></textarea>
                                 </div>
                                 <div>
                                     <div class="flex items-center mb-3">
@@ -492,7 +530,7 @@
                                     </div>
                                     <textarea id="delay_reasons" placeholder="Reasons for delay in reporting..."
                                         rows="4"
-                                        class="w-full border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition text-sm"></textarea>
+                                        class="w-full border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition text-sm resize-none"></textarea>
                                 </div>
                                 <div>
                                     <div class="flex items-center mb-3">
@@ -503,7 +541,7 @@
                                     </div>
                                     <textarea id="property_particulars"
                                         placeholder="Details of properties stolen/involved..." rows="4"
-                                        class="w-full border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition text-sm"></textarea>
+                                        class="w-full border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition text-sm resize-none"></textarea>
                                 </div>
                             </div>
 
@@ -512,7 +550,7 @@
                                 <label class="block text-sm font-bold text-blue-900 mb-2">Detailed Narrative (Exact
                                     Words of Informant) *</label>
                                 <textarea id="narrative" placeholder="Complete incident narrative..." rows="5"
-                                    class="w-full border-2 border-slate-200 rounded-lg p-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition"></textarea>
+                                    class="w-full border-2 border-slate-200 rounded-lg p-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition resize-none"></textarea>
                             </div>
 
                             <!-- Submit Button -->
@@ -532,32 +570,7 @@
         </section>
 
         <section id="features" class="py-24 max-w-7xl mx-auto px-6 hidden">
-            <div class="text-center mb-16">
-                <h2 class="text-4xl font-serif font-bold text-blue-950 mb-4">Powerful Features</h2>
-                <div class="w-20 h-1.5 bg-blue-600 mx-auto rounded-full"></div>
-            </div>
-            <div class="grid md:grid-cols-4 gap-8">
-                <div class="feature-card p-8 bg-slate-50 rounded-3xl border border-slate-100">
-                    <div class="text-blue-600 mb-4"><i data-lucide="zap" class="w-10 h-10"></i></div>
-                    <h3 class="font-bold text-xl mb-2 text-blue-900">Instant Generation</h3>
-                    <p class="text-slate-600">Complex legal language simplified into a clear FIR draft in seconds.</p>
-                </div>
-                <div class="feature-card p-8 bg-slate-50 rounded-3xl border border-slate-100">
-                    <div class="text-blue-600 mb-4"><i data-lucide="gavel" class="w-10 h-10"></i></div>
-                    <h3 class="font-bold text-xl mb-2 text-blue-900">Section Analysis</h3>
-                    <p class="text-slate-600">Automatic mapping to relevant IPC/BNS sections for better accuracy.</p>
-                </div>
-                <div class="feature-card p-8 bg-slate-50 rounded-3xl border border-slate-100">
-                    <div class="text-blue-600 mb-4"><i data-lucide="file-text" class="w-10 h-10"></i></div>
-                    <h3 class="font-bold text-xl mb-2 text-blue-900">PDF Export</h3>
-                    <p class="text-slate-600">Format ready for print or digital submission to authorities.</p>
-                </div>
-                <div class="feature-card p-8 bg-slate-50 rounded-3xl border border-slate-100">
-                    <div class="text-blue-600 mb-4"><i data-lucide="shield-check" class="w-10 h-10"></i></div>
-                    <h3 class="font-bold text-xl mb-2 text-blue-900">Verified Logic</h3>
-                    <p class="text-slate-600">Built on verified legal frameworks to ensure procedural validity.</p>
-                </div>
-            </div>
+            
         </section>
 
         <section id="how-it-works" class="py-20 bg-slate-50">
@@ -600,7 +613,7 @@
             </div>
         </section>
 
-        <section id="fir-history" class="py-20 bg-slate-100 hidden">
+        <section id="fir-history" class="py-20 bg-slate-100 hidden pt-28">
             <div class="max-w-6xl mx-auto px-6">
                 <div class="flex items-center justify-between mb-4">
                     <h2 class="text-3xl font-serif font-bold text-blue-900">FIR History</h2>
@@ -631,7 +644,7 @@
         </section>
 
         <!-- Law Library Section -->
-        <section id="law-library" class="py-20 bg-white hidden">
+        <section id="law-library" class="py-20 bg-white hidden pt-28">
             <div class="max-w-6xl mx-auto px-6">
                 <h2 class="text-3xl font-serif font-bold text-center mb-12 text-blue-900">Law Library</h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -661,7 +674,7 @@
         </section>
 
         <!-- Doc Analysis Section -->
-        <section id="doc-analysis" class="py-20 bg-slate-50 hidden">
+        <section id="doc-analysis" class="py-20 bg-slate-50 hidden pt-28">
             <div class="max-w-6xl mx-auto px-6">
                 <h2 class="text-3xl font-serif font-bold text-center mb-12 text-blue-900">Document Analysis</h2>
                 <div class="bg-white p-8 rounded-lg shadow-lg">
@@ -690,7 +703,7 @@
         </section>
 
         <!-- Language Section -->
-        <section id="language" class="py-20 bg-white hidden">
+        <!--<section id="language" class="py-20 bg-white hidden pt-28">
             <div class="max-w-6xl mx-auto px-6">
                 <h2 class="text-3xl font-serif font-bold text-center mb-12 text-blue-900">Language Settings</h2>
                 <div class="bg-slate-50 p-8 rounded-lg">
@@ -729,69 +742,142 @@
                 </div>
             </div>
 
-        </section>
+        </section> -->
 
-        <section id="evidence-locker" class="py-20 bg-slate-50 hidden">
-            <div class="max-w-6xl mx-auto px-6">
-                <h2 class="text-3xl font-serif font-bold text-center mb-12 text-blue-900">Evidence Locker</h2>
+        <section id="evidence-locker" class="py-20 bg-slate-50 hidden pt-28">
+    <div class="max-w-6xl mx-auto px-6">
 
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    <div class="lg:col-span-1 bg-white p-6 rounded-lg shadow-lg h-fit">
-                        <div class="flex items-center mb-6">
-                            <i data-lucide="shield-check" class="w-8 h-8 text-blue-600 mr-3"></i>
-                            <h3 class="text-xl font-bold">Secure Upload</h3>
-                        </div>
+        <h2 class="text-3xl font-serif font-bold text-center mb-12 text-blue-900">
+            Evidence Locker
+        </h2>
 
-                        <div class="space-y-4">
-                            <div>
-                                <label class="block text-sm font-medium text-slate-700 mb-1">Link to FIR Number
-                                    *</label>
-                                <input type="text" id="evidenceFirNo" placeholder="e.g. DL/2024/001"
-                                    class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
-                            </div>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
-                            <div
-                                class="border-2 border-dashed border-slate-200 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
-                                <input type="file" id="evidenceFile" class="hidden" onchange="updateFileName()">
-                                <label for="evidenceFile" class="cursor-pointer">
-                                    <i data-lucide="plus-circle" class="w-10 h-10 text-slate-400 mx-auto mb-2"></i>
-                                    <p class="text-sm text-slate-600" id="fileNameDisplay">Select Evidence File</p>
-                                    <p class="text-xs text-slate-400 mt-1">Images, PDFs, or Videos</p>
-                                </label>
-                            </div>
+            <!-- LEFT SIDE -->
+            <div class="lg:col-span-1 bg-white p-6 rounded-xl shadow-lg h-fit border border-slate-100">
 
-                            <button onclick="handleEvidenceUpload()"
-                                class="w-full py-3 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition flex items-center justify-center">
-                                <i data-lucide="upload-cloud" class="w-5 h-5 mr-2"></i> Upload to Case File
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="lg:col-span-2 bg-white p-6 rounded-lg shadow-lg">
-                        <div class="flex justify-between items-center mb-6">
-                            <h3 class="text-xl font-bold">Stored Evidence</h3>
-                            <div class="flex space-x-2">
-                                <input type="text" id="searchEvidence" placeholder="Search by FIR..."
-                                    class="px-3 py-1 border border-slate-200 rounded text-sm">
-                                <button class="p-2 bg-slate-100 rounded hover:bg-slate-200"><i data-lucide="filter"
-                                        class="w-4 h-4"></i></button>
-                            </div>
-                        </div>
-
-                        <div id="evidenceEmptyState" class="text-center py-20">
-                            <i data-lucide="folder-search" class="w-16 h-16 text-slate-200 mx-auto mb-4"></i>
-                            <p class="text-slate-500">No evidence found. Link an FIR to view files.</p>
-                        </div>
-
-                        <div id="evidenceGrid" class="grid grid-cols-2 md:grid-cols-3 gap-4">
-                        </div>
-                    </div>
+                <div class="flex items-center mb-6">
+                    <i data-lucide="shield-check" class="w-8 h-8 text-blue-600 mr-3"></i>
+                    <h3 class="text-xl font-bold text-slate-800">
+                        Secure Upload
+                    </h3>
                 </div>
+
+
+                <!-- FORM START -->
+                <form action="/upload_evidence"
+                      method="POST"
+                      enctype="multipart/form-data"
+                      class="space-y-4">
+
+
+                    <!-- FIR NUMBER -->
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">
+                            Link to FIR Number *
+                        </label>
+
+                        <input type="text"
+                               name="fir_no"
+                               placeholder="e.g. DL/2024/001"
+                               required
+                               class="w-full px-4 py-2 border border-slate-300 rounded-lg
+                                      focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+
+
+                    <!-- FILE UPLOAD -->
+                    <div class="border-2 border-dashed border-slate-200
+                                rounded-lg p-6 text-center
+                                hover:border-blue-400 transition">
+
+                        <input type="file"
+                               name="file"
+                               required
+                               class="block w-full text-sm text-slate-600
+                                      file:mr-4 file:py-2 file:px-4
+                                      file:rounded-lg file:border-0
+                                      file:text-sm file:font-semibold
+                                      file:bg-blue-50 file:text-blue-700
+                                      hover:file:bg-blue-100">
+                        
+                        <p class="text-xs text-slate-400 mt-2">
+                            Images, PDFs, Videos supported
+                        </p>
+
+                    </div>
+
+
+                    <!-- BUTTON -->
+                    <button type="submit"
+                            class="w-full py-3 bg-blue-600 text-white
+                                   rounded-lg font-bold
+                                   hover:bg-blue-700 transition
+                                   flex items-center justify-center
+                                   shadow-md">
+
+                        <i data-lucide="upload-cloud" class="w-5 h-5 mr-2"></i>
+
+                        Upload to Case File
+
+                    </button>
+
+
+                </form>
+                <!-- FORM END -->
+
             </div>
-        </section>
+
+
+            <!-- RIGHT SIDE (NO CHANGE) -->
+            <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-lg border border-slate-100">
+
+                <div class="flex justify-between items-center mb-6">
+
+                    <h3 class="text-xl font-bold text-slate-800">
+                        Stored Evidence
+                    </h3>
+
+                    <div class="flex space-x-2">
+
+                        <input type="text"
+                               placeholder="Search by FIR..."
+                               class="px-3 py-1 border border-slate-200 rounded text-sm">
+
+                        <button class="p-2 bg-slate-100 rounded hover:bg-slate-200">
+                            <i data-lucide="filter" class="w-4 h-4"></i>
+                        </button>
+
+                    </div>
+
+                </div>
+
+
+                <div id="evidenceEmptyState" class="text-center py-20">
+
+                    <i data-lucide="folder-search"
+                       class="w-16 h-16 text-slate-200 mx-auto mb-4"></i>
+
+                    <p class="text-slate-500">
+                        No evidence found. Upload a file linked to FIR.
+                    </p>
+
+                </div>
+
+
+                <div id="evidenceGrid"
+                     class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                </div>
+
+            </div>
+
+
+        </div>
+    </div>
+</section>
 
         <!-- Settings Section -->
-        <section id="settings" class="py-20 bg-slate-50 hidden">
+        <section id="settings" class="py-20 bg-slate-50 hidden pt-28">
             <div class="max-w-6xl mx-auto px-6">
                 <h2 class="text-3xl font-serif font-bold text-center mb-12 text-blue-900">System Settings</h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -845,6 +931,30 @@
         </footer>
 
     </main>
+
+        <div id="pinModal"
+    class="fixed inset-0 hidden items-center justify-center z-50 backdrop-blur-md bg-black/30">
+
+    <div class="relative bg-white p-6 rounded-xl shadow-2xl w-80 text-center animate-fadeIn">
+
+        <!-- ❌ CLOSE BUTTON -->
+        <button onclick="closeLockerModal()"
+            class="absolute top-2 right-2 text-gray-400 hover:text-red-500 text-xl font-bold">
+            ×
+        </button>
+
+        <h3 class="text-lg font-bold mb-2">🔐 Secure Access</h3>
+        <p class="text-sm text-gray-500 mb-4">Authorized Personnel Only</p>
+
+        <input id="pinInput" type="password" placeholder="Enter PIN"
+            class="w-full border border-gray-300 p-2 rounded mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500">
+
+        <button onclick="submitPin()"
+            class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded font-semibold transition">
+            Unlock
+        </button>
+    </div>
+</div>
 
     <script>
         lucide.createIcons();
@@ -1423,74 +1533,74 @@
         }
 
         // Initialize on page load
-        function updateLanguageText(lang) {
-            const translations = {
-                en: {
-                    heroTitle: 'AI-Powered FIR Generation System',
-                    heroSubtitle: 'Bridge the gap between incident and justice.',
-                    getStarted: 'Get Started Now'
-                },
-                hi: {
-                    heroTitle: 'एआई-पावर्ड FIR जेनरेशन सिस्टम',
-                    heroSubtitle: 'घटना और न्याय के बीच अंतर को पाटें।',
-                    getStarted: 'अभी शुरू करें'
-                },
-                mr: {
-                    heroTitle: 'एआय-सक्षम FIR निर्माण प्रणाली',
-                    heroSubtitle: 'घटने आणि न्यायामधील अंतर पाटा.',
-                    getStarted: 'आता सुरू करा'
-                }
-            };
+//         function updateLanguageText(lang) {
+//             const translations = {
+//                 en: {
+//                     heroTitle: 'AI-Powered FIR Generation System',
+//                     heroSubtitle: 'Bridge the gap between incident and justice.',
+//                     getStarted: 'Get Started Now'
+//                 },
+//                 hi: {
+//                     heroTitle: 'एआई-पावर्ड FIR जेनरेशन सिस्टम',
+//                     heroSubtitle: 'घटना और न्याय के बीच अंतर को पाटें।',
+//                     getStarted: 'अभी शुरू करें'
+//                 },
+//                 mr: {
+//                     heroTitle: 'एआय-सक्षम FIR निर्माण प्रणाली',
+//                     heroSubtitle: 'घटने आणि न्यायामधील अंतर पाटा.',
+//                     getStarted: 'आता सुरू करा'
+//                 }
+//             };
+// 
+//             const t = translations[lang] || translations.en;
+//             document.getElementById('heroTitle').textContent = t.heroTitle;
+//             document.getElementById('heroSubtitle').textContent = t.heroSubtitle;
+//             document.getElementById('getStartedBtn').textContent = t.getStarted;
+//         }
 
-            const t = translations[lang] || translations.en;
-            document.getElementById('heroTitle').textContent = t.heroTitle;
-            document.getElementById('heroSubtitle').textContent = t.heroSubtitle;
-            document.getElementById('getStartedBtn').textContent = t.getStarted;
-        }
+//        function applyLanguageSettings(lang, docLang) {
+//            // Interface text update
+//            updateLanguageText(lang);
+//            // Document language is currently placeholder behavior; could toggle form templates
+//            const docStatus = document.getElementById('documentLanguageStatus');
+//            if (docStatus) {
+//                docStatus.textContent = `Document language set to ${docLang.toUpperCase()}`;
+//            }
+//        }
 
-        function applyLanguageSettings(lang, docLang) {
-            // Interface text update
-            updateLanguageText(lang);
-            // Document language is currently placeholder behavior; could toggle form templates
-            const docStatus = document.getElementById('documentLanguageStatus');
-            if (docStatus) {
-                docStatus.textContent = `Document language set to ${docLang.toUpperCase()}`;
-            }
-        }
-
-        function loadLanguageSetting() {
-            const saved = localStorage.getItem('nyaya_language') || 'en';
-            const savedDoc = localStorage.getItem('nyaya_document_language') || 'en';
-            const select = document.getElementById('interfaceLanguageSelect');
-            const docSelect = document.getElementById('documentLanguageSelect');
-
-            if (select) select.value = saved;
-            if (docSelect) docSelect.value = savedDoc;
-
-            applyLanguageSettings(saved, savedDoc);
-
-            select?.addEventListener('change', (e) => {
-                const selected = e.target.value;
-                localStorage.setItem('nyaya_language', selected);
-                applyLanguageSettings(selected, docSelect?.value || 'en');
-            });
-
-            docSelect?.addEventListener('change', (e) => {
-                const selectedDoc = e.target.value;
-                localStorage.setItem('nyaya_document_language', selectedDoc);
-                applyLanguageSettings(select?.value || 'en', selectedDoc);
-            });
-
-            const saveBtn = document.getElementById('saveLanguageSettingsBtn');
-            saveBtn?.addEventListener('click', () => {
-                const selectedLang = select?.value || 'en';
-                const selectedDocLang = docSelect?.value || 'en';
-                localStorage.setItem('nyaya_language', selectedLang);
-                localStorage.setItem('nyaya_document_language', selectedDocLang);
-                applyLanguageSettings(selectedLang, selectedDocLang);
-                alert('Language settings saved successfully.');
-            });
-        }
+//        function loadLanguageSetting() {
+//            const saved = localStorage.getItem('nyaya_language') || 'en';
+//            const savedDoc = localStorage.getItem('nyaya_document_language') || 'en';
+//            const select = document.getElementById('interfaceLanguageSelect');
+//            const docSelect = document.getElementById('documentLanguageSelect');
+//
+//            if (select) select.value = saved;
+//            if (docSelect) docSelect.value = savedDoc;
+//
+//            applyLanguageSettings(saved, savedDoc);
+//
+//            select?.addEventListener('change', (e) => {
+//                const selected = e.target.value;
+//                localStorage.setItem('nyaya_language', selected);
+//                applyLanguageSettings(selected, docSelect?.value || 'en');
+//            });
+//
+//            docSelect?.addEventListener('change', (e) => {
+//                const selectedDoc = e.target.value;
+//                localStorage.setItem('nyaya_document_language', selectedDoc);
+//                applyLanguageSettings(select?.value || 'en', selectedDoc);
+//            });
+//
+//            const saveBtn = document.getElementById('saveLanguageSettingsBtn');
+//            saveBtn?.addEventListener('click', () => {
+//                const selectedLang = select?.value || 'en';
+//                const selectedDocLang = docSelect?.value || 'en';
+//                localStorage.setItem('nyaya_language', selectedLang);
+//                localStorage.setItem('nyaya_document_language', selectedDocLang);
+//                applyLanguageSettings(selectedLang, selectedDocLang);
+//                alert('Language settings saved successfully.');
+//            });
+//        }
 
         document.addEventListener('DOMContentLoaded', async () => {
             try {
@@ -1501,12 +1611,12 @@
                 showSection('home');
 
                 // Load language settings
-                try {
-                    loadLanguageSetting();
-                } catch (error) {
-                    console.error('Language loading error:', error);
-                    showError('Could not apply saved language preferences.');
-                }
+                //try {
+                //    loadLanguageSetting();
+                //} catch (error) {
+                //    console.error('Language loading error:', error);
+                //    showError('Could not apply saved language preferences.');
+                //}
 
                 // Load initial data (make each call independent)
                 try {
@@ -1540,6 +1650,45 @@
                 showError('Initialization error. Please reload the app.');
             }
         });
+
+//       function secureLockerAccess() {
+//    const modal = document.getElementById("pinModal");
+//
+//    modal.classList.remove("hidden");
+//    modal.classList.add("flex"); // 🔥 REQUIRED FOR CENTERING
+//}
+//
+//async function submitPin() {
+//    const pin = document.getElementById("pinInput").value;
+//
+//    const response = await fetch("/verify-locker-access", {
+//        method: "POST",
+//        headers: {
+//            "Content-Type": "application/json"
+//        },
+//        body: JSON.stringify({ pin })
+//    });
+//
+//    const result = await response.json();
+//
+//    if (result.success) {
+//        document.getElementById("pinModal").classList.add("hidden");
+//        showSection('evidence-locker');
+//    } else {
+//        alert(result.message);
+//    }
+//}
+//
+//function closeLockerModal() {
+//    const modal = document.getElementById("pinModal");
+//
+//    modal.classList.add("hidden");
+//    modal.classList.remove("flex");
+//
+//    // 👉 Redirect to FIR History
+//    showSection('fir-history');
+//}
+
     </script>
 
 </body>

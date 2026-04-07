@@ -384,7 +384,7 @@ MESSAGE: FIR has been successfully registered and saved to police records.
         fir_collection.insert_one(fir_document)
     
         fir_response = fir_document.copy()
-        fir_response.pop("_id", None)
+        
         fir_response["created_at"] = str(fir_response["created_at"])
         fir_response["formatted_fir"] = formatted_fir.strip()
         fir_response["message"] = "FIR has been successfully registered and saved to police records."

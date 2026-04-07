@@ -11,7 +11,12 @@ from flask_wtf.csrf import CSRFProtect, CSRFError
 from reportlab.lib.styles import getSampleStyleSheet
 from ai_engine import analyze_complaint_for_sections
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-
+from flask import request, jsonify
+import jwt
+import datetime
+from functools import wraps
+from werkzeug.utils import secure_filename
+from flask import send_from_directory
 app = Flask(__name__)
 app.secret_key = "nyaya_ai_ultra_secure_key"
 
@@ -549,7 +554,63 @@ def dashboard():
         return redirect(url_for('login'))
     
     return render_template('dashboard.html', user=user)
+#password for locker access (can be used for admin features or sensitive data access)
+@app.route('/verify-locker-access', methods=['POST'])
+def verify_locker_access():
+    data = request.json
+    pin = data.get("pin")
 
+    # match with your frontend PIN
+    if pin == "secure@123":   # or "1234" if you want simple
+        return jsonify({"success": True})
+    else:
+        return jsonify({
+            "success": False,
+            "message": "Wrong Password ❌"
+        }), 401
+
+#upload evidence files related to a FIR (images, videos, documents)
+
+@app.route('/upload-evidence', methods=['POST'])
+def upload_evidence_file():
+    fir_no = request.form.get("fir_no")
+    file = request.files.get("file")
+
+    if not fir_no or not file:
+        return jsonify({"error": "Missing FIR or file"}), 400
+
+    filename = secure_filename(file.filename)
+
+    # create FIR-wise folder
+    fir_folder = os.path.join(UPLOAD_FOLDER, fir_no)
+    os.makedirs(fir_folder, exist_ok=True)
+
+    file_path = os.path.join(fir_folder, filename)
+    file.save(file_path)
+
+    return jsonify({
+        "message": "File uploaded successfully",
+        "file": filename,
+        "fir_no": fir_no
+    })
+#endpoint to list all evidence files for a FIRS
+@app.route('/get-evidence/<fir_no>', methods=['GET'])
+def get_evidence(fir_no):
+    fir_folder = os.path.join(UPLOAD_FOLDER, fir_no)
+
+    if not os.path.exists(fir_folder):
+        return jsonify([])
+
+    files = os.listdir(fir_folder)
+
+    return jsonify(files)
+#endpoint to serve evidence files
+@app.route('/evidence-file/<fir_no>/<filename>')
+def get_file(fir_no, filename):
+    return send_from_directory(
+        os.path.join(UPLOAD_FOLDER, fir_no),
+        filename
+    )
 if __name__ == '__main__':
     init_fir_table()
     init_user_table()

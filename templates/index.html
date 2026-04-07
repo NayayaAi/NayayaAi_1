@@ -1651,43 +1651,43 @@
             }
         });
 
-//       function secureLockerAccess() {
-//    const modal = document.getElementById("pinModal");
-//
-//    modal.classList.remove("hidden");
-//    modal.classList.add("flex"); // 🔥 REQUIRED FOR CENTERING
-//}
-//
-//async function submitPin() {
-//    const pin = document.getElementById("pinInput").value;
-//
-//    const response = await fetch("/verify-locker-access", {
-//        method: "POST",
-//        headers: {
-//            "Content-Type": "application/json"
-//        },
-//        body: JSON.stringify({ pin })
-//    });
-//
-//    const result = await response.json();
-//
-//    if (result.success) {
-//        document.getElementById("pinModal").classList.add("hidden");
-//        showSection('evidence-locker');
-//    } else {
-//        alert(result.message);
-//    }
-//}
-//
-//function closeLockerModal() {
-//    const modal = document.getElementById("pinModal");
-//
-//    modal.classList.add("hidden");
-//    modal.classList.remove("flex");
-//
-//    // 👉 Redirect to FIR History
-//    showSection('fir-history');
-//}
+      function secureLockerAccess() {
+   const modal = document.getElementById("pinModal");
+
+   modal.classList.remove("hidden");
+   modal.classList.add("flex"); // 🔥 REQUIRED FOR CENTERING
+}
+
+async function submitPin() {
+   const pin = document.getElementById("pinInput").value;
+
+   const response = await fetch("/verify-locker-access", {
+       method: "POST",
+       headers: {
+           "Content-Type": "application/json"
+       },
+       body: JSON.stringify({ pin })
+   });
+
+   const result = await response.json();
+
+   if (result.success) {
+       document.getElementById("pinModal").classList.add("hidden");
+       showSection('evidence-locker');
+   } else {
+       alert(result.message);
+   }
+}
+
+function closeLockerModal() {
+   const modal = document.getElementById("pinModal");
+
+   modal.classList.add("hidden");
+   modal.classList.remove("flex");
+
+   // 👉 Redirect to FIR History
+   showSection('fir-history');
+}
 
     </script>
 

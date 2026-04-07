@@ -175,6 +175,7 @@
                 <!-- Evidence Locker -->
                 <a href="#"
                     class="sidebar-link flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors"
+                    onclick="secureLockerAccess()"
                     data-section="evidence-locker">
                     <i data-lucide="folder" class="w-5 h-5"></i>
                     <span>Evidence Locker</span>
@@ -858,6 +859,30 @@
 
     </main>
 
+        <div id="pinModal"
+    class="fixed inset-0 hidden items-center justify-center z-50 backdrop-blur-md bg-black/30">
+
+    <div class="relative bg-white p-6 rounded-xl shadow-2xl w-80 text-center animate-fadeIn">
+
+        <!-- ❌ CLOSE BUTTON -->
+        <button onclick="closeLockerModal()"
+            class="absolute top-2 right-2 text-gray-400 hover:text-red-500 text-xl font-bold">
+            ×
+        </button>
+
+        <h3 class="text-lg font-bold mb-2">🔐 Secure Access</h3>
+        <p class="text-sm text-gray-500 mb-4">Authorized Personnel Only</p>
+
+        <input id="pinInput" type="password" placeholder="Enter PIN"
+            class="w-full border border-gray-300 p-2 rounded mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500">
+
+        <button onclick="submitPin()"
+            class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded font-semibold transition">
+            Unlock
+        </button>
+    </div>
+</div>
+
     <script>
         lucide.createIcons();
 
@@ -1513,12 +1538,12 @@
                 showSection('home');
 
                 // Load language settings
-                try {
-                    loadLanguageSetting();
-                } catch (error) {
-                    console.error('Language loading error:', error);
-                    showError('Could not apply saved language preferences.');
-                }
+                //try {
+                //    loadLanguageSetting();
+                //} catch (error) {
+                //    console.error('Language loading error:', error);
+                //    showError('Could not apply saved language preferences.');
+                //}
 
                 // Load initial data (make each call independent)
                 try {
@@ -1552,6 +1577,45 @@
                 showError('Initialization error. Please reload the app.');
             }
         });
+
+       function secureLockerAccess() {
+    const modal = document.getElementById("pinModal");
+
+    modal.classList.remove("hidden");
+    modal.classList.add("flex"); // 🔥 REQUIRED FOR CENTERING
+}
+
+async function submitPin() {
+    const pin = document.getElementById("pinInput").value;
+
+    const response = await fetch("/verify-locker-access", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ pin })
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
+        document.getElementById("pinModal").classList.add("hidden");
+        showSection('evidence-locker');
+    } else {
+        alert(result.message);
+    }
+}
+
+function closeLockerModal() {
+    const modal = document.getElementById("pinModal");
+
+    modal.classList.add("hidden");
+    modal.classList.remove("flex");
+
+    // 👉 Redirect to FIR History
+    showSection('fir-history');
+}
+
     </script>
 
 </body>

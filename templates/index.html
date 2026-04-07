@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+    <!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -99,6 +99,18 @@
             margin-bottom: 1.5rem;
             padding: 1rem;
         }
+
+        section {
+            padding-top: 100px;
+            min-height: 100vh;
+            scroll-margin-top: 100px;
+        }
+
+        #create-fir {
+            min-height: 100vh;
+        }
+
+        
     </style>
 </head>
 
@@ -122,7 +134,7 @@
         <nav class="mt-8 px-4">
             <div class="space-y-2">
                 <!-- Home -->
-                <a href="#home"
+                <a href="#"
                     class="sidebar-link flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors"
                     data-section="home">
                     <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
@@ -130,7 +142,7 @@
                 </a>
 
                 <!-- Create FIR -->
-                <a href="#create-fir"
+                <a href="#"
                     class="sidebar-link flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors"
                     data-section="create-fir">
                     <i data-lucide="plus-circle" class="w-5 h-5"></i>
@@ -138,7 +150,7 @@
                 </a>
 
                 <!-- History -->
-                <a href="#fir-history"
+                <a href="#"
                     class="sidebar-link flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors"
                     data-section="fir-history">
                     <i data-lucide="folder-open" class="w-5 h-5"></i>
@@ -146,7 +158,7 @@
                 </a>
 
                 <!-- Law Library -->
-                <a href="#law-library"
+                <a href="#"
                     class="sidebar-link flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors"
                     data-section="law-library">
                     <i data-lucide="gavel" class="w-5 h-5"></i>
@@ -154,7 +166,7 @@
                 </a>
 
                 <!-- Doc Analysis -->
-                <a href="#doc-analysis"
+                <a href="#"
                     class="sidebar-link flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors"
                     data-section="doc-analysis">
                     <i data-lucide="file-search" class="w-5 h-5"></i>
@@ -162,7 +174,7 @@
                 </a>
 
                 <!-- Evidence Locker -->
-                <a href="#evidence-locker"
+                <a href="#"
                     class="sidebar-link flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors"
                     data-section="evidence-locker">
                     <i data-lucide="folder" class="w-5 h-5"></i>
@@ -170,7 +182,7 @@
                 </a>
 
                 <!-- Language -->
-                <a href="#language"
+                <a href="#e"
                     class="sidebar-link flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors"
                     data-section="language">
                     <i data-lucide="languages" class="w-5 h-5"></i>
@@ -178,7 +190,7 @@
                 </a>
 
                 <!-- Settings -->
-                <a href="#settings"
+                <a href="#"
                     class="sidebar-link flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors"
                     data-section="settings">
                     <i data-lucide="settings" class="w-5 h-5"></i>
@@ -214,8 +226,8 @@
             </div>
             <div class="hidden md:flex space-x-10 font-semibold text-slate-600">
                 <a href="#" class="hover:text-blue-600 transition">Home</a>
-                <a href="#features" class="hover:text-blue-600 transition">Features</a>
-                <a href="#how-it-works" class="hover:text-blue-600 transition">How it Works</a>
+                <a href="#features" class="hover:text-blue-600 transition" onclick="showSection('features')">Features</a>
+                <a href="#how-it-works" class="hover:text-blue-600 transition" onclick="showSection('how-it-works')">How it Works</a>
             </div>
             <div class="hidden md:flex space-x-4">
                 <a href="/login"
@@ -251,17 +263,17 @@
                     advanced AI.
                 </p>
                 <div class="flex flex-col md:flex-row justify-center items-center gap-4">
-                    <a href="#create-fir"
-                        class="bg-blue-500 hover:bg-blue-400 text-white px-10 py-4 rounded-xl font-bold text-lg transition-all shadow-xl">
+                    <a href="#"
+                        class="bg-blue-500 hover:bg-blue-400 text-white px-10 py-4 rounded-xl font-bold text-lg transition-all shadow-xl" onclick="showSection('create-fir')">
                         Get Started
                     </a>
                 </div>
             </div>
         </section>
 
-        <section id="create-fir" class="relative -mt-20 px-6 z-20">
-            <div class="max-w-6xl mx-auto">
-                <div class="bg-white rounded-3xl shadow-2xl overflow-hidden">
+        <section id="create-fir" class="relative mt-20 px-6 z-20 hidden">
+            <div class="w-full px-6">
+                <div class="bg-white rounded-xl shadow">
                     <!-- Form Header -->
                     <div class="bg-gradient-to-r from-blue-600 to-blue-800 px-8 py-6 text-white">
                         <h2 class="text-3xl font-serif font-bold mb-2">FORM IF-1</h2>
@@ -269,7 +281,7 @@
                     </div>
 
                     <!-- Form Body -->
-                    <div class="p-8 md:p-12 overflow-y-auto max-h-[80vh]">
+                    <div class="p-8 md:p-12">
                         <form id="firForm" class="space-y-8">
                             <!-- Section 1: Basic Details -->
                             <div>
@@ -519,7 +531,7 @@
             </div>
         </section>
 
-        <section id="features" class="py-24 max-w-7xl mx-auto px-6">
+        <section id="features" class="py-24 max-w-7xl mx-auto px-6 hidden">
             <div class="text-center mb-16">
                 <h2 class="text-4xl font-serif font-bold text-blue-950 mb-4">Powerful Features</h2>
                 <div class="w-20 h-1.5 bg-blue-600 mx-auto rounded-full"></div>
@@ -837,73 +849,91 @@
     <script>
         lucide.createIcons();
 
+        function showSection(sectionId) {
+    // Hide all sections
+    document.querySelectorAll('main > section').forEach(section => {
+        section.classList.add('hidden');
+    });
+
+    // Show selected
+    const target = document.getElementById(sectionId);
+    if (target) {
+        target.classList.remove('hidden');
+        target.scrollTop = 0; // reset scroll inside section
+    }
+
+    // Highlight active sidebar link
+    document.querySelectorAll('.sidebar-link').forEach(link => {
+        link.classList.remove('bg-blue-800');
+    });
+
+    document
+        .querySelector(`[data-section="${sectionId}"]`)
+        ?.classList.add('bg-blue-800');
+}
+
         // Sidebar Navigation
         function initSidebar() {
-            const sidebar = document.getElementById('sidebar');
-            const mobileMenuBtn = document.getElementById('mobileMenuBtn');
-            const sidebarLinks = document.querySelectorAll('.sidebar-link');
+    const sidebar = document.getElementById('sidebar');
+    const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+    const sidebarLinks = document.querySelectorAll('.sidebar-link');
 
-            // Mobile menu toggle
-            mobileMenuBtn.addEventListener('click', () => {
-                sidebar.classList.toggle('-translate-x-full');
-            });
+    // Mobile menu toggle
+    mobileMenuBtn.addEventListener('click', () => {
+        sidebar.classList.toggle('-translate-x-full');
+    });
 
-            // Close sidebar when clicking outside on mobile
-            document.addEventListener('click', (e) => {
-                if (window.innerWidth < 768 &&
-                    !sidebar.contains(e.target) &&
-                    !mobileMenuBtn.contains(e.target)) {
-                    sidebar.classList.add('-translate-x-full');
-                }
-            });
-
-            // Section navigation
-            sidebarLinks.forEach(link => {
-                link.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    const sectionId = link.getAttribute('data-section');
-
-                    // Hide all sections
-                    document.querySelectorAll('main > section').forEach(section => {
-                        section.classList.add('hidden');
-                    });
-
-                    // Show selected section
-                    const targetSection = document.getElementById(sectionId);
-                    if (targetSection) {
-                        targetSection.classList.remove('hidden');
-                        const headerOffset = document.querySelector('nav')?.clientHeight || 0;
-                        const targetPosition = targetSection.getBoundingClientRect().top + window.scrollY - headerOffset - 10;
-                        window.scrollTo({ top: targetPosition, behavior: 'smooth' });
-                    }
-
-                    // If user opened the FIR form, ensure tdistrict list is fresh
-                    if (sectionId === 'create-fir') {
-                        loadDistricts().catch(err => {
-                            console.warn('Failed to refresh districts on create-fir open:', err);
-                        });
-                    }
-
-                    // Update active link
-                    sidebarLinks.forEach(l => l.classList.remove('bg-blue-800'));
-                    link.classList.add('bg-blue-800');
-
-                    // Close mobile sidebar
-                    if (window.innerWidth < 768) {
-                        sidebar.classList.add('-translate-x-full');
-                    }
-                });
-            });
+    // Close sidebar when clicking outside (mobile)
+    document.addEventListener('click', (e) => {
+        if (
+            window.innerWidth < 768 &&
+            !sidebar.contains(e.target) &&
+            !mobileMenuBtn.contains(e.target)
+        ) {
+            sidebar.classList.add('-translate-x-full');
         }
+    });
 
-        // Show home section by default
-        function showHomeSection() {
+    // Section navigation (MAIN FIX)
+    sidebarLinks.forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+
+            const sectionId = link.getAttribute('data-section');
+
+            // ✅ Hide all sections
             document.querySelectorAll('main > section').forEach(section => {
                 section.classList.add('hidden');
             });
-            document.getElementById('home').classList.remove('hidden');
-            document.querySelector('[data-section="home"]').classList.add('bg-blue-800');
-        }
+
+            // ✅ Show selected section
+            const targetSection = document.getElementById(sectionId);
+            if (targetSection) {
+                targetSection.classList.remove('hidden');
+                targetSection.scrollTop = 0; // reset internal scroll
+            }
+
+            // ✅ Special logic (your FIR refresh)
+            if (sectionId === 'create-fir') {
+                loadDistricts().catch(err => {
+                    console.warn('Failed to refresh districts:', err);
+                });
+            }
+
+            // ✅ Update active link highlight
+            sidebarLinks.forEach(l => l.classList.remove('bg-blue-800'));
+            link.classList.add('bg-blue-800');
+
+            // ✅ Close sidebar on mobile
+            if (window.innerWidth < 768) {
+                sidebar.classList.add('-translate-x-full');
+            }
+        });
+    });
+}
+
+        // Show home section by default
+    
 
         // Law Library functions
         async function loadSections(act) {
@@ -1468,7 +1498,7 @@
 
                 // Initialize navigation + default section
                 initSidebar();
-                showHomeSection();
+                showSection('home');
 
                 // Load language settings
                 try {

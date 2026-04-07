@@ -11,6 +11,10 @@ from flask_wtf.csrf import CSRFProtect, CSRFError
 from reportlab.lib.styles import getSampleStyleSheet
 from ai_engine import analyze_complaint_for_sections
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from flask import request, jsonify
+import jwt
+import datetime
+from functools import wraps
 
 app = Flask(__name__)
 app.secret_key = "nyaya_ai_ultra_secure_key"
@@ -549,7 +553,20 @@ def dashboard():
         return redirect(url_for('login'))
     
     return render_template('dashboard.html', user=user)
+#password for locker access (can be used for admin features or sensitive data access)
+@app.route('/verify-locker-access', methods=['POST'])
+def verify_locker_access():
+    data = request.json
+    pin = data.get("pin")
 
+    # match with your frontend PIN
+    if pin == "secure@123":   # or "1234" if you want simple
+        return jsonify({"success": True})
+    else:
+        return jsonify({
+            "success": False,
+            "message": "Wrong Password ❌"
+        }), 401
 if __name__ == '__main__':
     init_fir_table()
     init_user_table()

@@ -32,6 +32,7 @@ async function handleEvidenceUpload() {
             alert("Evidence successfully secured in locker.");
             fileInput.value = ""; // Reset
             document.getElementById('fileNameDisplay').innerText = "Select Evidence File";
+            loadEvidence();
         } else {
             alert("Upload failed: " + result.error);
         }
@@ -60,3 +61,37 @@ document.getElementById('userInput')?.addEventListener('keypress', function (e) 
         handleSearch();
     }
 });
+
+async function loadEvidence() {
+    try {
+        const res = await fetch('/api/evidence');
+        const data = await res.json();
+
+        const grid = document.getElementById('evidenceGrid');
+        const empty = document.getElementById('evidenceEmptyState');
+
+        grid.innerHTML = '';
+
+        if (!data.length) {
+            empty.classList.remove('hidden');
+            return;
+        }
+
+        empty.classList.add('hidden');
+
+        data.forEach(file => {
+            grid.innerHTML += `
+                <div class="bg-slate-50 p-3 rounded border">
+                    <p class="text-xs truncate">${file.name}</p>
+                    <a href="${file.url}" target="_blank"
+                       class="text-blue-500 text-xs font-bold">
+                       VIEW
+                    </a>
+                </div>
+            `;
+        });
+
+    } catch (err) {
+        console.error("Failed to load evidence", err);
+    }
+}

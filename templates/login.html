@@ -161,50 +161,50 @@
 </div>
 
 <script>
-function handleLogin() {
-  const email = document.getElementById('email').value.trim();
-  const password = document.getElementById('password').value;
-  const msg = document.getElementById('msg');
-  if (!email || !password) {
-    msg.innerHTML = '<p style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);color:#fca5a5;">Please fill in all fields.</p>';
-    return;
-  }
-  msg.innerHTML = '';
-  fetch('/login', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({email, password})
-  })
-  .then(r => r.json())
-  .then(data => {
-    if (data.error) {
-      msg.innerHTML = '<p style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);color:#fca5a5;">' + data.error + '</p>';
-    } else {
-      msg.innerHTML = '<p style="background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.25);color:#86efac;">' + data.message + '</p>';
-      setTimeout(() => {
-
-  if (data.role === "citizen") {
-    window.location.href = "/citizen_dashboard";
-  }
-
-  else if (data.role === "police") {
-    window.location.href = "/";   // index.html contains police module
-  }
-
-  else if (data.role === "lawyer") {
-    window.location.href = "/lawyer_dashboard";
-  }
-
-  else {
-    window.location.href = "/";
-  }
-
-}, 1200);
+  function handleLogin() {
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+    const msg = document.getElementById('msg');
+    if (!email || !password) {
+      msg.innerHTML = '<p style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);color:#fca5a5;">Please fill in all fields.</p>';
+      return;
     }
-  })
-  .catch(() => {
-    msg.innerHTML = '<p style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);color:#fca5a5;">An error occurred. Please try again.</p>';
-  });
-}
-document.addEventListener('keydown', e => { if (e.key === 'Enter') handleLogin(); });
+    msg.innerHTML = '';
+    fetch('/login', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({email, password})
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.error) {
+        msg.innerHTML = '<p style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);color:#fca5a5;">' + data.error + '</p>';
+      } else {
+        msg.innerHTML = '<p style="background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.25);color:#86efac;">' + data.message + '</p>';
+        setTimeout(() => {
+  
+    if (data.role === "citizen") {
+      window.location.href = "/citizen_dashboard";
+    }
+  
+    else if (data.role === "police") {
+      window.location.href = "/?section=fir-history"; 
+    }
+  
+    else if (data.role === "lawyer") {
+      window.location.href = "/lawyer_dashboard";
+    }
+  
+    else {
+      window.location.href = "/";
+    }
+  
+  }, 1200);
+      }
+    })
+    .catch(() => {
+      msg.innerHTML = '<p style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);color:#fca5a5;">An error occurred. Please try again.</p>';
+    });
+  }
+  document.addEventListener('keydown', e => { if (e.key === 'Enter') handleLogin(); });
 </script>

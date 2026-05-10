@@ -11,18 +11,62 @@ from datetime import datetime
 from flask_wtf.csrf import CSRFProtect, CSRFError
 from reportlab.lib.styles import getSampleStyleSheet
 from ai_engine import analyze_complaint_for_sections
+from rag_engine import search_law
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-from flask import request, jsonify
+from flask import requests, jsonify
 import jwt
 import datetime
 from functools import wraps
 from werkzeug.utils import secure_filename
 from flask import send_from_directory
+import subprocess
+import json
 app = Flask(__name__)
 app.secret_key = "nyaya_ai_ultra_secure_key"
 
 # Initialize CSRF protection
 # csrf = CSRFProtect(app)  # Disabled CSRF protection
+OLLAMA_URL = "http://localhost:11434/api/generate"
+
+def ask_ollama(prompt):
+    try:
+        response = requests.post(
+            OLLAMA_URL,
+            json={
+                "model": "phi3",
+                "prompt": prompt,
+                "stream": False,
+                "options": {
+                    "num_predict": 150
+                    }
+                }
+            )
+
+        # Check if request was successful
+        if response.status_code != 200:
+            print(f"Ollama API Error: {response.status_code} - {response.text}")
+            return "AI service error. Please try again."
+
+        data = response.json()
+
+        # Safe extraction of response
+        result = data.get("response")
+        if not result:
+            return "No response from AI"
+
+        return result.strip()
+
+    except requests.exceptions.Timeout:
+        print("Ollama Timeout Error")
+        return "AI is taking too long. Try again."
+
+    except requests.exceptions.ConnectionError:
+        print("Ollama Connection Error")
+        return "Cannot connect to AI server. Is Ollama running?"
+
+    except Exception as e:
+        print("Unexpected Ollama Error:", e)
+        return "AI response unavailable"
 
 # 2. DATABASE CONNECTIONS
 DB_PATH = os.path.join(app.root_path, "IndiaLaw.db")
@@ -206,32 +250,113 @@ def get_sections(act):
 
 @app.route('/api/search-sections', methods=['GET'])
 def search_sections():
-    """Search sections across all acts by keyword."""
-    query = request.args.get('q', '').lower()
+    query = request.args.get('q', '').strip()
+
     if not query or len(query) < 2:
         return jsonify([])
-    
-    results = []
+
+    # ---------------------------
+    # 1. NORMAL DATABASE SEARCH
+    # ---------------------------
+    db_results = []
+
     for act in LEGAL_ACTS:
         try:
             conn = sqlite3.connect(DB_PATH)
             cursor = conn.cursor()
             cursor.execute(
-                f"SELECT Section, section_title FROM {act} WHERE lower(section_title) LIKE ? OR lower(section_desc) LIKE ? LIMIT 10",
-                (f"%{query}%", f"%{query}%")
+                f"""
+                SELECT Section, section_title 
+                FROM {act}
+                WHERE lower(section_title) LIKE ? 
+                OR lower(section_desc) LIKE ?
+                LIMIT 5
+                """,
+                (f"%{query.lower()}%", f"%{query.lower()}%")
             )
             rows = cursor.fetchall()
+
             for row in rows:
-                results.append({
+                db_results.append({
                     "act": act,
                     "section": row[0],
                     "title": row[1]
                 })
+
             conn.close()
+
         except Exception as e:
-            print(f"Error searching sections: {e}")
+            print("DB search error:", e)
+
+    # ---------------------------
+    # 2. AI SEARCH (OLLAMA)
+    # ---------------------------
+    prompt = f"""
+    You are an Indian legal assistant.
+
+    Find relevant law sections for this query:
+    "{query}"
+
+    Return ONLY JSON in this format:
+    [
+      {{"act": "IPC", "section": "420", "title": "Cheating"}},
+      {{"act": "IPC", "section": "406", "title": "Criminal breach of trust"}}
+    ]
+    """
+
+    ai_output = ask_ollama(prompt)
+
+    try:
+        start = ai_output.find("[")
+        end = ai_output.rfind("]") + 1
+        cleaned = ai_output[start:end]
+        ai_results = json.loads(cleaned)
+    except:
+        ai_results = [{
+        "act": "AI",
+        "section": "-",
+        "title": ai_output[:200]
+    }]
+
+    # ---------------------------
+    # MERGE RESULTS
+    # ---------------------------
+    final_results = db_results + ai_results
+
+    return jsonify(final_results[:20])
+@app.route('/api/ask-law', methods=['POST'])
+def ask_law():
+    data = request.get_json()
+    question = data.get("question", "")
+
+    if not question:
+        return jsonify({"answer": "Please ask a question"}), 400
+
+    context = search_law(question)
+    prompt = f"""
+    You are a strict Indian legal assistant.
+    IMPORTANT RULES:
+    - ONLY answer from the LEGAL DATA below.
+    - DO NOT make up laws.
+    - DO NOT add extra information.
+    - If answer is not found, say:
+    "Law information not found in database."
     
-    return jsonify(results[:20])
+    LEGAL DATA:
+    {context}
+    
+    QUESTION:
+    {question}
+
+FORMAT:
+Section:
+Explanation:
+Punishment:
+"""
+
+    answer = ask_ollama(prompt)
+
+    return jsonify({"answer": answer})
 
 
 

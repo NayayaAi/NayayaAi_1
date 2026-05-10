@@ -653,29 +653,55 @@
         <!-- Law Library Section -->
         <section id="law-library" class="py-20 bg-white hidden pt-28">
             <div class="max-w-6xl mx-auto px-6">
-                <h2 class="text-3xl font-serif font-bold text-center mb-12 text-blue-900">Law Library</h2>
+                <h2 class="text-3xl font-serif font-bold text-center mb-12 text-blue-900">
+                    Law Library
+                </h2>
+
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+                    <!-- IPC -->
                     <div class="bg-slate-50 p-6 rounded-lg border border-slate-200">
                         <h3 class="font-bold text-lg mb-2">Indian Penal Code (IPC)</h3>
-                        <p class="text-slate-600 text-sm mb-4">Complete sections and explanations</p>
+                        <p class="text-slate-600 text-sm mb-4">
+                            Complete sections and explanations
+                        </p>
                         <button onclick="loadSections('IPC')"
-                            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">Browse
-                            IPC</button>
+                            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                            Browse IPC
+                        </button>
                     </div>
+
+                    <!-- CRPC -->
                     <div class="bg-slate-50 p-6 rounded-lg border border-slate-200">
                         <h3 class="font-bold text-lg mb-2">Criminal Procedure Code (CrPC)</h3>
-                        <p class="text-slate-600 text-sm mb-4">Procedural laws and guidelines</p>
+                        <p class="text-slate-600 text-sm mb-4">
+                            Procedural laws and guidelines
+                        </p>
                         <button onclick="loadSections('CRPC')"
-                            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">Browse
-                            CrPC</button>
+                            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                            Browse CrPC
+                        </button>
                     </div>
+
+                    <!-- AI LEGAL ASSISTANT -->
                     <div class="bg-slate-50 p-6 rounded-lg border border-slate-200">
-                        <h3 class="font-bold text-lg mb-2">Search All Acts</h3>
-                        <p class="text-slate-600 text-sm mb-4">Advanced search across all legal acts</p>
-                        <input type="text" id="lawSearch" placeholder="Search legal sections..."
-                            class="w-full px-3 py-2 border border-slate-300 rounded-lg mb-2" onkeyup="searchLaws()">
-                        <div id="searchResults" class="max-h-40 overflow-y-auto"></div>
+                        <h3 class="font-bold text-lg mb-2">AI Legal Assistant 🤖</h3>
+                        <p class="text-slate-600 text-sm mb-4">
+                            Ask anything about law in simple language
+                        </p>
+
+                        <input type="text" id="lawSearch" placeholder="e.g. What is IPC 420?"
+                            class="w-full px-3 py-2 border border-slate-300 rounded-lg mb-2">
+
+                        <button onclick="askLawAI()"
+                            class="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">
+                            Ask AI
+                        </button>
+
+                        <div id="aiResult" class="mt-4 text-sm text-slate-700 bg-white p-3 rounded hidden">
+                        </div>
                     </div>
+
                 </div>
             </div>
         </section>
@@ -1787,6 +1813,42 @@ function closePreview(){
     currentFIRId = null;
 
 }
+async function askLawAI() {
+            const input = document.getElementById("lawSearch").value;
+            const resultDiv = document.getElementById("aiResult");
+
+            console.log("Clicked Ask AI"); // DEBUG
+
+            if (!input) {
+                resultDiv.innerHTML = "⚠️ Please enter a question";
+                resultDiv.classList.remove("hidden");
+                return;
+            }
+
+            resultDiv.innerHTML = "⏳ Thinking...";
+            resultDiv.classList.remove("hidden");
+
+            try {
+                const response = await fetch("/api/ask-law", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ question: input })
+                });
+
+                console.log("API called"); // DEBUG
+
+                const data = await response.json();
+
+                resultDiv.innerHTML = data.answer || "No response";
+
+            } catch (error) {
+                console.error("ERROR:", error);
+                resultDiv.innerHTML = "❌ Failed to connect";
+            }
+        }
+
 
     
 </script>

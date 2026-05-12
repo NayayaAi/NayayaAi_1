@@ -327,36 +327,38 @@ def search_sections():
 @app.route('/api/ask-law', methods=['POST'])
 def ask_law():
     data = request.get_json()
-    question = data.get("question", "")
+    question = data.get("question", "").strip()
 
     if not question:
-        return jsonify({"answer": "Please ask a question"}), 400
+        return jsonify({"answer": "❌ Please ask a legal question."}), 400
 
-    context = search_law(question)
-    prompt = f"""
-    You are a strict Indian legal assistant.
-    IMPORTANT RULES:
-    - ONLY answer from the LEGAL DATA below.
-    - DO NOT make up laws.
-    - DO NOT add extra information.
-    - If answer is not found, say:
-    "Law information not found in database."
-    
-    LEGAL DATA:
-    {context}
-    
-    QUESTION:
-    {question}
+    # Search relevant laws from RAG — now returns list of dicts or None
+    results = search_law(question)
 
-FORMAT:
-Section:
-Explanation:
-Punishment:
-"""
+    if not results:
+        return jsonify({"answer": "❌ No matching legal section found."})
 
-    answer = ask_ollama(prompt)
+    # Build beautiful output from structured data
+    answer = "⚖️ NYAYA AI LEGAL ANALYSIS\n"
+    answer += "═══════════════════════════════\n\n"
+
+    for item in results:
+        section     = item.get("section", "N/A")
+        title       = item.get("title", "N/A")
+        description = item.get("description", "N/A")
+
+        answer += f"📘 IPC Section {section}\n"
+        answer += f"📌 Title: {title}\n\n"
+        answer += f"📝 Explanation:\n{description}\n\n"
+        answer += "━━━━━━━━━━━━━━━━━━━━━━\n\n"
+
+    answer += (
+        "✅ These sections are highly relevant to your legal query.\n"
+        "⚠️ Please consult a legal authority for official action."
+    )
 
     return jsonify({"answer": answer})
+
 
 
 

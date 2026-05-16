@@ -21,6 +21,9 @@ from werkzeug.utils import secure_filename
 from flask import send_from_directory
 import subprocess
 import json
+
+from case import search_case_outcome, format_outcome_html
+
 app = Flask(__name__)
 app.secret_key = "nyaya_ai_ultra_secure_key"
 
@@ -242,11 +245,104 @@ def get_acts():
     """Return available legal acts."""
     return jsonify(LEGAL_ACTS)
 
-@app.route('/api/sections/<act>', methods=['GET'])
+app.route('/api/sections/<act>', methods=['GET'])
 def get_sections(act):
-    """Return sections for a specific act."""
-    sections = get_sections_for_act(act)
-    return jsonify(sections)
+    """Return sections with optional search and pagination."""
+    if act not in LEGAL_ACTS:
+        return jsonify({"error": "Invalid act"}), 400
+
+    search = request.args.get('search', '').strip().lower()
+    page   = max(1, int(request.args.get('page', 1)))
+    limit  = int(request.args.get('limit', 20))
+    offset = (page - 1) * limit
+
+    try:
+        conn   = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+
+        # Build WHERE clause
+        if search:
+            where = "WHERE lower(Section) LIKE ? OR lower(section_title) LIKE ? OR lower(section_desc) LIKE ?"
+            params = (f"%{search}%", f"%{search}%", f"%{search}%")
+        else:
+            where  = ""
+            params = ()
+
+        # Total count
+        cursor.execute(f"SELECT COUNT(*) FROM {act} {where}", params)
+        total = cursor.fetchone()[0]
+
+        # Paginated rows — fetch description too
+        cursor.execute(
+            f"SELECT Section, section_title, section_desc FROM {act} {where} ORDER BY rowid LIMIT ? OFFSET ?",
+            params + (limit, offset)
+        )
+        rows = cursor.fetchall()
+        conn.close()
+
+        return jsonify({
+            "act":     act,
+            "total":   total,
+            "page":    page,
+            "limit":   limit,
+            "pages":   max(1, (total + limit - 1) // limit),
+            "results": [
+                {"section": r[0], "title": r[1], "description": r[2] or ""}
+                for r in rows
+            ]
+        })
+
+    except Exception as e:
+        print(f"Sections error for {act}: {e}")
+        return jsonify({"error": str(e)}), 500
+    
+    # ── Section Detail (for comparison tool) ──────────────────────
+@app.route('/api/section-detail/<act>/<section_no>', methods=['GET'])
+def get_section_detail(act, section_no):
+    if act not in LEGAL_ACTS:
+        return jsonify({"error": "Invalid act"}), 400
+    try:
+        conn   = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute(
+            f"SELECT Section, section_title, section_desc FROM {act} WHERE Section = ? LIMIT 1",
+            (section_no,)
+        )
+        row = cursor.fetchone()
+        conn.close()
+        if not row:
+            return jsonify({"error": "Section not found"}), 404
+        return jsonify({"section": row[0], "title": row[1], "description": row[2] or ""})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ── Case Outcome Predictor ─────────────────────────────────────
+@app.route('/api/predict-outcome', methods=['POST'])
+def predict_outcome():
+    data = request.get_json()
+    situation = data.get('situation', '').strip()
+    if not situation:
+        return jsonify({"prediction": "❌ Please describe the situation."}), 400
+    results = search_case_outcome(situation, top_n=5)
+    html    = format_outcome_html(results)
+    return jsonify({"prediction": html})
+
+BARE_ACTS_URLS = {
+    "IPC": "https://indiacode.nic.in/bitstream/123456789/2263/1/A1860-45.pdf",
+    "CRPC": "https://indiacode.nic.in/bitstream/123456789/1611/1/A1973-2.pdf",
+    "BNS": "https://indiacode.nic.in/bitstream/123456789/20062/1/a2023-45.pdf",
+    "BNSS": "https://indiacode.nic.in/bitstream/123456789/20064/1/a2023-46.pdf",
+    "IEA": "https://indiacode.nic.in/bitstream/123456789/2187/1/A1872-1.pdf",
+}
+
+@app.route('/open-bare-act/<act_code>')
+def open_bare_act(act_code):
+    url = BARE_ACTS_URLS.get(act_code.upper())
+    if not url:
+        return jsonify({"error": "Act not found"}), 404
+    return redirect(url)
+
 
 @app.route('/api/search-sections', methods=['GET'])
 def search_sections():

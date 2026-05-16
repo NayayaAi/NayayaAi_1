@@ -659,25 +659,26 @@
 
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 
-                    <!-- IPC -->
+
                     <div class="bg-slate-50 p-6 rounded-lg border border-slate-200">
-                        <h3 class="font-bold text-lg mb-2">Indian Penal Code (IPC)</h3>
-                        <p class="text-slate-600 text-sm mb-4">
-                            Complete sections and explanations
-                        </p>
-                        <button onclick="loadSections('IPC')"
+                        <div class="flex items-center gap-2 mb-2">
+                            <i data-lucide="book-open" class="w-5 h-5 text-blue-600"></i>
+                            <h3 class="font-bold text-lg">Indian Penal Code (IPC)</h3>
+                        </div>
+                        <p class="text-slate-600 text-sm mb-4">511 sections — browse, search, read descriptions</p>
+                        <button onclick="openLawBrowser('IPC')"
                             class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
                             Browse IPC
                         </button>
                     </div>
 
-                    <!-- CRPC -->
                     <div class="bg-slate-50 p-6 rounded-lg border border-slate-200">
-                        <h3 class="font-bold text-lg mb-2">Criminal Procedure Code (CrPC)</h3>
-                        <p class="text-slate-600 text-sm mb-4">
-                            Procedural laws and guidelines
-                        </p>
-                        <button onclick="loadSections('CRPC')"
+                        <div class="flex items-center gap-2 mb-2">
+                            <i data-lucide="gavel" class="w-5 h-5 text-blue-600"></i>
+                            <h3 class="font-bold text-lg">Criminal Procedure Code (CrPC)</h3>
+                        </div>
+                        <p class="text-slate-600 text-sm mb-4">Procedural laws — bail, trials, appeals</p>
+                        <button onclick="openLawBrowser('CRPC')"
                             class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
                             Browse CrPC
                         </button>
@@ -701,10 +702,201 @@
                         <div id="aiResult" class="mt-4 text-sm text-slate-700 bg-white p-3 rounded hidden">
                         </div>
                     </div>
+                    <!-- Case Outcome Predictor -->
+                    <div class="bg-slate-50 p-6 rounded-lg border border-slate-200">
+                        <div class="flex items-center gap-2 mb-2">
+                            <i data-lucide="scale" class="w-5 h-5 text-purple-600"></i>
+                            <h3 class="font-bold text-lg">Case Outcome Predictor</h3>
+                        </div>
+                        <p class="text-slate-600 text-sm mb-4">
+                            Describe your situation — AI predicts likely charges and sentencing range
+                        </p>
+                        <textarea id="outcomeInput" rows="3"
+                            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm mb-2 resize-none"
+                            placeholder="e.g. A person was caught stealing a mobile phone worth ₹15,000 from a shop..."></textarea>
+                        <button onclick="predictOutcome()"
+                            class="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition font-semibold">
+                            Predict Outcome
+                        </button>
+                        <div id="outcomeResult"
+                            class="mt-3 text-sm text-slate-700 bg-white border border-slate-200 rounded-lg p-3 hidden">
+                        </div>
+                    </div>
+
+                    <!-- Legal Term Glossary -->
+                    <div class="bg-slate-50 p-6 rounded-lg border border-slate-200">
+                        <div class="flex items-center gap-2 mb-2">
+                            <i data-lucide="book-marked" class="w-5 h-5 text-teal-600"></i>
+                            <h3 class="font-bold text-lg">Legal Glossary</h3>
+                        </div>
+                        <p class="text-slate-600 text-sm mb-4">
+                            Plain-English definitions for 100+ legal terms
+                        </p>
+                        <input type="text" id="glossarySearch"
+                            placeholder="Search term… e.g. bail, cognizable, mens rea"
+                            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm mb-2"
+                            oninput="searchGlossary()" />
+                        <div id="glossaryResults" class="max-h-52 overflow-y-auto space-y-2 text-sm"></div>
+                    </div>
+
+                    <!-- Section Comparison Tool -->
+                    <div class="bg-slate-50 p-6 rounded-lg border border-slate-200">
+                        <div class="flex items-center gap-2 mb-2">
+                            <i data-lucide="git-compare" class="w-5 h-5 text-orange-500"></i>
+                            <h3 class="font-bold text-lg">Compare Sections</h3>
+                        </div>
+                        <p class="text-slate-600 text-sm mb-3">
+                            Compare any two IPC/CrPC sections side by side
+                        </p>
+                        <div class="flex gap-2 mb-2">
+                            <select id="compareAct1"
+                                class="flex-1 border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
+                                <option value="">Act 1</option>
+                                <option value="IPC">IPC</option>
+                                <option value="CRPC">CrPC</option>
+                            </select>
+                            <input type="text" id="compareSec1" placeholder="Section"
+                                class="w-24 border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
+                        </div>
+                        <div class="flex gap-2 mb-3">
+                            <select id="compareAct2"
+                                class="flex-1 border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
+                                <option value="">Act 2</option>
+                                <option value="IPC">IPC</option>
+                                <option value="CRPC">CrPC</option>
+                            </select>
+                            <input type="text" id="compareSec2" placeholder="Section"
+                                class="w-24 border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
+                        </div>
+                        <button onclick="compareSections()"
+                            class="w-full px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition font-semibold">
+                            Compare
+                        </button>
+                        <div id="compareResult" class="mt-3 hidden"></div>
+                    </div>
+
+                    <!-- BNS / BNSS Amendment Tracker -->
+                    <div class="bg-slate-50 p-6 rounded-lg border border-slate-200">
+                        <div class="flex items-center gap-2 mb-2">
+                            <i data-lucide="refresh-cw" class="w-5 h-5 text-red-500"></i>
+                            <h3 class="font-bold text-lg">2024 Law Amendments</h3>
+                            <span
+                                class="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-semibold">New</span>
+                        </div>
+                        <p class="text-slate-600 text-sm mb-4">
+                            IPC → BNS · CrPC → BNSS · Evidence Act → BSA mappings
+                        </p>
+                        <input type="text" id="amendmentSearch" placeholder="Search old section… e.g. IPC 302, CrPC 154"
+                            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm mb-2"
+                            oninput="searchAmendments()" />
+                        <div id="amendmentResults" class="space-y-2 text-sm max-h-52 overflow-y-auto"></div>
+                    </div>
+
+                    <!-- Bare Acts Quick Reference -->
+                    <!-- 
+-->
+                    <div class="bg-slate-50 p-6 rounded-lg border border-slate-200">
+                        <div class="flex items-center gap-2 mb-1">
+                            <i data-lucide="file-text" class="w-5 h-5 text-blue-600"></i>
+                            <h3 class="font-bold text-lg">Bare Acts Reference</h3>
+                        </div>
+                        <p class="text-slate-500 text-xs mb-4">Click any act to read it — opens on Indian Kanoon</p>
+
+                        <div class="space-y-2">
+
+                            <a href="https://indiankanoon.org/doc/1569253/" target="_blank" rel="noopener"
+                                class="flex items-center justify-between px-3 py-2.5 bg-white border border-slate-200 rounded-lg hover:bg-blue-50 hover:border-blue-400 transition text-sm font-medium text-slate-700 group">
+                                <span class="flex items-center gap-2">
+                                    <span
+                                        class="w-6 h-6 rounded bg-orange-100 text-orange-600 flex items-center justify-center text-xs font-bold shrink-0">IPC</span>
+                                    Indian Penal Code, 1860
+                                </span>
+                                <span class="text-xs text-slate-400 group-hover:text-blue-600 transition">Indian Kanoon
+                                    ↗</span>
+                            </a>
+
+                            <a href="https://indiankanoon.org/doc/445276/" target="_blank" rel="noopener"
+                                class="flex items-center justify-between px-3 py-2.5 bg-white border border-slate-200 rounded-lg hover:bg-blue-50 hover:border-blue-400 transition text-sm font-medium text-slate-700 group">
+                                <span class="flex items-center gap-2">
+                                    <span
+                                        class="w-6 h-6 rounded bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold shrink-0">CrPC</span>
+                                    Code of Criminal Procedure, 1973
+                                </span>
+                                <span class="text-xs text-slate-400 group-hover:text-blue-600 transition">Indian Kanoon
+                                    ↗</span>
+                            </a>
+
+                            <a href="https://indiankanoon.org/doc/1121138/" target="_blank" rel="noopener"
+                                class="flex items-center justify-between px-3 py-2.5 bg-white border border-slate-200 rounded-lg hover:bg-blue-50 hover:border-blue-400 transition text-sm font-medium text-slate-700 group">
+                                <span class="flex items-center gap-2">
+                                    <span
+                                        class="w-6 h-6 rounded bg-green-100 text-green-700 flex items-center justify-center text-xs font-bold shrink-0">BNS</span>
+                                    Bharatiya Nyaya Sanhita, 2023
+                                    <span
+                                        class="text-xs bg-green-100 text-green-700 px-1.5 rounded-full font-semibold">New</span>
+                                </span>
+                                <span class="text-xs text-slate-400 group-hover:text-blue-600 transition">Indian Kanoon
+                                    ↗</span>
+                            </a>
+
+                            <a href="https://indiankanoon.org/doc/1537519/" target="_blank" rel="noopener"
+                                class="flex items-center justify-between px-3 py-2.5 bg-white border border-slate-200 rounded-lg hover:bg-blue-50 hover:border-blue-400 transition text-sm font-medium text-slate-700 group">
+                                <span class="flex items-center gap-2">
+                                    <span
+                                        class="w-6 h-6 rounded bg-green-100 text-green-700 flex items-center justify-center text-xs font-bold shrink-0">BNSS</span>
+                                    Bharatiya Nagarik Suraksha Sanhita, 2023
+                                    <span
+                                        class="text-xs bg-green-100 text-green-700 px-1.5 rounded-full font-semibold">New</span>
+                                </span>
+                                <span class="text-xs text-slate-400 group-hover:text-blue-600 transition">Indian Kanoon
+                                    ↗</span>
+                            </a>
+
+                            <a href="https://indiankanoon.org/doc/1312051/" target="_blank" rel="noopener"
+                                class="flex items-center justify-between px-3 py-2.5 bg-white border border-slate-200 rounded-lg hover:bg-blue-50 hover:border-blue-400 transition text-sm font-medium text-slate-700 group">
+                                <span class="flex items-center gap-2">
+                                    <span
+                                        class="w-6 h-6 rounded bg-purple-100 text-purple-600 flex items-center justify-center text-xs font-bold shrink-0">IEA</span>
+                                    Indian Evidence Act, 1872
+                                </span>
+                                <span class="text-xs text-slate-400 group-hover:text-blue-600 transition">Indian Kanoon
+                                    ↗</span>
+                            </a>
+
+                            <a href="https://indiankanoon.org/doc/40760/" target="_blank" rel="noopener"
+                                class="flex items-center justify-between px-3 py-2.5 bg-white border border-slate-200 rounded-lg hover:bg-blue-50 hover:border-blue-400 transition text-sm font-medium text-slate-700 group">
+                                <span class="flex items-center gap-2">
+                                    <span
+                                        class="w-6 h-6 rounded bg-purple-100 text-purple-600 flex items-center justify-center text-xs font-bold shrink-0">BSA</span>
+                                    Bharatiya Sakshya Adhiniyam, 2023
+                                    <span
+                                        class="text-xs bg-green-100 text-green-700 px-1.5 rounded-full font-semibold">New</span>
+                                </span>
+                                <span class="text-xs text-slate-400 group-hover:text-blue-600 transition">Indian Kanoon
+                                    ↗</span>
+                            </a>
+
+                        </div>
+
+                        <!-- Powered by badge -->
+                        <div
+                            class="mt-4 flex items-center gap-2 px-2 py-1.5 bg-orange-50 border border-orange-100 rounded-lg">
+                            <svg class="w-4 h-4 text-orange-500 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd"
+                                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                                    clip-rule="evenodd" />
+                            </svg>
+                            <p class="text-xs text-orange-700">
+                                Powered by <strong>Indian Kanoon</strong> — free, always-accessible legal database
+                                trusted by courts and lawyers across India.
+                            </p>
+                        </div>
+                    </div>
 
                 </div>
             </div>
         </section>
+
 
         <!-- Doc Analysis Section -->
         <section id="doc-analysis" class="py-20 bg-slate-50 hidden pt-28">

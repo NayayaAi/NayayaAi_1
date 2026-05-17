@@ -100,6 +100,27 @@ try:
 except ModuleNotFoundError:
     print("Warning: flask_cors not installed. API will still work from same origin.")
 
+
+# ==================== MISSING PERSON FEATURE ====================
+# Register missing person blueprint
+app.register_blueprint(missing_person_bp)
+
+# Initialize missing person tables
+init_missing_person_tables(DB_PATH)
+
+# Set upload folder
+app.config['UPLOAD_FOLDER'] = os.path.join(app.root_path, 'static', 'uploads')
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+
+@app.route('/missing_persons')
+def missing_persons_page():
+    return render_template('missing_persons.html')
+
+
+@app.route('/missing_persons_template')
+def missing_persons_template():
+    return render_template('missing_persons_fragment.html')
+
 # Indian Districts and Police Stations
 INDIAN_DISTRICTS = [
     "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa",

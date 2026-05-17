@@ -22,6 +22,8 @@ from flask import send_from_directory
 import subprocess
 import json
 
+from missing_person import missing_person_bp, init_missing_person_tables
+
 from case import search_case_outcome, format_outcome_html
 
 app = Flask(__name__)

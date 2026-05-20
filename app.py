@@ -268,6 +268,287 @@ def get_acts():
     """Return available legal acts."""
     return jsonify(LEGAL_ACTS)
 
+
+import uuid
+
+def init_complaints_table():
+    """Create complaints table for citizen-filed complaints."""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS citizen_complaints (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tracking_id TEXT UNIQUE NOT NULL,
+            full_name TEXT NOT NULL,
+            phone TEXT,
+            incident_description TEXT NOT NULL,
+            incident_date TEXT,
+            location TEXT,
+            status TEXT DEFAULT 'Pending',
+            fir_no TEXT,
+            officer_notes TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    conn.commit()
+    conn.close()
+    
+@app.route('/citizen-dashboard')
+def citizen_dashboard():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    if session.get('role') != 'citizen':
+        return redirect(url_for('home'))
+    return render_template('citizen_dashboard.html')
+
+@app.route('/api/complaint', methods=['POST'])
+def file_complaint():
+    """Citizen files a new complaint."""
+    data = request.get_json()
+    name = data.get('full_name', '').strip()
+    description = data.get('incident_description', '').strip()
+    if not name or not description:
+        return jsonify({"error": "Name and incident description are required"}), 400
+
+    tracking_id = "CMP-" + str(uuid.uuid4())[:8].upper()
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO citizen_complaints
+              (tracking_id, full_name, phone, incident_description, incident_date, location)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (
+            tracking_id,
+            name,
+            data.get('phone', ''),
+            description,
+            data.get('incident_date', ''),
+            data.get('location', '')
+        ))
+        conn.commit()
+        conn.close()
+        return jsonify({"tracking_id": tracking_id, "status": "Pending"}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+    
+@app.route('/api/complaints/all', methods=['GET'])
+def get_all_complaints():
+    """Police: get all citizen complaints."""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT tracking_id, full_name, phone, incident_description,
+                   incident_date, location, status, fir_no, officer_notes,
+                   created_at, updated_at
+            FROM citizen_complaints
+            ORDER BY created_at DESC
+        ''')
+        rows = cursor.fetchall()
+        conn.close()
+        return jsonify([{
+            "tracking_id":          r[0],
+            "full_name":            r[1],
+            "phone":                r[2],
+            "incident_description": r[3],
+            "incident_date":        r[4],
+            "location":             r[5],
+            "status":               r[6],
+            "fir_no":               r[7],
+            "officer_notes":        r[8],
+            "created_at":           r[9],
+            "updated_at":           r[10]
+        } for r in rows])
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+ 
+ 
+@app.route('/api/complaints/<tracking_id>', methods=['PATCH'])
+def update_complaint(tracking_id):
+    """Police: update complaint status, FIR number, notes."""
+    data       = request.get_json()
+    new_status = data.get('status')
+    fir_no     = data.get('fir_no')
+    notes      = data.get('officer_notes')
+ 
+    valid_statuses = ['Pending', 'Under Review', 'FIR Filed', 'Closed']
+    if new_status not in valid_statuses:
+        return jsonify({"error": "Invalid status"}), 400
+ 
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute('''
+            UPDATE citizen_complaints
+            SET status = ?, fir_no = ?, officer_notes = ?,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE tracking_id = ?
+        ''', (new_status, fir_no, notes, tracking_id.upper()))
+        if cursor.rowcount == 0:
+            conn.close()
+            return jsonify({"error": "Complaint not found"}), 404
+        conn.commit()
+        conn.close()
+        return jsonify({"message": "Updated successfully", "tracking_id": tracking_id})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/complaint/<tracking_id>', methods=['GET'])
+def track_complaint(tracking_id):
+    """Track a complaint by its tracking ID."""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT tracking_id, full_name, incident_description, incident_date,
+                   location, status, fir_no, officer_notes, created_at, updated_at
+            FROM citizen_complaints WHERE tracking_id = ?
+        ''', (tracking_id.upper(),))
+        row = cursor.fetchone()
+        conn.close()
+        if not row:
+            return jsonify({"error": "Complaint not found. Check your tracking ID."}), 404
+        return jsonify({
+            "tracking_id": row[0],
+            "full_name": row[1],
+            "incident_description": row[2],
+            "incident_date": row[3],
+            "location": row[4],
+            "status": row[5],
+            "fir_no": row[6],
+            "officer_notes": row[7],
+            "created_at": row[8],
+            "updated_at": row[9]
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/rights-chat', methods=['POST'])
+def rights_chat():
+    """Know Your Rights chat — powered entirely by RAG, no Ollama."""
+    data = request.get_json()
+    question = data.get('question', '').strip()
+    if not question:
+        return jsonify({"answer": "Please ask a question about your rights."}), 400
+
+    results = search_law(question)
+
+    if not results:
+        # Pure keyword fallback — no Ollama, instant response
+        answer = build_keyword_fallback(question)
+        return jsonify({"answer": answer})
+
+    # Format top results in a citizen-friendly way
+    answer = format_rights_answer(results, question)
+    return jsonify({"answer": answer})
+
+
+def format_rights_answer(results, question):
+    """Format RAG results into plain, citizen-friendly language."""
+    top = results[:2]  # Use top 2 matches only
+    lines = []
+
+    for item in top:
+        section = item.get('section', '')
+        title   = item.get('title', '')
+        desc    = item.get('description', '') or ''
+
+        # Trim description to first 2 sentences for speed + readability
+        sentences = desc.replace('.\n', '. ').split('. ')
+        short_desc = '. '.join(sentences[:3]).strip()
+        if short_desc and not short_desc.endswith('.'):
+            short_desc += '.'
+
+        if section and title:
+            lines.append(f"📘 Section {section} — {title}\n{short_desc}")
+        elif title:
+            lines.append(f"📘 {title}\n{short_desc}")
+
+    answer = "\n\n".join(lines)
+    answer += "\n\n⚠️ This is for awareness only. Visit your nearest Legal Aid centre or call 15100 for official help."
+    return answer
+
+
+def build_keyword_fallback(question):
+    """Instant keyword-based fallback — no AI needed."""
+    q = question.lower()
+
+    if any(w in q for w in ['arrest', 'arrested', 'police custody', 'detained']):
+        return (
+            "🛡️ Your Rights When Arrested:\n\n"
+            "• You must be told the reason for your arrest.\n"
+            "• You have the right to call a lawyer immediately.\n"
+            "• You cannot be detained beyond 24 hours without a magistrate's order.\n"
+            "• You have the right to free legal aid if you cannot afford a lawyer.\n\n"
+            "📞 Call Legal Aid: 15100"
+        )
+    elif any(w in q for w in ['bail', 'bailable', 'release']):
+        return (
+            "🔑 Your Right to Bail:\n\n"
+            "• For bailable offences, bail is your legal right — police must grant it.\n"
+            "• For non-bailable offences, only a court can grant bail.\n"
+            "• You can apply for Anticipatory Bail (Section 438 CrPC) before arrest.\n"
+            "• A magistrate must be informed within 24 hours of arrest.\n\n"
+            "📞 Call Legal Aid: 15100"
+        )
+    elif any(w in q for w in ['fir', 'complaint', 'register', 'refuse', 'refused']):
+        return (
+            "📝 If Police Refuse to File Your FIR:\n\n"
+            "• Police are legally bound to register FIRs for cognizable offences.\n"
+            "• If refused, send a written complaint to the Superintendent of Police.\n"
+            "• You can also file directly with a Magistrate under Section 156(3) CrPC.\n"
+            "• E-FIR can be filed online in most states.\n\n"
+            "📞 Call Legal Aid: 15100"
+        )
+    elif any(w in q for w in ['lawyer', 'advocate', 'legal aid', 'free legal']):
+        return (
+            "⚖️ Your Right to a Lawyer:\n\n"
+            "• Every arrested person has the right to consult a lawyer (Article 22).\n"
+            "• If you cannot afford one, the state must provide a free lawyer.\n"
+            "• Contact the District Legal Services Authority (DLSA) in your district.\n"
+            "• National Legal Aid helpline: 15100 (free, 24×7).\n\n"
+            "📞 Call Legal Aid: 15100"
+        )
+    elif any(w in q for w in ['women', 'woman', 'harassment', 'domestic', 'violence', 'assault']):
+        return (
+            "👩 Women's Legal Rights:\n\n"
+            "• A woman can only be arrested between 6 AM and 6 PM (with exceptions).\n"
+            "• A female officer must be present during arrest of a woman.\n"
+            "• Domestic violence is an offence under the Protection of Women from Domestic Violence Act.\n"
+            "• File complaints at your nearest One Stop Centre or call 181 (Women Helpline).\n\n"
+            "📞 Women Helpline: 1091 | One Stop Centre: 181"
+        )
+    elif any(w in q for w in ['cyber', 'online', 'fraud', 'scam', 'hack', 'hacked']):
+        return (
+            "💻 Cyber Crime Rights:\n\n"
+            "• Report cyber crimes at cybercrime.gov.in or call 1930.\n"
+            "• Cyber fraud is covered under the IT Act 2000 and IPC Section 420.\n"
+            "• File a complaint within the first few hours for best results.\n"
+            "• Keep screenshots and transaction IDs as evidence.\n\n"
+            "📞 Cyber Crime Helpline: 1930"
+        )
+    elif any(w in q for w in ['child', 'minor', 'pocso', 'juvenile']):
+        return (
+            "🧒 Child Protection Rights:\n\n"
+            "• POCSO Act protects children from sexual offences.\n"
+            "• Any person can report child abuse — it is mandatory for some professions.\n"
+            "• Complaints can be filed at any police station regardless of location.\n"
+            "• Child Helpline: 1098 (free, 24×7).\n\n"
+            "📞 Child Helpline: 1098"
+        )
+    else:
+        return (
+            "⚖️ General Legal Rights in India:\n\n"
+            "• You have the right to remain silent when questioned by police.\n"
+            "• You cannot be forced to be a witness against yourself (Article 20).\n"
+            "• Every person has the right to approach a court for justice.\n"
+            "• Free legal aid is available to all citizens who cannot afford a lawyer.\n\n"
+            "📞 National Legal Aid Helpline: 15100\n"
+            "Try asking about: arrest rights, bail, FIR filing, lawyer rights, women's rights, or cyber crime."
+
 app.route('/api/sections/<act>', methods=['GET'])
 def get_sections(act):
     """Return sections with optional search and pagination."""
@@ -780,7 +1061,9 @@ def login():
         return jsonify({
             "message": "Login successful",
             "role": user['role'],
-            "unique_id": user['unique_id']
+            "unique_id": user['unique_id'],
+            "redirect": "/citizen-dashboard" if user['role'] == 'citizen' else "/"
+
         }), 200
     
     return render_template('login.html')
@@ -862,6 +1145,8 @@ if __name__ == '__main__':
     init_fir_table()
     init_user_table()
     init_evidence_table()
+    init_complaints_table()
+
     app.run(debug=True, port=5000)
 =======
 import os

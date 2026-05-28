@@ -1,6 +1,48 @@
+# Virtual Environment
 venv/
+env/
+
+# Python Cache
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+
+# Environment Variables
 .env
 
-dlib-20.0.99-cp313-cp313-win_amd64/
+# Database Files
+*.db
+*.sqlite3
+
+# Logs
+*.log
+
+# Build / Distribution
+build/
+dist/
+
+# IDE Settings
+.vscode/
+.idea/
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Python Package Files
+*.whl
+
+# Generated PDFs / Output Files
+generated_firs/
+
+# Temporary Files
+temp/
+tmp/
+
+# Testing / Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+

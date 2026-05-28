@@ -6,3 +6,5 @@ bcrypt
 thefuzz[speedup]
 reportlab
 werkzeug>=3.1.0
+
+

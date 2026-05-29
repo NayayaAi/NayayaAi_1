@@ -6,5 +6,9 @@ bcrypt
 thefuzz[speedup]
 reportlab
 werkzeug>=3.1.0
-
-
+opencv-python
+numpy
+face-recognition
+python-Levenshtein
+PyJWT
+python-dotenv

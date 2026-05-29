@@ -1,14 +1,786 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NyayaAI | Citizen Portal</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    body { font-family: 'Inter', sans-serif; background: #f8fafc; }
+    .font-serif { font-family: 'Playfair Display', serif; }
+
+    /* ── Sidebar: hidden by default, slides in on hover (matches police dashboard) ── */
+    #sidebar {
+      transform: translateX(-100%);
+      transition: transform 0.3s ease;
+      overflow-y: auto;
+      max-height: 100vh;
+    }
+    #sidebarHoverArea:hover + #sidebar,
+    #sidebar:hover {
+      transform: translateX(0) !important;
+    }
+    #sidebar:hover ~ main {
+      margin-left: 16rem;
+    }
+    main {
+      transition: margin-left 0.3s ease;
+    }
+
+    /* ── Sidebar active link ── */
+    .sidebar-link.active { background: rgba(255,255,255,0.15); }
+
+    /* ── Status pills ── */
+    .status-pill { display:inline-flex; align-items:center; gap:6px; padding:4px 12px; border-radius:999px; font-size:12px; font-weight:600; }
+    .status-Pending       { background:#fef3c7; color:#92400e; }
+    .status-Under-Review  { background:#dbeafe; color:#1e40af; }
+    .status-FIR-Filed     { background:#d1fae5; color:#065f46; }
+    .status-Closed        { background:#f1f5f9; color:#475569; }
+
+    /* ── Chat bubbles ── */
+    .chat-bubble-user { background:#1d4ed8; color:#fff; border-radius:16px 16px 4px 16px; }
+    .chat-bubble-ai   { background:#f1f5f9; color:#1e293b; border-radius:16px 16px 16px 4px; }
+
+    /* ── Emergency card hover ── */
+    .emergency-card { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+    .emergency-card:hover { transform: translateY(-4px); box-shadow: 0 12px 32px rgba(0,0,0,0.15); }
+
+    /* ── Hero gradient ── */
+    .hero-gradient { background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #2563eb 100%); }
+
+    /* ── Stat card hover ── */
+    .stat-card { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+    .stat-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(37,99,235,0.12); }
+
+    /* ── Quick action card ── */
+    .quick-action { transition: all 0.2s ease; cursor:pointer; }
+    .quick-action:hover { background:#eff6ff; border-color:#93c5fd; transform:translateY(-2px); }
+
+    /* ── Timeline dot ── */
+    .timeline-done  { background:#2563eb; }
+    .timeline-todo  { background:#e2e8f0; }
+
+    /* Mobile sidebar */
+    @media (max-width: 767px) {
+      #sidebar { transform: translateX(-100%); }
+      #sidebar.mobile-open { transform: translateX(0) !important; }
+    }
+
+    /* Scrollbar thin */
+    #chatMessages::-webkit-scrollbar { width:4px; }
+    #chatMessages::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:4px; }
+  </style>
 </head>
 
-<body>
-<div>
-    <h1>Page Under Construction</h1>
-    <p>This page is being built. Please check back soon.</p>
-</div>
+<body class="flex min-h-screen">
+
+  <!-- Sidebar hover strip (same as police dashboard) -->
+  <div id="sidebarHoverArea" class="fixed left-0 top-0 h-full w-4 z-30 bg-transparent"></div>
+
+  <!-- ══════════════════ SIDEBAR ══════════════════ -->
+  <aside id="sidebar" class="w-64 bg-blue-900 text-white fixed h-full z-40">
+    <div class="p-6 border-b border-blue-800">
+      <div class="flex items-center space-x-2">
+        <div class="bg-blue-600 p-1.5 rounded-lg"><i data-lucide="scale" class="w-5 h-5"></i></div>
+        <span class="text-2xl font-serif font-bold">NyayaAI</span>
+      </div>
+      <p class="text-blue-300 text-xs mt-1">Citizen Portal</p>
+    </div>
+
+    <nav class="mt-6 px-4 space-y-1">
+      <a href="#" class="sidebar-link flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors" data-section="home">
+        <i data-lucide="layout-dashboard" class="w-5 h-5"></i><span>Home</span>
+      </a>
+      <a href="#" class="sidebar-link flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors" data-section="file-complaint">
+        <i data-lucide="file-plus" class="w-5 h-5"></i><span>File a Complaint</span>
+      </a>
+      <a href="#" class="sidebar-link flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors" data-section="track-complaint">
+        <i data-lucide="search" class="w-5 h-5"></i><span>Track Complaint</span>
+      </a>
+      <a href="#" class="sidebar-link flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors" data-section="know-rights">
+        <i data-lucide="shield" class="w-5 h-5"></i><span>Know Your Rights</span>
+      </a>
+      <a href="#" class="sidebar-link flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors" data-section="missing-persons">
+        <i data-lucide="user-search" class="w-5 h-5"></i><span>Missing Persons</span>
+      </a>
+      <a href="#" class="sidebar-link flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors" data-section="emergency">
+        <i data-lucide="phone-call" class="w-5 h-5"></i><span>Emergency Contacts</span>
+      </a>
+    </nav>
+
+    <div class="absolute bottom-0 left-0 right-0 p-4 border-t border-blue-800">
+      <a href="/logout" class="flex items-center space-x-2 text-blue-300 hover:text-white text-sm transition">
+        <i data-lucide="log-out" class="w-4 h-4"></i><span>Sign Out</span>
+      </a>
+    </div>
+  </aside>
+
+  <!-- Mobile menu button -->
+  <button id="mobileMenuBtn" class="md:hidden fixed top-4 left-4 z-50 bg-blue-900 text-white p-2 rounded-lg shadow-lg">
+    <i data-lucide="menu" class="w-6 h-6"></i>
+  </button>
+
+  <!-- ══════════════════ MAIN ══════════════════ -->
+  <main class="flex-1">
+
+    <!-- Top Nav -->
+    <nav class="fixed w-full z-50 bg-white/80 backdrop-blur-md border-b border-slate-100 px-6 md:px-8 py-4 flex justify-between items-center">
+      <div class="flex items-center space-x-2 ml-12 md:ml-0">
+        <div class="bg-blue-600 p-1.5 rounded-lg text-white"><i data-lucide="scale" class="w-4 h-4"></i></div>
+        <span class="text-xl font-serif font-bold text-blue-950">NyayaAI</span>
+        <span class="ml-2 text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full font-semibold">Citizen</span>
+      </div>
+      <a href="/logout" class="text-sm text-slate-500 hover:text-red-500 transition flex items-center gap-1">
+        <i data-lucide="log-out" class="w-4 h-4"></i><span class="hidden sm:inline">Sign out</span>
+      </a>
+    </nav>
+
+    <!-- ══════ HOME SECTION ══════ -->
+    <section id="home" class="pt-20 min-h-screen">
+
+      <!-- Hero Banner -->
+      <div class="hero-gradient px-6 pt-12 pb-16 relative overflow-hidden">
+        <div class="absolute inset-0 opacity-10 pointer-events-none">
+          <svg width="100%" height="100%">
+            <defs><pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+              <path d="M 40 0 L 0 0 0 40" fill="none" stroke="white" stroke-width="0.5"/>
+            </pattern></defs>
+            <rect width="100%" height="100%" fill="url(#grid)"/>
+          </svg>
+        </div>
+        <div class="max-w-5xl mx-auto relative z-10">
+          <div class="inline-flex items-center gap-2 bg-blue-500/30 border border-blue-400/40 text-blue-200 text-xs font-semibold px-3 py-1.5 rounded-full mb-4">
+            <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
+            Powered by NyayaAI · Citizen Portal
+          </div>
+          <h1 class="text-3xl md:text-5xl font-serif font-bold text-white mb-3 leading-tight">
+            Justice, <span class="text-blue-300">at your fingertips.</span>
+          </h1>
+          <p class="text-blue-100 text-base md:text-lg max-w-2xl mb-8 font-light">
+            File complaints, track their real-time status, and know your legal rights — all from one secure portal.
+          </p>
+          <div class="flex flex-wrap gap-3">
+            <button onclick="showSection('file-complaint')"
+              class="bg-white text-blue-700 px-6 py-2.5 rounded-xl font-bold hover:bg-blue-50 transition shadow-lg flex items-center gap-2">
+              <i data-lucide="file-plus" class="w-4 h-4"></i> File a Complaint
+            </button>
+            <button onclick="showSection('track-complaint')"
+              class="bg-blue-500/40 border border-blue-400/50 text-white px-6 py-2.5 rounded-xl font-semibold hover:bg-blue-500/60 transition flex items-center gap-2">
+              <i data-lucide="search" class="w-4 h-4"></i> Track My Complaint
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="max-w-5xl mx-auto px-6 py-10">
+
+        <!-- Stat Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-10">
+          <div class="stat-card bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-start gap-4 cursor-pointer" onclick="showSection('file-complaint')">
+            <div class="bg-blue-100 p-3 rounded-xl shrink-0"><i data-lucide="file-plus" class="w-6 h-6 text-blue-600"></i></div>
+            <div>
+              <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">File Complaint</p>
+              <p class="font-bold text-slate-800">Simple 2-min form</p>
+              <p class="text-xs text-slate-500 mt-0.5">Instant tracking ID</p>
+            </div>
+          </div>
+          <div class="stat-card bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-start gap-4 cursor-pointer" onclick="showSection('track-complaint')">
+            <div class="bg-green-100 p-3 rounded-xl shrink-0"><i data-lucide="search" class="w-6 h-6 text-green-600"></i></div>
+            <div>
+              <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Track Status</p>
+              <p class="font-bold text-slate-800">Real-time updates</p>
+              <p class="text-xs text-slate-500 mt-0.5">4-stage timeline</p>
+            </div>
+          </div>
+          <div class="stat-card bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-start gap-4 cursor-pointer" onclick="showSection('know-rights')">
+            <div class="bg-purple-100 p-3 rounded-xl shrink-0"><i data-lucide="shield" class="w-6 h-6 text-purple-600"></i></div>
+            <div>
+              <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Know Your Rights</p>
+              <p class="font-bold text-slate-800">AI-powered help</p>
+              <p class="text-xs text-slate-500 mt-0.5">Indian law, plain language</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="mb-10">
+          <h2 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+            <i data-lucide="zap" class="w-4 h-4 text-blue-600"></i> Quick Actions
+          </h2>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="quick-action bg-white border border-slate-200 rounded-xl p-4 text-center" onclick="askRightsQuestion('What are my rights when I am arrested?'); showSection('know-rights')">
+              <div class="bg-orange-100 p-2.5 rounded-lg w-fit mx-auto mb-2"><i data-lucide="alert-triangle" class="w-5 h-5 text-orange-600"></i></div>
+              <p class="text-xs font-semibold text-slate-700">Arrest Rights</p>
+            </div>
+            <div class="quick-action bg-white border border-slate-200 rounded-xl p-4 text-center" onclick="askRightsQuestion('What to do if police refuses to file my FIR?'); showSection('know-rights')">
+              <div class="bg-red-100 p-2.5 rounded-lg w-fit mx-auto mb-2"><i data-lucide="file-x" class="w-5 h-5 text-red-600"></i></div>
+              <p class="text-xs font-semibold text-slate-700">FIR Refused?</p>
+            </div>
+            <div class="quick-action bg-white border border-slate-200 rounded-xl p-4 text-center" onclick="askRightsQuestion('What is free legal aid and how to get it in India?'); showSection('know-rights')">
+              <div class="bg-teal-100 p-2.5 rounded-lg w-fit mx-auto mb-2"><i data-lucide="scale" class="w-5 h-5 text-teal-600"></i></div>
+              <p class="text-xs font-semibold text-slate-700">Free Legal Aid</p>
+            </div>
+            <div class="quick-action bg-white border border-slate-200 rounded-xl p-4 text-center" onclick="showSection('missing-persons')">
+              <div class="bg-blue-100 p-2.5 rounded-lg w-fit mx-auto mb-2"><i data-lucide="user-search" class="w-5 h-5 text-blue-600"></i></div>
+              <p class="text-xs font-semibold text-slate-700">Missing Persons</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Emergency Strip -->
+        <div class="bg-red-50 border border-red-200 rounded-2xl p-5">
+          <div class="flex items-center gap-2 mb-3">
+            <i data-lucide="phone-call" class="w-4 h-4 text-red-600"></i>
+            <span class="font-bold text-red-700">Emergency Contacts</span>
+            <span class="text-xs text-red-500 ml-auto">Available 24×7</span>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <a href="tel:100"  class="bg-red-600   text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-red-700 transition flex items-center gap-1.5"><i data-lucide="phone" class="w-3.5 h-3.5"></i>Police 100</a>
+            <a href="tel:1091" class="bg-pink-600  text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-pink-700 transition flex items-center gap-1.5"><i data-lucide="phone" class="w-3.5 h-3.5"></i>Women 1091</a>
+            <a href="tel:112"  class="bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-orange-700 transition flex items-center gap-1.5"><i data-lucide="phone" class="w-3.5 h-3.5"></i>Emergency 112</a>
+            <a href="tel:1930" class="bg-blue-600  text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 transition flex items-center gap-1.5"><i data-lucide="phone" class="w-3.5 h-3.5"></i>Cyber 1930</a>
+            <a href="tel:1098" class="bg-teal-600  text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-teal-700 transition flex items-center gap-1.5"><i data-lucide="phone" class="w-3.5 h-3.5"></i>Child 1098</a>
+            <a href="tel:15100" class="bg-slate-700 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-slate-800 transition flex items-center gap-1.5"><i data-lucide="phone" class="w-3.5 h-3.5"></i>Legal Aid 15100</a>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ══════ FILE COMPLAINT SECTION ══════ -->
+    <section id="file-complaint" class="pt-20 pb-16 px-6 min-h-screen hidden">
+      <div class="max-w-2xl mx-auto">
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+          <div class="bg-gradient-to-r from-blue-600 to-blue-800 px-8 py-6 text-white">
+            <h2 class="text-2xl font-serif font-bold mb-1">File a Complaint</h2>
+            <p class="text-blue-100 text-sm">Your complaint will be reviewed by an officer. You'll receive a tracking ID instantly.</p>
+          </div>
+          <div class="p-8">
+
+            <!-- Success State -->
+            <div id="complaintSuccess" class="hidden bg-green-50 border border-green-200 rounded-xl p-6 text-center mb-6">
+              <div class="text-green-500 mb-3"><i data-lucide="check-circle" class="w-12 h-12 mx-auto"></i></div>
+              <h3 class="font-bold text-green-800 text-lg mb-1">Complaint Filed Successfully!</h3>
+              <p class="text-green-700 text-sm mb-4">Your tracking ID is:</p>
+              <div class="bg-white border-2 border-green-400 rounded-xl px-6 py-3 inline-block mb-2">
+                <span id="trackingIdDisplay" class="text-2xl font-bold text-green-700 font-mono"></span>
+              </div>
+              <p class="text-green-600 text-xs mb-5">Save this ID to track your complaint status</p>
+              <button onclick="showSection('track-complaint')"
+                class="px-6 py-2.5 bg-green-600 text-white rounded-xl hover:bg-green-700 transition font-bold">
+                Track My Complaint →
+              </button>
+            </div>
+
+            <!-- Form -->
+            <form id="complaintForm" class="space-y-5">
+              <div>
+                <label class="block text-sm font-semibold text-slate-700 mb-1">Your Full Name *</label>
+                <input type="text" id="c_name" placeholder="Enter your full name"
+                  class="w-full border-2 border-slate-200 rounded-xl p-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition outline-none">
+              </div>
+              <div>
+                <label class="block text-sm font-semibold text-slate-700 mb-1">Phone Number</label>
+                <input type="tel" id="c_phone" placeholder="10-digit mobile number"
+                  class="w-full border-2 border-slate-200 rounded-xl p-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition outline-none">
+              </div>
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-semibold text-slate-700 mb-1">Date of Incident</label>
+                  <input type="date" id="c_date"
+                    class="w-full border-2 border-slate-200 rounded-xl p-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition outline-none">
+                </div>
+                <div>
+                  <label class="block text-sm font-semibold text-slate-700 mb-1">Location / Area</label>
+                  <input type="text" id="c_location" placeholder="Area, locality"
+                    class="w-full border-2 border-slate-200 rounded-xl p-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition outline-none">
+                </div>
+              </div>
+              <div>
+                <label class="block text-sm font-semibold text-slate-700 mb-1">Describe the Incident *</label>
+                <textarea id="c_desc" rows="5"
+                  placeholder="Describe what happened in your own words. Include who was involved, what happened, and any witnesses."
+                  class="w-full border-2 border-slate-200 rounded-xl p-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition outline-none resize-none"></textarea>
+              </div>
+              <div class="bg-blue-50 border border-blue-200 rounded-xl p-3 text-sm text-blue-800 flex gap-2">
+                <i data-lucide="info" class="w-4 h-4 shrink-0 mt-0.5"></i>
+                <span>This complaint is not an official FIR. A police officer will review it and may convert it to an official FIR if applicable.</span>
+              </div>
+              <button type="button" id="submitComplaintBtn" onclick="submitComplaint()"
+                class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-bold transition shadow-sm">
+                Submit Complaint
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════ TRACK COMPLAINT SECTION ══════ -->
+    <section id="track-complaint" class="pt-20 pb-16 px-6 min-h-screen hidden">
+      <div class="max-w-2xl mx-auto">
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-8">
+          <h2 class="text-2xl font-serif font-bold text-blue-900 mb-1">Track Your Complaint</h2>
+          <p class="text-slate-500 text-sm mb-6">Enter your tracking ID to see the current status.</p>
+
+          <div class="flex gap-3 mb-8">
+            <input type="text" id="trackInput" placeholder="e.g. CMP-A1B2C3D4"
+              class="flex-1 border-2 border-slate-200 rounded-xl p-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none font-mono uppercase text-sm"
+              oninput="this.value=this.value.toUpperCase()"
+              onkeydown="if(event.key==='Enter') trackComplaint()">
+            <button onclick="trackComplaint()"
+              class="px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition">
+              Track
+            </button>
+          </div>
+
+          <!-- Result -->
+          <div id="trackResult" class="hidden">
+            <div class="border-t border-slate-100 pt-6">
+              <div class="flex items-start justify-between mb-5">
+                <div>
+                  <p class="text-xs text-slate-400 mb-0.5">Tracking ID</p>
+                  <p id="tr_id" class="font-mono font-bold text-blue-700 text-lg"></p>
+                </div>
+                <div id="tr_status_pill"></div>
+              </div>
+
+              <div class="grid grid-cols-2 gap-x-6 gap-y-3 text-sm text-slate-700 mb-6">
+                <div><span class="font-semibold text-slate-500 block text-xs uppercase tracking-wide mb-0.5">Name</span><span id="tr_name"></span></div>
+                <div><span class="font-semibold text-slate-500 block text-xs uppercase tracking-wide mb-0.5">Incident Date</span><span id="tr_date"></span></div>
+                <div><span class="font-semibold text-slate-500 block text-xs uppercase tracking-wide mb-0.5">Location</span><span id="tr_loc"></span></div>
+                <div><span class="font-semibold text-slate-500 block text-xs uppercase tracking-wide mb-0.5">Filed On</span><span id="tr_created"></span></div>
+                <div id="tr_fir_row" class="hidden col-span-2"><span class="font-semibold text-slate-500 block text-xs uppercase tracking-wide mb-0.5">FIR Number</span><span id="tr_fir" class="font-mono text-green-700 font-bold"></span></div>
+                <div id="tr_notes_row" class="hidden col-span-2"><span class="font-semibold text-slate-500 block text-xs uppercase tracking-wide mb-0.5">Officer Notes</span><span id="tr_notes" class="italic text-slate-600"></span></div>
+              </div>
+
+              <!-- Timeline -->
+              <div class="bg-slate-50 rounded-xl p-5">
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Status Timeline</p>
+                <div id="timeline" class="space-y-4"></div>
+              </div>
+            </div>
+          </div>
+
+          <div id="trackError" class="hidden bg-red-50 border border-red-200 rounded-xl p-4 text-red-700 text-sm flex gap-2">
+            <i data-lucide="alert-circle" class="w-4 h-4 shrink-0 mt-0.5"></i>
+            <span id="trackErrorMsg"></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════ KNOW YOUR RIGHTS SECTION ══════ -->
+    <section id="know-rights" class="pt-20 pb-16 px-6 min-h-screen hidden">
+      <div class="max-w-3xl mx-auto">
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+          <div class="bg-gradient-to-r from-purple-600 to-purple-800 px-8 py-6 text-white">
+            <h2 class="text-2xl font-serif font-bold mb-1">Know Your Rights</h2>
+            <p class="text-purple-100 text-sm">Ask anything about your legal rights in plain language. Powered by AI + Indian Law DB.</p>
+          </div>
+
+          <!-- Quick topics -->
+          <div class="grid grid-cols-2 md:grid-cols-3 gap-3 p-6 border-b border-slate-100">
+            <div class="bg-slate-50 rounded-xl p-3.5 cursor-pointer hover:bg-purple-50 hover:border-purple-200 border border-transparent transition" onclick="askRightsQuestion('What are my rights when I am arrested?')">
+              <i data-lucide="handcuffs" class="w-5 h-5 text-purple-600 mb-1.5"></i>
+              <p class="font-semibold text-slate-800 text-sm">If You Are Arrested</p>
+              <p class="text-xs text-slate-400 mt-0.5">Right to bail, lawyer, silence</p>
+            </div>
+            <div class="bg-slate-50 rounded-xl p-3.5 cursor-pointer hover:bg-purple-50 hover:border-purple-200 border border-transparent transition" onclick="askRightsQuestion('What is my right to bail under Indian law?')">
+              <i data-lucide="key" class="w-5 h-5 text-purple-600 mb-1.5"></i>
+              <p class="font-semibold text-slate-800 text-sm">Right to Bail</p>
+              <p class="text-xs text-slate-400 mt-0.5">Bailable vs non-bailable</p>
+            </div>
+            <div class="bg-slate-50 rounded-xl p-3.5 cursor-pointer hover:bg-purple-50 hover:border-purple-200 border border-transparent transition" onclick="askRightsQuestion('What is the right to a lawyer when arrested in India?')">
+              <i data-lucide="briefcase" class="w-5 h-5 text-purple-600 mb-1.5"></i>
+              <p class="font-semibold text-slate-800 text-sm">Right to Lawyer</p>
+              <p class="text-xs text-slate-400 mt-0.5">Free legal aid, when to call</p>
+            </div>
+            <div class="bg-slate-50 rounded-xl p-3.5 cursor-pointer hover:bg-purple-50 hover:border-purple-200 border border-transparent transition" onclick="askRightsQuestion('What to do if police refuses to file my FIR?')">
+              <i data-lucide="file-x" class="w-5 h-5 text-purple-600 mb-1.5"></i>
+              <p class="font-semibold text-slate-800 text-sm">FIR Refused?</p>
+              <p class="text-xs text-slate-400 mt-0.5">Steps if police won't register</p>
+            </div>
+            <div class="bg-slate-50 rounded-xl p-3.5 cursor-pointer hover:bg-purple-50 hover:border-purple-200 border border-transparent transition" onclick="askRightsQuestion('Rights of women under Indian law when filing a complaint')">
+              <i data-lucide="heart-handshake" class="w-5 h-5 text-purple-600 mb-1.5"></i>
+              <p class="font-semibold text-slate-800 text-sm">Women's Rights</p>
+              <p class="text-xs text-slate-400 mt-0.5">POCSO, domestic violence</p>
+            </div>
+            <div class="bg-slate-50 rounded-xl p-3.5 cursor-pointer hover:bg-purple-50 hover:border-purple-200 border border-transparent transition" onclick="askRightsQuestion('What is free legal aid and how to get it in India?')">
+              <i data-lucide="scale" class="w-5 h-5 text-purple-600 mb-1.5"></i>
+              <p class="font-semibold text-slate-800 text-sm">Free Legal Aid</p>
+              <p class="text-xs text-slate-400 mt-0.5">Who qualifies, how to apply</p>
+            </div>
+          </div>
+
+          <!-- Chat -->
+          <div class="p-6">
+            <div id="chatMessages" class="space-y-4 max-h-80 overflow-y-auto mb-4 pr-1">
+              <div class="flex gap-3">
+                <div class="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center shrink-0">
+                  <i data-lucide="bot" class="w-4 h-4 text-purple-600"></i>
+                </div>
+                <div class="chat-bubble-ai px-4 py-3 max-w-sm text-sm">
+                  Hello! I'm here to help you understand your legal rights under Indian law. Ask me anything — or click one of the topics above to get started.
+                </div>
+              </div>
+            </div>
+            <div class="flex gap-3">
+              <input type="text" id="rightsInput" placeholder="Ask about your rights…"
+                class="flex-1 border-2 border-slate-200 rounded-xl px-4 py-2.5 focus:border-purple-500 focus:ring-2 focus:ring-purple-100 outline-none text-sm"
+                onkeydown="if(event.key==='Enter') askRightsQuestion()">
+              <button onclick="askRightsQuestion()"
+                class="px-5 py-2.5 bg-purple-600 text-white rounded-xl font-semibold hover:bg-purple-700 transition text-sm">
+                Ask
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════ MISSING PERSONS SECTION ══════ -->
+    <section id="missing-persons" class="pt-20 pb-16 px-6 min-h-screen hidden">
+      <div class="max-w-6xl mx-auto" id="missing-persons-container">
+        <div class="flex items-center justify-center py-20">
+          <div class="text-center">
+            <div class="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+            <p class="text-slate-400 text-sm">Loading…</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════ EMERGENCY CONTACTS SECTION ══════ -->
+    <section id="emergency" class="pt-20 pb-16 px-6 min-h-screen hidden">
+      <div class="max-w-5xl mx-auto">
+        <h2 class="text-3xl font-serif font-bold text-blue-900 mb-1">Emergency Contacts</h2>
+        <p class="text-slate-500 mb-8 text-sm">One tap to call. Available 24×7 across India.</p>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-10">
+          <a href="tel:100"   class="emergency-card bg-red-600    text-white p-6 rounded-2xl shadow block">
+            <div class="text-5xl font-bold mb-1">100</div>
+            <div class="font-bold text-lg mb-0.5">Police</div>
+            <div class="text-red-200 text-xs mb-4">All-purpose police emergency</div>
+            <div class="flex items-center gap-1.5 text-red-100 text-xs"><i data-lucide="phone" class="w-3.5 h-3.5"></i>Tap to call</div>
+          </a>
+          <a href="tel:112"  class="emergency-card bg-orange-500 text-white p-6 rounded-2xl shadow block">
+            <div class="text-5xl font-bold mb-1">112</div>
+            <div class="font-bold text-lg mb-0.5">National Emergency</div>
+            <div class="text-orange-100 text-xs mb-4">Police + Ambulance + Fire combined</div>
+            <div class="flex items-center gap-1.5 text-orange-100 text-xs"><i data-lucide="phone" class="w-3.5 h-3.5"></i>Tap to call</div>
+          </a>
+          <a href="tel:102"  class="emergency-card bg-green-600  text-white p-6 rounded-2xl shadow block">
+            <div class="text-5xl font-bold mb-1">102</div>
+            <div class="font-bold text-lg mb-0.5">Ambulance</div>
+            <div class="text-green-100 text-xs mb-4">Medical emergency, free transport</div>
+            <div class="flex items-center gap-1.5 text-green-100 text-xs"><i data-lucide="phone" class="w-3.5 h-3.5"></i>Tap to call</div>
+          </a>
+          <a href="tel:101"  class="emergency-card bg-yellow-500 text-white p-6 rounded-2xl shadow block">
+            <div class="text-5xl font-bold mb-1">101</div>
+            <div class="font-bold text-lg mb-0.5">Fire Brigade</div>
+            <div class="text-yellow-100 text-xs mb-4">Fire and rescue operations</div>
+            <div class="flex items-center gap-1.5 text-yellow-100 text-xs"><i data-lucide="phone" class="w-3.5 h-3.5"></i>Tap to call</div>
+          </a>
+          <a href="tel:1091" class="emergency-card bg-pink-600   text-white p-6 rounded-2xl shadow block">
+            <div class="text-5xl font-bold mb-1">1091</div>
+            <div class="font-bold text-lg mb-0.5">Women Helpline</div>
+            <div class="text-pink-100 text-xs mb-4">Harassment, domestic violence, assault</div>
+            <div class="flex items-center gap-1.5 text-pink-100 text-xs"><i data-lucide="phone" class="w-3.5 h-3.5"></i>Tap to call</div>
+          </a>
+          <a href="tel:1930" class="emergency-card bg-blue-600   text-white p-6 rounded-2xl shadow block">
+            <div class="text-5xl font-bold mb-1">1930</div>
+            <div class="font-bold text-lg mb-0.5">Cyber Crime</div>
+            <div class="text-blue-100 text-xs mb-4">Online fraud, hacking, digital crime</div>
+            <div class="flex items-center gap-1.5 text-blue-100 text-xs"><i data-lucide="phone" class="w-3.5 h-3.5"></i>Tap to call</div>
+          </a>
+          <a href="tel:1098" class="emergency-card bg-teal-600   text-white p-6 rounded-2xl shadow block">
+            <div class="text-5xl font-bold mb-1">1098</div>
+            <div class="font-bold text-lg mb-0.5">Child Helpline</div>
+            <div class="text-teal-100 text-xs mb-4">Child abuse, missing children</div>
+            <div class="flex items-center gap-1.5 text-teal-100 text-xs"><i data-lucide="phone" class="w-3.5 h-3.5"></i>Tap to call</div>
+          </a>
+          <a href="tel:14567" class="emergency-card bg-indigo-600 text-white p-6 rounded-2xl shadow block">
+            <div class="text-5xl font-bold mb-1">14567</div>
+            <div class="font-bold text-lg mb-0.5">Senior Citizen</div>
+            <div class="text-indigo-100 text-xs mb-4">Elder abuse, elder helpline</div>
+            <div class="flex items-center gap-1.5 text-indigo-100 text-xs"><i data-lucide="phone" class="w-3.5 h-3.5"></i>Tap to call</div>
+          </a>
+          <a href="tel:15100" class="emergency-card bg-slate-700  text-white p-6 rounded-2xl shadow block">
+            <div class="text-5xl font-bold mb-1">15100</div>
+            <div class="font-bold text-lg mb-0.5">Legal Aid</div>
+            <div class="text-slate-300 text-xs mb-4">Free legal advice from NALSA</div>
+            <div class="flex items-center gap-1.5 text-slate-300 text-xs"><i data-lucide="phone" class="w-3.5 h-3.5"></i>Tap to call</div>
+          </a>
+        </div>
+
+        <!-- Safety tips -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-6">
+          <h3 class="font-bold text-lg text-slate-800 mb-4 flex items-center gap-2">
+            <i data-lucide="lightbulb" class="w-5 h-5 text-yellow-500"></i> Safety Tips
+          </h3>
+          <ul class="space-y-2.5 text-sm text-slate-600">
+            <li class="flex gap-2"><span class="text-green-600 font-bold shrink-0">✓</span> Save these numbers in your phone now, before an emergency.</li>
+            <li class="flex gap-2"><span class="text-green-600 font-bold shrink-0">✓</span> You can file a cyber crime complaint online at cybercrime.gov.in</li>
+            <li class="flex gap-2"><span class="text-green-600 font-bold shrink-0">✓</span> You have the right to a free lawyer if you cannot afford one — just ask the court.</li>
+            <li class="flex gap-2"><span class="text-green-600 font-bold shrink-0">✓</span> Police must give you a copy of your FIR for free within 7 days of filing.</li>
+            <li class="flex gap-2"><span class="text-green-600 font-bold shrink-0">✓</span> A woman cannot be arrested after sunset and before sunrise without a female officer present.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+  </main><!-- end main -->
+
+  <script>
+    lucide.createIcons();
+
+    // ──────────────────────────────────────────────
+    // Section routing (same pattern as police dash)
+    // ──────────────────────────────────────────────
+    function showSection(id) {
+      document.querySelectorAll('main > section').forEach(s => s.classList.add('hidden'));
+      const target = document.getElementById(id);
+      if (target) target.classList.remove('hidden');
+
+      document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active','bg-blue-800'));
+      const link = document.querySelector(`[data-section="${id}"]`);
+      if (link) link.classList.add('active','bg-blue-800');
+
+      window.scrollTo({ top: 0 });
+
+      if (id === 'missing-persons') loadMissingPersons();
+    }
+
+    // Sidebar links
+    document.querySelectorAll('.sidebar-link').forEach(link => {
+      link.addEventListener('click', e => {
+        e.preventDefault();
+        showSection(link.dataset.section);
+        // close on mobile
+        if (window.innerWidth < 768) {
+          document.getElementById('sidebar').classList.remove('mobile-open');
+        }
+      });
+    });
+
+    // Mobile menu toggle
+    document.getElementById('mobileMenuBtn').addEventListener('click', () => {
+      document.getElementById('sidebar').classList.toggle('mobile-open');
+    });
+
+    // Close sidebar when clicking outside on mobile
+    document.addEventListener('click', e => {
+      if (window.innerWidth < 768) {
+        const sidebar = document.getElementById('sidebar');
+        const btn = document.getElementById('mobileMenuBtn');
+        if (!sidebar.contains(e.target) && !btn.contains(e.target)) {
+          sidebar.classList.remove('mobile-open');
+        }
+      }
+    });
+
+    showSection('home');
+
+    // ──────────────────────────────────────────────
+    // File Complaint  →  POST /api/complaint
+    // ──────────────────────────────────────────────
+    async function submitComplaint() {
+      const btn  = document.getElementById('submitComplaintBtn');
+      const name = document.getElementById('c_name').value.trim();
+      const desc = document.getElementById('c_desc').value.trim();
+
+      if (!name || !desc) {
+        alert('Name and incident description are required.');
+        return;
+      }
+
+      btn.disabled  = true;
+      btn.textContent = 'Submitting…';
+
+      try {
+        const res = await fetch('/api/complaint', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            full_name:            name,
+            phone:                document.getElementById('c_phone').value.trim(),
+            incident_date:        document.getElementById('c_date').value,
+            location:             document.getElementById('c_location').value.trim(),
+            incident_description: desc
+          })
+        });
+        const data = await res.json();
+
+        if (!res.ok) { alert(data.error || 'Submission failed.'); return; }
+
+        document.getElementById('trackingIdDisplay').textContent = data.tracking_id;
+        document.getElementById('complaintSuccess').classList.remove('hidden');
+        document.getElementById('complaintForm').classList.add('hidden');
+        lucide.createIcons();
+      } catch(e) {
+        alert('Network error. Please try again.');
+      } finally {
+        btn.disabled    = false;
+        btn.textContent = 'Submit Complaint';
+      }
+    }
+
+    // ──────────────────────────────────────────────
+    // Track Complaint  →  GET /api/complaint/:id
+    // ──────────────────────────────────────────────
+    async function trackComplaint() {
+      const id = document.getElementById('trackInput').value.trim();
+      if (!id) { alert('Please enter your tracking ID.'); return; }
+
+      document.getElementById('trackResult').classList.add('hidden');
+      document.getElementById('trackError').classList.add('hidden');
+
+      try {
+        const res  = await fetch(`/api/complaint/${id}`);
+        const data = await res.json();
+
+        if (!res.ok) {
+          document.getElementById('trackErrorMsg').textContent = data.error || 'Complaint not found.';
+          document.getElementById('trackError').classList.remove('hidden');
+          return;
+        }
+
+        document.getElementById('tr_id').textContent      = data.tracking_id;
+        document.getElementById('tr_name').textContent    = data.full_name;
+        document.getElementById('tr_date').textContent    = data.incident_date || 'Not specified';
+        document.getElementById('tr_loc').textContent     = data.location || 'Not specified';
+        document.getElementById('tr_created').textContent = new Date(data.created_at)
+          .toLocaleDateString('en-IN', { day:'numeric', month:'long', year:'numeric' });
+
+        if (data.fir_no) {
+          document.getElementById('tr_fir').textContent = data.fir_no;
+          document.getElementById('tr_fir_row').classList.remove('hidden');
+        }
+        if (data.officer_notes) {
+          document.getElementById('tr_notes').textContent = data.officer_notes;
+          document.getElementById('tr_notes_row').classList.remove('hidden');
+        }
+
+        // Status pill
+        const statusKey = data.status.replace(/\s+/g,'-');
+        document.getElementById('tr_status_pill').innerHTML =
+          `<span class="status-pill status-${statusKey}">${data.status}</span>`;
+
+        // Timeline
+        const steps = ['Pending','Under Review','FIR Filed','Closed'];
+        const currentIdx = steps.indexOf(data.status);
+        const stepDesc  = ['Complaint received','Officer reviewing details','FIR registered with police','Case closed'];
+
+        document.getElementById('timeline').innerHTML = steps.map((step, i) => `
+          <div class="flex gap-3 items-start">
+            <div class="w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${i <= currentIdx ? 'bg-blue-600' : 'bg-slate-200'}">
+              ${i < currentIdx
+                ? '<svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>'
+                : `<span class="text-xs font-bold ${i <= currentIdx ? 'text-white' : 'text-slate-400'}">${i+1}</span>`}
+            </div>
+            <div>
+              <p class="text-sm font-semibold ${i <= currentIdx ? 'text-slate-800' : 'text-slate-400'}">${step}</p>
+              <p class="text-xs ${i <= currentIdx ? 'text-slate-500' : 'text-slate-300'}">${stepDesc[i]}</p>
+            </div>
+          </div>
+        `).join('');
+
+        document.getElementById('trackResult').classList.remove('hidden');
+      } catch(e) {
+        document.getElementById('trackErrorMsg').textContent = 'Network error. Please try again.';
+        document.getElementById('trackError').classList.remove('hidden');
+      }
+    }
+
+    // ──────────────────────────────────────────────
+    // Know Your Rights  →  POST /api/rights-chat
+    // ──────────────────────────────────────────────
+    async function askRightsQuestion(preset) {
+      const input    = document.getElementById('rightsInput');
+      const question = preset || input.value.trim();
+      if (!question) return;
+
+      const chat = document.getElementById('chatMessages');
+
+      chat.innerHTML += `
+        <div class="flex gap-3 justify-end">
+          <div class="chat-bubble-user px-4 py-3 max-w-xs text-sm">${question}</div>
+        </div>`;
+
+      const loadId = 'load-' + Date.now();
+      chat.innerHTML += `
+        <div id="${loadId}" class="flex gap-3">
+          <div class="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center shrink-0">
+            <i data-lucide="bot" class="w-4 h-4 text-purple-600"></i>
+          </div>
+          <div class="chat-bubble-ai px-4 py-3 text-sm text-slate-400 flex items-center gap-2">
+            <div class="w-4 h-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin"></div>
+            Thinking…
+          </div>
+        </div>`;
+      chat.scrollTop = chat.scrollHeight;
+      if (!preset) input.value = '';
+
+      try {
+        const res  = await fetch('/api/rights-chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question })
+        });
+        const data = await res.json();
+
+        document.getElementById(loadId).innerHTML = `
+          <div class="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center shrink-0">
+            <i data-lucide="bot" class="w-4 h-4 text-purple-600"></i>
+          </div>
+          <div class="chat-bubble-ai px-4 py-3 max-w-sm text-sm whitespace-pre-wrap">${data.answer}</div>`;
+        lucide.createIcons();
+      } catch(e) {
+        document.getElementById(loadId).querySelector('.chat-bubble-ai').textContent =
+          'Error connecting. Please try again.';
+      }
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    // ──────────────────────────────────────────────
+    // Missing Persons  →  GET /missing_persons_template
+    // ──────────────────────────────────────────────
+    async function loadMissingPersons() {
+      const container = document.getElementById('missing-persons-container');
+      container.innerHTML = `
+        <div class="flex items-center justify-center py-20">
+          <div class="text-center">
+            <div class="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+            <p class="text-slate-400 text-sm">Loading…</p>
+          </div>
+        </div>`;
+
+      try {
+        const res  = await fetch('/missing_persons_template');
+        const html = await res.text();
+
+        const scriptMatch   = html.match(/<script>([\s\S]*?)<\/script>/i);
+        const scriptContent = scriptMatch ? scriptMatch[1] : '';
+        container.innerHTML = html.replace(/<script>[\s\S]*?<\/script>/gi, '');
+
+        if (window.lucide) lucide.createIcons();
+
+        if (scriptContent) {
+          const old = document.getElementById('mp-injected');
+          if (old) old.remove();
+          const s = document.createElement('script');
+          s.id = 'mp-injected';
+          s.textContent = scriptContent;
+          document.body.appendChild(s);
+        }
+      } catch(e) {
+        container.innerHTML =
+          '<p class="text-red-500 text-center p-8">Error loading Missing Persons data. Please refresh.</p>';
+      }
+    }
+  </script>
 </body>
 </html>

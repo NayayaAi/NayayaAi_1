@@ -1064,10 +1064,35 @@
                                     oninput="filterEvidence(this.value)"
                                     class="px-3 py-1 border border-slate-200 rounded text-sm">
 
-                                <button class="p-2 bg-slate-100 rounded hover:bg-slate-200">
-                                    <i data-lucide="filter" class="w-4 h-4"></i>
-                                </button>
-
+                                <div class="relative">
+                                    <button id="filterToggleBtn" onclick="toggleFilterDropdown()"
+                                        class="p-2 bg-slate-100 rounded hover:bg-slate-200 flex items-center gap-1">
+                                        <i data-lucide="filter" class="w-4 h-4"></i>
+                                    </button>
+                                    <div id="filterDropdown"
+                                        class="hidden absolute right-0 mt-1 w-40 bg-white border border-slate-200 rounded-lg shadow-lg z-10">
+                                        <button onclick="setEvidenceFilter('all')"
+                                            class="evidence-filter-btn w-full text-left px-4 py-2 text-sm hover:bg-blue-50 flex items-center gap-2 font-semibold text-blue-700">
+                                            <i data-lucide="layers" class="w-4 h-4"></i> All
+                                        </button>
+                                        <button onclick="setEvidenceFilter('image')"
+                                            class="evidence-filter-btn w-full text-left px-4 py-2 text-sm hover:bg-blue-50 flex items-center gap-2">
+                                            <i data-lucide="image" class="w-4 h-4 text-green-500"></i> Images
+                                        </button>
+                                        <button onclick="setEvidenceFilter('video')"
+                                            class="evidence-filter-btn w-full text-left px-4 py-2 text-sm hover:bg-blue-50 flex items-center gap-2">
+                                            <i data-lucide="video" class="w-4 h-4 text-purple-500"></i> Videos
+                                        </button>
+                                        <button onclick="setEvidenceFilter('audio')"
+                                            class="evidence-filter-btn w-full text-left px-4 py-2 text-sm hover:bg-blue-50 flex items-center gap-2">
+                                            <i data-lucide="music" class="w-4 h-4 text-yellow-500"></i> Audio
+                                        </button>
+                                        <button onclick="setEvidenceFilter('pdf')"
+                                            class="evidence-filter-btn w-full text-left px-4 py-2 text-sm hover:bg-blue-50 flex items-center gap-2">
+                                            <i data-lucide="file-text" class="w-4 h-4 text-red-500"></i> PDFs
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
 
                         </div>
@@ -1631,98 +1656,98 @@
                     '<p class="text-red-600 p-8 text-center">Error loading Missing Persons. Please refresh.</p>';
             }
         }
-        
-       
-            // ── Global state ──────────────────────────────────────────────
-            let allComplaints = [];
-            let currentComplaint = null;
-            let activeFilter = 'all';
 
-            // ── Status pill helper ─────────────────────────────────────────
-            function makeStatusPill(status) {
-                const map = {
-                    'Pending': 'bg-yellow-100 text-yellow-800',
-                    'Under Review': 'bg-blue-100   text-blue-800',
-                    'FIR Filed': 'bg-green-100  text-green-800',
-                    'Closed': 'bg-slate-100  text-slate-600',
-                };
-                const cls = map[status] || 'bg-slate-100 text-slate-600';
-                return `<span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${cls}">${status}</span>`;
-            }
 
-            // ── Load all citizen complaints from Flask ─────────────────────
-            async function loadCitizenComplaints() {
-                const tbody = document.getElementById('complaintsTableBody');
-                tbody.innerHTML = `<tr><td colspan="8" class="px-4 py-8 text-center text-slate-400">Loading…</td></tr>`;
+        // ── Global state ──────────────────────────────────────────────
+        let allComplaints = [];
+        let currentComplaint = null;
+        let activeFilter = 'all';
 
-                try {
-                    const res = await fetch('/api/complaints/all');
-                    const data = await res.json();
+        // ── Status pill helper ─────────────────────────────────────────
+        function makeStatusPill(status) {
+            const map = {
+                'Pending': 'bg-yellow-100 text-yellow-800',
+                'Under Review': 'bg-blue-100   text-blue-800',
+                'FIR Filed': 'bg-green-100  text-green-800',
+                'Closed': 'bg-slate-100  text-slate-600',
+            };
+            const cls = map[status] || 'bg-slate-100 text-slate-600';
+            return `<span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${cls}">${status}</span>`;
+        }
 
-                    if (!res.ok) throw new Error(data.error || 'Failed');
+        // ── Load all citizen complaints from Flask ─────────────────────
+        async function loadCitizenComplaints() {
+            const tbody = document.getElementById('complaintsTableBody');
+            tbody.innerHTML = `<tr><td colspan="8" class="px-4 py-8 text-center text-slate-400">Loading…</td></tr>`;
 
-                    allComplaints = data;
-                    updateStats(data);
-                    renderComplaints(data);
-                    updatePendingBadge(data);
-                } catch (e) {
-                    tbody.innerHTML = `<tr><td colspan="8" class="px-4 py-8 text-center text-red-500">
+            try {
+                const res = await fetch('/api/complaints/all');
+                const data = await res.json();
+
+                if (!res.ok) throw new Error(data.error || 'Failed');
+
+                allComplaints = data;
+                updateStats(data);
+                renderComplaints(data);
+                updatePendingBadge(data);
+            } catch (e) {
+                tbody.innerHTML = `<tr><td colspan="8" class="px-4 py-8 text-center text-red-500">
             Error loading complaints: ${e.message}</td></tr>`;
-                }
             }
+        }
 
-            // ── Update stats bar ───────────────────────────────────────────
-            function updateStats(complaints) {
-                document.getElementById('stat-total').textContent = complaints.length;
-                document.getElementById('stat-pending').textContent = complaints.filter(c => c.status === 'Pending').length;
-                document.getElementById('stat-review').textContent = complaints.filter(c => c.status === 'Under Review').length;
-                document.getElementById('stat-fir').textContent = complaints.filter(c => c.status === 'FIR Filed').length;
+        // ── Update stats bar ───────────────────────────────────────────
+        function updateStats(complaints) {
+            document.getElementById('stat-total').textContent = complaints.length;
+            document.getElementById('stat-pending').textContent = complaints.filter(c => c.status === 'Pending').length;
+            document.getElementById('stat-review').textContent = complaints.filter(c => c.status === 'Under Review').length;
+            document.getElementById('stat-fir').textContent = complaints.filter(c => c.status === 'FIR Filed').length;
+        }
+
+        // ── Update sidebar badge ───────────────────────────────────────
+        function updatePendingBadge(complaints) {
+            const badge = document.getElementById('pendingBadge');
+            const pending = complaints.filter(c => c.status === 'Pending').length;
+            if (pending > 0) {
+                badge.textContent = pending;
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
             }
+        }
 
-            // ── Update sidebar badge ───────────────────────────────────────
-            function updatePendingBadge(complaints) {
-                const badge = document.getElementById('pendingBadge');
-                const pending = complaints.filter(c => c.status === 'Pending').length;
-                if (pending > 0) {
-                    badge.textContent = pending;
-                    badge.classList.remove('hidden');
-                } else {
-                    badge.classList.add('hidden');
-                }
-            }
+        // ── Filter complaints ──────────────────────────────────────────
+        function filterComplaints(filter) {
+            activeFilter = filter;
+            document.querySelectorAll('.filter-btn').forEach(b => {
+                b.classList.remove('bg-blue-600', 'text-white', 'ring-2', 'ring-blue-300');
+            });
+            const activeBtn = document.getElementById(`filter-${filter}`) || document.getElementById('filter-all');
+            if (activeBtn) activeBtn.classList.add('bg-blue-600', 'text-white');
 
-            // ── Filter complaints ──────────────────────────────────────────
-            function filterComplaints(filter) {
-                activeFilter = filter;
-                document.querySelectorAll('.filter-btn').forEach(b => {
-                    b.classList.remove('bg-blue-600', 'text-white', 'ring-2', 'ring-blue-300');
-                });
-                const activeBtn = document.getElementById(`filter-${filter}`) || document.getElementById('filter-all');
-                if (activeBtn) activeBtn.classList.add('bg-blue-600', 'text-white');
+            const filtered = filter === 'all'
+                ? allComplaints
+                : allComplaints.filter(c => c.status === filter);
+            renderComplaints(filtered);
+        }
 
-                const filtered = filter === 'all'
-                    ? allComplaints
-                    : allComplaints.filter(c => c.status === filter);
-                renderComplaints(filtered);
-            }
+        // ── Render table rows ──────────────────────────────────────────
+        function renderComplaints(complaints) {
+            const tbody = document.getElementById('complaintsTableBody');
 
-            // ── Render table rows ──────────────────────────────────────────
-            function renderComplaints(complaints) {
-                const tbody = document.getElementById('complaintsTableBody');
-
-                if (!complaints.length) {
-                    tbody.innerHTML = `<tr><td colspan="8" class="px-4 py-8 text-center text-slate-400">
+            if (!complaints.length) {
+                tbody.innerHTML = `<tr><td colspan="8" class="px-4 py-8 text-center text-slate-400">
             No complaints found for this filter.</td></tr>`;
-                    return;
-                }
+                return;
+            }
 
-                tbody.innerHTML = complaints.map(c => {
-                    const filed = new Date(c.created_at).toLocaleDateString('en-IN',
-                        { day: 'numeric', month: 'short', year: 'numeric' });
-                    const shortDesc = (c.incident_description || '').slice(0, 60) +
-                        ((c.incident_description || '').length > 60 ? '…' : '');
+            tbody.innerHTML = complaints.map(c => {
+                const filed = new Date(c.created_at).toLocaleDateString('en-IN',
+                    { day: 'numeric', month: 'short', year: 'numeric' });
+                const shortDesc = (c.incident_description || '').slice(0, 60) +
+                    ((c.incident_description || '').length > 60 ? '…' : '');
 
-                    return `
+                return `
         <tr class="hover:bg-blue-50 cursor-pointer transition-colors"
             onclick="openComplaintModal('${c.tracking_id}')">
             <td class="px-4 py-3">
@@ -1743,122 +1768,122 @@
         <tr class="bg-slate-50 border-b border-slate-100">
             <td colspan="8" class="px-4 pb-3 text-xs text-slate-500 italic">${escapeHtml(shortDesc)}</td>
         </tr>`;
-                }).join('');
+            }).join('');
+        }
+
+        // ── Open modal with complaint detail ──────────────────────────
+        function openComplaintModal(trackingId) {
+            currentComplaint = allComplaints.find(c => c.tracking_id === trackingId);
+            if (!currentComplaint) return;
+
+            const c = currentComplaint;
+
+            document.getElementById('modal-tracking-id').textContent = c.tracking_id;
+            document.getElementById('modal-name').textContent = c.full_name;
+            document.getElementById('modal-phone').textContent = c.phone || 'Not provided';
+            document.getElementById('modal-location').textContent = c.location || 'Not specified';
+            document.getElementById('modal-incident-date').textContent = c.incident_date || 'Not specified';
+            document.getElementById('modal-description').textContent = c.incident_description;
+            document.getElementById('modal-status-pill').innerHTML = makeStatusPill(c.status);
+            document.getElementById('modal-new-status').value = c.status;
+            document.getElementById('modal-fir-no').value = c.fir_no || '';
+            document.getElementById('modal-notes').value = c.officer_notes || '';
+            document.getElementById('modal-update-msg').classList.add('hidden');
+
+            // Toggle FIR field visibility
+            toggleFirField();
+
+            document.getElementById('modal-created').textContent =
+                new Date(c.created_at).toLocaleString('en-IN', {
+                    day: 'numeric', month: 'long', year: 'numeric',
+                    hour: '2-digit', minute: '2-digit'
+                });
+
+            // Show modal
+            const modal = document.getElementById('complaintModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            if (window.lucide) lucide.createIcons();
+        }
+
+        // ── Toggle FIR number field based on status ────────────────────
+        function toggleFirField() {
+            const status = document.getElementById('modal-new-status').value;
+            const firField = document.getElementById('fir-no-field');
+            if (status === 'FIR Filed') {
+                firField.classList.remove('hidden');
+            } else {
+                firField.classList.add('hidden');
             }
+        }
 
-            // ── Open modal with complaint detail ──────────────────────────
-            function openComplaintModal(trackingId) {
-                currentComplaint = allComplaints.find(c => c.tracking_id === trackingId);
-                if (!currentComplaint) return;
+        // ── Close modal ────────────────────────────────────────────────
+        function closeComplaintModal() {
+            const modal = document.getElementById('complaintModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            currentComplaint = null;
+        }
 
-                const c = currentComplaint;
+        // ── Update complaint status via Flask API ──────────────────────
+        async function updateComplaintStatus() {
+            if (!currentComplaint) return;
 
-                document.getElementById('modal-tracking-id').textContent = c.tracking_id;
-                document.getElementById('modal-name').textContent = c.full_name;
-                document.getElementById('modal-phone').textContent = c.phone || 'Not provided';
-                document.getElementById('modal-location').textContent = c.location || 'Not specified';
-                document.getElementById('modal-incident-date').textContent = c.incident_date || 'Not specified';
-                document.getElementById('modal-description').textContent = c.incident_description;
-                document.getElementById('modal-status-pill').innerHTML = makeStatusPill(c.status);
-                document.getElementById('modal-new-status').value = c.status;
-                document.getElementById('modal-fir-no').value = c.fir_no || '';
-                document.getElementById('modal-notes').value = c.officer_notes || '';
-                document.getElementById('modal-update-msg').classList.add('hidden');
+            const newStatus = document.getElementById('modal-new-status').value;
+            const firNo = document.getElementById('modal-fir-no').value.trim();
+            const notes = document.getElementById('modal-notes').value.trim();
+            const msgDiv = document.getElementById('modal-update-msg');
 
-                // Toggle FIR field visibility
-                toggleFirField();
+            msgDiv.className = 'text-center text-sm font-semibold py-2 rounded-lg bg-blue-50 text-blue-700';
+            msgDiv.textContent = 'Updating…';
+            msgDiv.classList.remove('hidden');
 
-                document.getElementById('modal-created').textContent =
-                    new Date(c.created_at).toLocaleString('en-IN', {
-                        day: 'numeric', month: 'long', year: 'numeric',
-                        hour: '2-digit', minute: '2-digit'
-                    });
+            try {
+                const res = await fetch(`/api/complaints/${currentComplaint.tracking_id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        status: newStatus,
+                        fir_no: firNo || null,
+                        officer_notes: notes || null
+                    })
+                });
+                const data = await res.json();
 
-                // Show modal
-                const modal = document.getElementById('complaintModal');
-                modal.classList.remove('hidden');
-                modal.classList.add('flex');
-                if (window.lucide) lucide.createIcons();
+                if (!res.ok) throw new Error(data.error || 'Update failed');
+
+                msgDiv.className = 'text-center text-sm font-semibold py-2 rounded-lg bg-green-100 text-green-700';
+                msgDiv.textContent = '✓ Complaint updated successfully!';
+
+                // Refresh local state
+                currentComplaint.status = newStatus;
+                currentComplaint.fir_no = firNo || null;
+                currentComplaint.officer_notes = notes || null;
+
+                // Update pill in modal
+                document.getElementById('modal-status-pill').innerHTML = makeStatusPill(newStatus);
+
+                // Reload table
+                await loadCitizenComplaints();
+                filterComplaints(activeFilter);
+
+            } catch (e) {
+                msgDiv.className = 'text-center text-sm font-semibold py-2 rounded-lg bg-red-100 text-red-700';
+                msgDiv.textContent = '✗ ' + e.message;
             }
+        }
 
-            // ── Toggle FIR number field based on status ────────────────────
-            function toggleFirField() {
-                const status = document.getElementById('modal-new-status').value;
-                const firField = document.getElementById('fir-no-field');
-                if (status === 'FIR Filed') {
-                    firField.classList.remove('hidden');
-                } else {
-                    firField.classList.add('hidden');
-                }
-            }
+        // ── Close modal on backdrop click ──────────────────────────────
+        document.getElementById('complaintModal').addEventListener('click', function (e) {
+            if (e.target === this) closeComplaintModal();
+        });
 
-            // ── Close modal ────────────────────────────────────────────────
-            function closeComplaintModal() {
-                const modal = document.getElementById('complaintModal');
-                modal.classList.add('hidden');
-                modal.classList.remove('flex');
-                currentComplaint = null;
-            }
+        // ── Auto-toggle FIR field when status changes ─────────────────
+        document.getElementById('modal-new-status').addEventListener('change', toggleFirField);
 
-            // ── Update complaint status via Flask API ──────────────────────
-            async function updateComplaintStatus() {
-                if (!currentComplaint) return;
+        // ── Auto-load when section is opened ──────────────────────────
+        // (handled in the initSidebar listener — see STEP 4)
 
-                const newStatus = document.getElementById('modal-new-status').value;
-                const firNo = document.getElementById('modal-fir-no').value.trim();
-                const notes = document.getElementById('modal-notes').value.trim();
-                const msgDiv = document.getElementById('modal-update-msg');
-
-                msgDiv.className = 'text-center text-sm font-semibold py-2 rounded-lg bg-blue-50 text-blue-700';
-                msgDiv.textContent = 'Updating…';
-                msgDiv.classList.remove('hidden');
-
-                try {
-                    const res = await fetch(`/api/complaints/${currentComplaint.tracking_id}`, {
-                        method: 'PATCH',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            status: newStatus,
-                            fir_no: firNo || null,
-                            officer_notes: notes || null
-                        })
-                    });
-                    const data = await res.json();
-
-                    if (!res.ok) throw new Error(data.error || 'Update failed');
-
-                    msgDiv.className = 'text-center text-sm font-semibold py-2 rounded-lg bg-green-100 text-green-700';
-                    msgDiv.textContent = '✓ Complaint updated successfully!';
-
-                    // Refresh local state
-                    currentComplaint.status = newStatus;
-                    currentComplaint.fir_no = firNo || null;
-                    currentComplaint.officer_notes = notes || null;
-
-                    // Update pill in modal
-                    document.getElementById('modal-status-pill').innerHTML = makeStatusPill(newStatus);
-
-                    // Reload table
-                    await loadCitizenComplaints();
-                    filterComplaints(activeFilter);
-
-                } catch (e) {
-                    msgDiv.className = 'text-center text-sm font-semibold py-2 rounded-lg bg-red-100 text-red-700';
-                    msgDiv.textContent = '✗ ' + e.message;
-                }
-            }
-
-            // ── Close modal on backdrop click ──────────────────────────────
-            document.getElementById('complaintModal').addEventListener('click', function (e) {
-                if (e.target === this) closeComplaintModal();
-            });
-
-            // ── Auto-toggle FIR field when status changes ─────────────────
-            document.getElementById('modal-new-status').addEventListener('change', toggleFirField);
-
-            // ── Auto-load when section is opened ──────────────────────────
-            // (handled in the initSidebar listener — see STEP 4)
-        
 
 
         // Load districts on page load
@@ -2538,30 +2563,97 @@
         function renderEvidenceGrid(data) {
             const grid = document.getElementById('evidenceGrid');
             const empty = document.getElementById('evidenceEmptyState');
+
+            const iconMap = { image: 'image', video: 'video', audio: 'music', pdf: 'file-text', other: 'file' };
+            const colorMap = { image: 'text-green-400', video: 'text-purple-400', audio: 'text-yellow-400', pdf: 'text-red-400', other: 'text-blue-400' };
+            const labelMap = { all: 'All', image: 'Images', video: 'Videos', audio: 'Audio', pdf: 'PDFs', other: 'Others' };
+
             const entries = Object.entries(data);
-            if (entries.length === 0) {
+            if (!entries.length) {
                 grid.innerHTML = '';
                 empty.classList.remove('hidden');
                 return;
             }
+
+            // Flatten all files with their FIR numbers
+            let allFiles = [];
+            entries.forEach(([fir_no, files]) => {
+                files.forEach(filename => {
+                    allFiles.push({ fir_no, filename, category: getFileCategory(filename) });
+                });
+            });
+
+            // Apply type filter
+            if (currentEvidenceFilter !== 'all') {
+                allFiles = allFiles.filter(f => f.category === currentEvidenceFilter);
+            }
+
+            if (!allFiles.length) {
+                grid.innerHTML = `
+            <div class="col-span-3 text-center py-10 text-slate-400">
+                <i data-lucide="search-x" class="w-10 h-10 mx-auto mb-2 opacity-40"></i>
+                <p>No <strong>${labelMap[currentEvidenceFilter]}</strong> found.</p>
+            </div>`;
+                empty.classList.add('hidden');
+                if (window.lucide) lucide.createIcons();
+                return;
+            }
+
             empty.classList.add('hidden');
-            grid.innerHTML = entries.map(([fir_no, files]) =>
-                files.map(filename => {
-                    const ext = filename.split('.').pop().toLowerCase();
-                    const isImage = ['jpg','jpeg','png','gif','webp'].includes(ext);
-                    const isPdf = ext === 'pdf';
-                    const icon = isImage ? 'image' : isPdf ? 'file-text' : 'file';
-                    const url = '/evidence-file/' + encodeURIComponent(fir_no) + '/' + encodeURIComponent(filename);
-                    return `<div class="bg-slate-50 rounded-lg p-3 flex flex-col items-center border border-slate-100">
+
+            grid.innerHTML = allFiles.map(({ fir_no, filename, category }) => {
+                const icon = iconMap[category] || 'file';
+                const color = colorMap[category] || 'text-blue-400';
+                const url = '/evidence-file/' + encodeURIComponent(fir_no) + '/' + encodeURIComponent(filename);
+                const isImage = category === 'image';
+
+                return `
+        <div class="bg-slate-50 rounded-lg p-3 flex flex-col items-center border border-slate-100 hover:shadow-md transition">
+            ${isImage
+                        ? `<img src="${url}" class="w-full h-20 object-cover rounded mb-2" onerror="this.style.display='none'">`
+                        : `<i data-lucide="${icon}" class="w-10 h-10 ${color} mb-2"></i>`
+                    }
+            <p class="text-xs text-center text-slate-700 truncate w-full font-medium" title="${escapeHtml(filename)}">${escapeHtml(filename)}</p>
+            <p class="text-xs text-blue-500 mb-2">FIR: ${escapeHtml(fir_no)}</p>
+            <span class="text-xs px-2 py-0.5 rounded-full mb-2 font-semibold
+                ${category === 'image' ? 'bg-green-100 text-green-700'
+                        : category === 'video' ? 'bg-purple-100 text-purple-700'
+                            : category === 'audio' ? 'bg-yellow-100 text-yellow-700'
+                                : category === 'pdf' ? 'bg-red-100 text-red-700'
+                                    : 'bg-slate-100 text-slate-600'}">${labelMap[category]}</span>
+            <a href="${url}" target="_blank"
+               class="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition">VIEW</a>
+        </div>`;
+            }).join('');
+
+            if (window.lucide) lucide.createIcons();
+        }
+        const grid = document.getElementById('evidenceGrid');
+        const empty = document.getElementById('evidenceEmptyState');
+        const entries = Object.entries(data);
+        if (entries.length === 0) {
+            grid.innerHTML = '';
+            empty.classList.remove('hidden');
+            return;
+        }
+        empty.classList.add('hidden');
+        grid.innerHTML = entries.map(([fir_no, files]) =>
+            files.map(filename => {
+                const ext = filename.split('.').pop().toLowerCase();
+                const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext);
+                const isPdf = ext === 'pdf';
+                const icon = isImage ? 'image' : isPdf ? 'file-text' : 'file';
+                const url = '/evidence-file/' + encodeURIComponent(fir_no) + '/' + encodeURIComponent(filename);
+                return `<div class="bg-slate-50 rounded-lg p-3 flex flex-col items-center border border-slate-100">
                                 <i data-lucide="${icon}" class="w-10 h-10 text-blue-400 mb-2"></i>
                                 <p class="text-xs text-center text-slate-700 truncate w-full font-medium">${filename}</p>
                                 <p class="text-xs text-blue-500 mb-2">FIR: ${fir_no}</p>
                                 <a href="${url}" target="_blank"
                                    class="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition">VIEW</a>
                             </div>`;
-                }).join('')
-            ).join('');
-            if (typeof lucide !== 'undefined') lucide.createIcons();
+            }).join('')
+        ).join('');
+        if (typeof lucide !== 'undefined') lucide.createIcons();
         }
         // ─── Law Browser ───────────────────────────────────────────────
         let lbState = { act: '', page: 1, search: '', pages: 1 };
@@ -2889,7 +2981,45 @@
         }
         // ───────────────────────────────────────────────────────────────
 
-        
+        // ── Evidence Type Filter ──────────────────────────────────────
+        let currentEvidenceFilter = 'all';
+
+        function toggleFilterDropdown() {
+            const dd = document.getElementById('filterDropdown');
+            dd.classList.toggle('hidden');
+            if (window.lucide) lucide.createIcons();
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function (e) {
+            const btn = document.getElementById('filterToggleBtn');
+            const dd = document.getElementById('filterDropdown');
+            if (dd && btn && !btn.contains(e.target) && !dd.contains(e.target)) {
+                dd.classList.add('hidden');
+            }
+        });
+
+        function setEvidenceFilter(type) {
+            currentEvidenceFilter = type;
+            document.getElementById('filterDropdown').classList.add('hidden');
+
+            // Highlight active button
+            document.querySelectorAll('.evidence-filter-btn').forEach(b => {
+                b.classList.remove('bg-blue-100', 'font-semibold', 'text-blue-700');
+            });
+
+            renderEvidenceGrid(allEvidenceData); // re-render with filter applied
+        }
+
+        function getFileCategory(filename) {
+            const ext = filename.split('.').pop().toLowerCase();
+            if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'].includes(ext)) return 'image';
+            if (['mp4', 'mov', 'avi', 'mkv', 'webm', 'flv'].includes(ext)) return 'video';
+            if (['mp3', 'wav', 'ogg', 'aac', 'flac', 'm4a'].includes(ext)) return 'audio';
+            if (ext === 'pdf') return 'pdf';
+            return 'other';
+        }
+
 
 
     </script>

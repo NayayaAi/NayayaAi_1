@@ -1,6 +1,7 @@
-# Virtual Environment
+# Virtual Environments
 venv/
 env/
+venv_NAyayaAi/
 
 # Python Cache
 __pycache__/
@@ -32,9 +33,14 @@ Thumbs.db
 
 # Python Package Files
 *.whl
+dlib-20.0.99-cp313-cp313-win_amd64/
+dlib-20.0.99-cp313-cp313-win_amd64.whl
 
 # Generated PDFs / Output Files
 generated_firs/
+
+# Uploaded Evidence and Static Uploads
+static/uploads/
 
 # Temporary Files
 temp/
@@ -45,4 +51,5 @@ tmp/
 .coverage
 htmlcov/
 
-
+# Claude Code
+.claude/

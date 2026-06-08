@@ -1062,6 +1062,7 @@ def ask_law():
 # MongoDB connection
 
 fir_collection = db["fir_records"]
+evidence_collection = db["evidence_files"]
 
 # Folder to store generated PDFs
 PDF_FOLDER = "generated_firs"
@@ -1409,6 +1410,9 @@ def upload_evidence_file():
     if not fir_no or not file:
         return jsonify({"error": "Missing FIR or file"}), 400
 
+    if not fir_collection.find_one({"fir_no": fir_no}):
+        return jsonify({"error": "FIR number does not exist. Please enter a valid FIR."}), 400
+
     filename = secure_filename(file.filename)
 
     # create FIR-wise folder
@@ -1418,22 +1422,27 @@ def upload_evidence_file():
     file_path = os.path.join(fir_folder, filename)
     file.save(file_path)
 
+    # store metadata in MongoDB (skip if same FIR + filename already exists)
+    if not evidence_collection.find_one({"fir_no": fir_no, "filename": filename}):
+        evidence_collection.insert_one({
+            "fir_no": fir_no,
+            "filename": filename,
+            "filepath": file_path,
+            "file_type": file.mimetype or "application/octet-stream",
+            "file_size": os.path.getsize(file_path),
+            "uploaded_at": datetime.utcnow()
+        })
+
     return jsonify({
         "message": "File uploaded successfully",
         "file": filename,
         "fir_no": fir_no
     })
-#endpoint to list all evidence files for a FIRS
+#endpoint to list all evidence files for a FIR
 @app.route('/get-evidence/<fir_no>', methods=['GET'])
 def get_evidence(fir_no):
-    fir_folder = os.path.join(UPLOAD_FOLDER, fir_no)
-
-    if not os.path.exists(fir_folder):
-        return jsonify([])
-
-    files = os.listdir(fir_folder)
-
-    return jsonify(files)
+    docs = evidence_collection.find({"fir_no": fir_no}, {"_id": 0, "filename": 1})
+    return jsonify([doc["filename"] for doc in docs])
 #endpoint to serve evidence files
 @app.route('/evidence-file/<fir_no>/<filename>')
 def get_file(fir_no, filename):
@@ -1441,9 +1450,47 @@ def get_file(fir_no, filename):
         os.path.join(UPLOAD_FOLDER, fir_no),
         filename
     )
+
+@app.route('/get-all-evidence', methods=['GET'])
+def get_all_evidence():
+    """Return all evidence grouped by FIR number from MongoDB."""
+    result = {}
+    for doc in evidence_collection.find({}, {"_id": 0, "fir_no": 1, "filename": 1}):
+        fir_no = doc["fir_no"]
+        result.setdefault(fir_no, []).append(doc["filename"])
+    return jsonify(result)
+
+def seed_evidence_from_filesystem():
+    """Migrate existing on-disk evidence files into MongoDB (skips already-present records)."""
+    if not os.path.exists(UPLOAD_FOLDER):
+        return
+    seeded = 0
+    for fir_no in os.listdir(UPLOAD_FOLDER):
+        fir_folder = os.path.join(UPLOAD_FOLDER, fir_no)
+        if not os.path.isdir(fir_folder):
+            continue
+        for filename in os.listdir(fir_folder):
+            full_path = os.path.join(fir_folder, filename)
+            if not os.path.isfile(full_path):
+                continue
+            if evidence_collection.find_one({"fir_no": fir_no, "filename": filename}):
+                continue
+            evidence_collection.insert_one({
+                "fir_no": fir_no,
+                "filename": filename,
+                "filepath": full_path,
+                "file_type": "application/octet-stream",
+                "file_size": os.path.getsize(full_path),
+                "uploaded_at": datetime.utcnow()
+            })
+            seeded += 1
+    if seeded:
+        print(f"Evidence migration: seeded {seeded} file(s) into MongoDB.")
+
 if __name__ == '__main__':
     init_fir_table()
     init_user_table()
     init_evidence_table()
     init_complaints_table()
+    seed_evidence_from_filesystem()
     app.run(debug=True, port=5000)

@@ -996,8 +996,7 @@
 
 
                         <!-- FORM START -->
-                        <form action="/upload_evidence" method="POST" enctype="multipart/form-data"
-                            class="return handleEvidenceUpload(event)">
+                        <form onsubmit="return handleEvidenceUpload(event)" enctype="multipart/form-data">
 
 
                             <!-- FIR NUMBER -->
@@ -1061,7 +1060,8 @@
 
                             <div class="flex space-x-2">
 
-                                <input type="text" placeholder="Search by FIR..."
+                                <input type="text" id="evidenceSearch" placeholder="Search by FIR..."
+                                    oninput="filterEvidence(this.value)"
                                     class="px-3 py-1 border border-slate-200 rounded text-sm">
 
                                 <button class="p-2 bg-slate-100 rounded hover:bg-slate-200">
@@ -2432,6 +2432,7 @@
             if (result.success) {
                 document.getElementById("pinModal").classList.add("hidden");
                 showSection('evidence-locker');
+                loadAllEvidence();
             } else {
                 alert(result.message);
             }
@@ -2489,9 +2490,78 @@
             const fd = new FormData(e.target);
             fetch('/upload-evidence', { method: 'POST', body: fd })
                 .then(r => r.json())
-                .then(d => alert(d.message || d.error))
+                .then(d => {
+                    if (d.error) { alert(d.error); return; }
+                    alert(d.message || 'Uploaded successfully');
+                    e.target.reset();
+                    loadEvidence(fir);
+                })
                 .catch(() => alert('Upload failed'));
             return false;
+        }
+
+        let allEvidenceData = {};
+
+        async function loadAllEvidence() {
+            try {
+                const r = await fetch('/get-all-evidence');
+                allEvidenceData = await r.json();
+                renderEvidenceGrid(allEvidenceData);
+            } catch (err) {
+                console.error('Failed to load evidence:', err);
+            }
+        }
+
+        async function loadEvidence(fir_no) {
+            try {
+                const r = await fetch('/get-evidence/' + encodeURIComponent(fir_no));
+                const files = await r.json();
+                if (files.length > 0) {
+                    allEvidenceData[fir_no] = files;
+                }
+                renderEvidenceGrid(allEvidenceData);
+            } catch (err) {
+                console.error('Failed to load evidence for FIR:', err);
+            }
+        }
+
+        function filterEvidence(query) {
+            if (!query.trim()) { renderEvidenceGrid(allEvidenceData); return; }
+            const q = query.toLowerCase();
+            const filtered = {};
+            for (const [fir_no, files] of Object.entries(allEvidenceData)) {
+                if (fir_no.toLowerCase().includes(q)) filtered[fir_no] = files;
+            }
+            renderEvidenceGrid(filtered);
+        }
+
+        function renderEvidenceGrid(data) {
+            const grid = document.getElementById('evidenceGrid');
+            const empty = document.getElementById('evidenceEmptyState');
+            const entries = Object.entries(data);
+            if (entries.length === 0) {
+                grid.innerHTML = '';
+                empty.classList.remove('hidden');
+                return;
+            }
+            empty.classList.add('hidden');
+            grid.innerHTML = entries.map(([fir_no, files]) =>
+                files.map(filename => {
+                    const ext = filename.split('.').pop().toLowerCase();
+                    const isImage = ['jpg','jpeg','png','gif','webp'].includes(ext);
+                    const isPdf = ext === 'pdf';
+                    const icon = isImage ? 'image' : isPdf ? 'file-text' : 'file';
+                    const url = '/evidence-file/' + encodeURIComponent(fir_no) + '/' + encodeURIComponent(filename);
+                    return `<div class="bg-slate-50 rounded-lg p-3 flex flex-col items-center border border-slate-100">
+                                <i data-lucide="${icon}" class="w-10 h-10 text-blue-400 mb-2"></i>
+                                <p class="text-xs text-center text-slate-700 truncate w-full font-medium">${filename}</p>
+                                <p class="text-xs text-blue-500 mb-2">FIR: ${fir_no}</p>
+                                <a href="${url}" target="_blank"
+                                   class="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition">VIEW</a>
+                            </div>`;
+                }).join('')
+            ).join('');
+            if (typeof lucide !== 'undefined') lucide.createIcons();
         }
         // ─── Law Browser ───────────────────────────────────────────────
         let lbState = { act: '', page: 1, search: '', pages: 1 };

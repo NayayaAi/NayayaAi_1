@@ -645,11 +645,13 @@
                                 <th class="px-3 py-2">Complainant</th>
                                 <th class="px-3 py-2">Complaint</th>
                                 <th class="px-3 py-2">Status</th>
+                                <th class="px-3 py-2 text-center">View</th>
+                                <th class="px-3 py-2 text-center">Download</th>
                             </tr>
                         </thead>
                         <tbody id="firHistoryBody">
                             <tr>
-                                <td class="px-3 py-2" colspan="6">Loading FIR history...</td>
+                                <td class="px-3 py-2" colspan="8">Loading FIR history...</td>
                             </tr>
                         </tbody>
                     </table>
@@ -2144,14 +2146,14 @@
         async function loadFIRHistory() {
             firHistoryData = {};
             const historyBody = document.getElementById('firHistoryBody');
-            historyBody.innerHTML = '<tr><td class="px-3 py-2" colspan="6">Loading FIR history...</td></tr>';
+            historyBody.innerHTML = '<tr><td class="px-3 py-2" colspan="8">Loading FIR history...</td></tr>';
             try {
                 const response = await fetch('/api/fir-records');
                 if (!response.ok) throw new Error('Failed to load FIR history');
                 const firRecords = await response.json();
 
                 if (!firRecords.length) {
-                    historyBody.innerHTML = '<tr><td class="px-3 py-2" colspan="6">No FIR records found.</td></tr>';
+                    historyBody.innerHTML = '<tr><td class="px-3 py-2" colspan="8">No FIR records found.</td></tr>';
                     return;
                 }
 
@@ -2159,20 +2161,48 @@
                     firHistoryData[record.fir_no] = record;
                 });
 
-                historyBody.innerHTML = firRecords.map(record => `
-                    <tr class="border-t cursor-pointer hover:bg-blue-50" onclick="showFIRDetail('${escapeHtml(record.fir_no || '')}')">
-                        <td class="px-3 py-2">${escapeHtml(record.fir_no || '')}</td>
+                historyBody.innerHTML = firRecords.map(record => {
+                    const fno = escapeHtml(record.fir_no || '');
+                    return `
+                    <tr class="border-t hover:bg-slate-50">
+                        <td class="px-3 py-2">${fno}</td>
                         <td class="px-3 py-2">${escapeHtml(record.fir_date || '')}</td>
                         <td class="px-3 py-2">${escapeHtml(record.occurrence_time || '')}</td>
                         <td class="px-3 py-2">${escapeHtml(record.complainant_name || '')}</td>
-                        <td class="px-3 py-2">${escapeHtml(record.statement || '')}</td>
+                        <td class="px-3 py-2 max-w-xs truncate">${escapeHtml(record.statement || '')}</td>
                         <td class="px-3 py-2">${escapeHtml(record.status || '')}</td>
+                        <td class="px-3 py-2 text-center">
+                            <button onclick="viewFIR('${fno}')" title="View FIR"
+                                class="inline-flex items-center justify-center p-1.5 rounded hover:bg-blue-100 text-blue-600 transition"
+                                aria-label="View FIR ${fno}">
+                                <i data-lucide="eye" class="w-4 h-4"></i>
+                            </button>
+                        </td>
+                        <td class="px-3 py-2 text-center">
+                            <button onclick="downloadFIR('${fno}')" title="Download FIR"
+                                class="inline-flex items-center justify-center p-1.5 rounded hover:bg-green-100 text-green-600 transition"
+                                aria-label="Download FIR ${fno}">
+                                <i data-lucide="download" class="w-4 h-4"></i>
+                            </button>
+                        </td>
                     </tr>
-                `).join('');
+                    `;
+                }).join('');
+                lucide.createIcons();
             } catch (error) {
                 console.error('Failed to load FIR history:', error);
-                historyBody.innerHTML = '<tr><td class="px-3 py-2 text-red-600" colspan="6">Unable to load FIR history. Please refresh or try again later.</td></tr>';
+                historyBody.innerHTML = '<tr><td class="px-3 py-2 text-red-600" colspan="8">Unable to load FIR history. Please refresh or try again later.</td></tr>';
             }
+        }
+
+        function viewFIR(firNo) {
+            if (!firNo) return;
+            window.open('/fir/view/' + encodeURIComponent(firNo), '_blank', 'noopener,noreferrer');
+        }
+
+        function downloadFIR(firNo) {
+            if (!firNo) return;
+            window.location.href = '/fir/download/' + encodeURIComponent(firNo);
         }
 
         // Load sections for a given act
@@ -2707,33 +2737,6 @@
             }).join('');
 
             if (window.lucide) lucide.createIcons();
-        }
-        const grid = document.getElementById('evidenceGrid');
-        const empty = document.getElementById('evidenceEmptyState');
-        const entries = Object.entries(data);
-        if (entries.length === 0) {
-            grid.innerHTML = '';
-            empty.classList.remove('hidden');
-            return;
-        }
-        empty.classList.add('hidden');
-        grid.innerHTML = entries.map(([fir_no, files]) =>
-            files.map(filename => {
-                const ext = filename.split('.').pop().toLowerCase();
-                const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext);
-                const isPdf = ext === 'pdf';
-                const icon = isImage ? 'image' : isPdf ? 'file-text' : 'file';
-                const url = '/evidence-file/' + encodeURIComponent(fir_no) + '/' + encodeURIComponent(filename);
-                return `<div class="bg-slate-50 rounded-lg p-3 flex flex-col items-center border border-slate-100">
-                                <i data-lucide="${icon}" class="w-10 h-10 text-blue-400 mb-2"></i>
-                                <p class="text-xs text-center text-slate-700 truncate w-full font-medium">${filename}</p>
-                                <p class="text-xs text-blue-500 mb-2">FIR: ${fir_no}</p>
-                                <a href="${url}" target="_blank"
-                                   class="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition">VIEW</a>
-                            </div>`;
-            }).join('')
-        ).join('');
-        if (typeof lucide !== 'undefined') lucide.createIcons();
         }
         // ─── Law Browser ───────────────────────────────────────────────
         let lbState = { act: '', page: 1, search: '', pages: 1 };

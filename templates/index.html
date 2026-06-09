@@ -1451,6 +1451,72 @@
         </div>
     </div>
 
+    <!-- FIR Success Modal -->
+    <div id="firSuccessModal"
+        class="fixed inset-0 hidden z-50 bg-black/40 backdrop-blur-sm items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+
+            <!-- Header -->
+            <div class="flex items-start justify-between px-6 py-5 border-b border-slate-100">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center shrink-0">
+                        <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-bold text-slate-900">FIR Created Successfully</h3>
+                        <p class="text-sm text-green-600 font-medium mt-0.5">Saved to police records</p>
+                    </div>
+                </div>
+                <button onclick="closeFirSuccessModal()"
+                    class="text-slate-400 hover:text-red-500 text-2xl font-bold leading-none mt-1">×</button>
+            </div>
+
+            <!-- FIR Info Card -->
+            <div class="px-6 py-5">
+                <div class="bg-blue-50 border border-blue-100 rounded-xl p-4 space-y-2 text-sm">
+                    <div class="text-xs font-semibold text-blue-500 uppercase tracking-wide mb-1">First Information Report</div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-500">FIR Number</span>
+                        <span id="successFirNo" class="font-bold text-blue-800 font-mono"></span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-500">Complainant</span>
+                        <span id="successComplainant" class="font-semibold text-slate-800"></span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-500">Date</span>
+                        <span id="successDate" class="text-slate-700"></span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-500">Time</span>
+                        <span id="successTime" class="text-slate-700"></span>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="flex gap-3 mt-5">
+                    <button onclick="viewFirDocument()"
+                        class="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-sm transition flex items-center justify-center gap-2">
+                        <i data-lucide="eye" class="w-4 h-4"></i> View FIR
+                    </button>
+                    <button onclick="downloadFirDocument()"
+                        class="flex-1 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-xl font-semibold text-sm transition flex items-center justify-center gap-2">
+                        <i data-lucide="download" class="w-4 h-4"></i> Download FIR
+                    </button>
+                    <button onclick="closeFirSuccessModal()"
+                        class="px-4 py-2.5 border-2 border-slate-200 hover:bg-slate-50 text-slate-600 rounded-xl font-semibold text-sm transition">
+                        Close
+                    </button>
+                </div>
+
+                <!-- Error message area -->
+                <div id="firActionError" class="hidden mt-3 text-center text-sm text-red-600 bg-red-50 rounded-lg py-2 px-3"></div>
+            </div>
+        </div>
+    </div>
+
     <script>
 
         lucide.createIcons();
@@ -2236,63 +2302,7 @@
                 }
 
                 const data = await response.json();
-                preview.classList.remove('hidden');
-                window.scrollTo({ top: preview.offsetTop - 100, behavior: 'smooth' });
-
-                content.innerHTML = `
-                    <div class="text-center mb-8 border-b pb-6">
-                        <h1 class="text-2xl font-bold text-blue-900">FORM IF-1</h1>
-                        <p class="text-sm text-slate-600">First Information Report</p>
-                        <p class="text-xs text-green-600 mt-1">FIR Sheet saved as record #${data.fir_id}. Police records updated.</p>
-                    </div>
-                    <div class="text-sm space-y-2 px-4">
-                        <div><strong>1. District:</strong> ${data.dist}</div>
-                        <div><strong>P.S.:</strong> ${data.ps}</div>
-                        <div><strong>Year:</strong> ${data.year}</div>
-                        <div><strong>F.I.R. No.:</strong> ${data.fir_no}</div>
-                        <div><strong>Date:</strong> ${data.fir_date}</div>
-
-                        <div class="mt-4"><strong>2. (i) Act & Sections:</strong></div>
-                        <div class="ml-4">${data.act_sections || 'To be determined'}</div>
-
-                        <div class="mt-4"><strong>3. (a) Occurrence of Offence:</strong></div>
-                        <div class="ml-4">Day ${data.occurrence_day}, Date ${data.occurrence_date}, Time ${data.occurrence_time}</div>
-                        <div class="mt-2"><strong>(b) Information Received:</strong></div>
-                        <div class="ml-4">Date: ${data.info_received_date}, Time: ${data.info_received_time}</div>
-                        <div class="mt-2"><strong>(c) General Diary Reference:</strong></div>
-                        <div class="ml-4">Entry No. ${data.gdr_entry_no}</div>
-
-                        <div class="mt-4"><strong>4. Type of Information:</strong> ${data.type_of_information}</div>
-                        <div class="mt-2"><strong>5. Place of Occurrence:</strong> ${data.place_of_occurrence}</div>
-
-                        <div class="mt-4"><strong>6. Complainant/Informant:</strong></div>
-                        <div class="ml-4 space-y-1">
-                            <div>(a) Name: ${data.complainant_name}</div>
-                            <div>(b) Father's/Husband's Name: ${data.father_husband_name}</div>
-                            <div>(c) DOB: ${data.dob}</div>
-                            <div>(d) Nationality: ${data.nationality}</div>
-                            <div>(e) Passport: ${data.passport_no}</div>
-                            <div>(f) Occupation: ${data.occupation}</div>
-                            <div>(g) Address: ${data.address}</div>
-                        </div>
-
-                        <div class="mt-4"><strong>7. Accused Details:</strong></div>
-                        <div class="ml-4">${data.details_of_accused}</div>
-
-                        <div class="mt-4"><strong>8. Reasons for Delay:</strong></div>
-                        <div class="ml-4">${data.reasons_for_delay}</div>
-
-                        <div class="mt-4"><strong>9. Property Particulars:</strong></div>
-                        <div class="ml-4">${data.property_particulars}</div>
-
-                        <div class="border-t pt-4 mt-6">
-                            <p class="font-bold mb-2">Detailed Narrative:</p>
-                            <p class="text-slate-700 italic whitespace-pre-wrap">"${data.statement}"</p>
-                        </div>
-
-                        <p class="mt-8 text-xs text-red-500 font-bold">Disclaimer: This is a system-generated draft. Must be verified by authorized personnel.</p>
-                    </div>
-                `;
+                showFirSuccessModal(data);
             } catch (error) {
                 console.error('FIR generation failed:', error);
                 alert("Error: " + error.message);
@@ -2371,6 +2381,76 @@
         //                alert('Language settings saved successfully.');
         //            });
         //        }
+
+        // ── FIR Success Modal ────────────────────────────────────────────
+        let _successFirNo = null;
+
+        function showFirSuccessModal(data) {
+            _successFirNo = data.fir_no || null;
+            document.getElementById('successFirNo').textContent = data.fir_no || '—';
+            document.getElementById('successComplainant').textContent = data.complainant_name || '—';
+            document.getElementById('successDate').textContent = data.fir_date || '—';
+            try {
+                const t = new Date(data.created_at);
+                document.getElementById('successTime').textContent =
+                    isNaN(t) ? (data.created_at || '—') : t.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+            } catch (_) {
+                document.getElementById('successTime').textContent = data.created_at || '—';
+            }
+            const errEl = document.getElementById('firActionError');
+            if (!data.fir_no) {
+                errEl.textContent = 'Unable to retrieve FIR number.';
+                errEl.classList.remove('hidden');
+            } else {
+                errEl.classList.add('hidden');
+            }
+            const modal = document.getElementById('firSuccessModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function closeFirSuccessModal() {
+            const modal = document.getElementById('firSuccessModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            _successFirNo = null;
+        }
+
+        function viewFirDocument() {
+            const errEl = document.getElementById('firActionError');
+            if (!_successFirNo) {
+                errEl.textContent = 'Unable to open FIR document.';
+                errEl.classList.remove('hidden');
+                return;
+            }
+            try {
+                window.open('/fir/view/' + encodeURIComponent(_successFirNo), '_blank');
+            } catch (_) {
+                errEl.textContent = 'Unable to open FIR document.';
+                errEl.classList.remove('hidden');
+            }
+        }
+
+        function downloadFirDocument() {
+            const errEl = document.getElementById('firActionError');
+            if (!_successFirNo) {
+                errEl.textContent = 'Unable to download FIR. Please try again.';
+                errEl.classList.remove('hidden');
+                return;
+            }
+            try {
+                window.location.href = '/fir/download/' + encodeURIComponent(_successFirNo);
+            } catch (_) {
+                errEl.textContent = 'Unable to download FIR. Please try again.';
+                errEl.classList.remove('hidden');
+            }
+        }
+
+        document.getElementById('firSuccessModal').addEventListener('click', function(e) {
+            if (e.target === this) closeFirSuccessModal();
+        });
+        // ── End FIR Success Modal ─────────────────────────────────────────
 
         document.addEventListener('DOMContentLoaded', async () => {
             const userRole = '{{ session.get("role", "") }}';  // Flask template tag

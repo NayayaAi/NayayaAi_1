@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template, redirect, url_for, flash, session
+from flask import Flask, request, jsonify, render_template, render_template_string, redirect, url_for, flash, session
 import sqlite3
 import os
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -1459,6 +1459,84 @@ def get_all_evidence():
         fir_no = doc["fir_no"]
         result.setdefault(fir_no, []).append(doc["filename"])
     return jsonify(result)
+
+@app.route('/fir/view/<fir_no>', methods=['GET'])
+def view_fir(fir_no):
+    """Render a FIR as a readable HTML page (opens in new tab)."""
+    fir = fir_collection.find_one({"fir_no": fir_no}, {"_id": 0})
+    if not fir:
+        return f"<h2>FIR {fir_no} not found.</h2>", 404
+    created_at = str(fir.get("created_at", ""))
+    return render_template_string("""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>FIR {{ fir.fir_no }} — NyayaAI</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; color: #1e293b; }
+    h1 { color: #1e3a8a; border-bottom: 2px solid #2563eb; padding-bottom: 8px; }
+    .fir-badge { display: inline-block; background: #dbeafe; color: #1e40af; padding: 4px 12px; border-radius: 999px; font-weight: bold; font-size: 1.1em; margin-bottom: 16px; }
+    .section { margin: 12px 0; }
+    .label { font-weight: bold; color: #475569; }
+    .value { margin-left: 8px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .narrative { background: #f8fafc; border-left: 4px solid #2563eb; padding: 12px 16px; font-style: italic; white-space: pre-wrap; margin-top: 6px; }
+    .disclaimer { color: #ef4444; font-size: 0.75em; margin-top: 32px; }
+    @media print { button { display: none; } }
+  </style>
+</head>
+<body>
+  <h1>FORM IF-1 — First Information Report</h1>
+  <div class="fir-badge">{{ fir.fir_no }}</div>
+  <button onclick="window.print()" style="float:right;padding:6px 16px;background:#2563eb;color:white;border:none;border-radius:6px;cursor:pointer;">Print</button>
+  <div class="grid">
+    <div class="section"><span class="label">District:</span><span class="value">{{ fir.dist }}</span></div>
+    <div class="section"><span class="label">Police Station:</span><span class="value">{{ fir.ps }}</span></div>
+    <div class="section"><span class="label">Year:</span><span class="value">{{ fir.year }}</span></div>
+    <div class="section"><span class="label">FIR Date:</span><span class="value">{{ fir.fir_date }}</span></div>
+    <div class="section"><span class="label">Act/Sections:</span><span class="value">{{ fir.act_sections }}</span></div>
+    <div class="section"><span class="label">Occurrence:</span><span class="value">{{ fir.occurrence_day }}, {{ fir.occurrence_date }}, {{ fir.occurrence_time }}</span></div>
+    <div class="section"><span class="label">Info Received:</span><span class="value">{{ fir.info_received_date }} {{ fir.info_received_time }}</span></div>
+    <div class="section"><span class="label">GDR Entry:</span><span class="value">{{ fir.gdr_entry_no }}</span></div>
+    <div class="section"><span class="label">Type of Info:</span><span class="value">{{ fir.type_of_information }}</span></div>
+    <div class="section"><span class="label">Place of Occurrence:</span><span class="value">{{ fir.place_of_occurrence }}</span></div>
+  </div>
+  <div class="section"><span class="label">Complainant:</span><span class="value">{{ fir.complainant_name }}</span></div>
+  <div class="section"><span class="label">Father/Husband:</span><span class="value">{{ fir.father_husband_name }}</span></div>
+  <div class="grid">
+    <div class="section"><span class="label">DOB:</span><span class="value">{{ fir.dob }}</span></div>
+    <div class="section"><span class="label">Nationality:</span><span class="value">{{ fir.nationality }}</span></div>
+    <div class="section"><span class="label">Occupation:</span><span class="value">{{ fir.occupation }}</span></div>
+    <div class="section"><span class="label">Address:</span><span class="value">{{ fir.address }}</span></div>
+  </div>
+  <div class="section"><span class="label">Accused Details:</span><span class="value">{{ fir.details_of_accused }}</span></div>
+  <div class="section"><span class="label">Reasons for Delay:</span><span class="value">{{ fir.reasons_for_delay }}</span></div>
+  <div class="section"><span class="label">Property Particulars:</span><span class="value">{{ fir.property_particulars }}</span></div>
+  <div class="section"><span class="label">Narrative:</span>
+    <div class="narrative">{{ fir.statement }}</div>
+  </div>
+  <div class="section"><span class="label">Status:</span><span class="value">{{ fir.status }}</span></div>
+  <div class="section"><span class="label">Created At:</span><span class="value">{{ created_at }}</span></div>
+  <p class="disclaimer">Disclaimer: This is a system-generated draft. Must be verified by authorized personnel.</p>
+</body>
+</html>""", fir=fir, created_at=created_at)
+
+
+@app.route('/fir/download/<fir_no>', methods=['GET'])
+def download_fir(fir_no):
+    """Download the generated PDF for a FIR."""
+    safe_name = secure_filename(fir_no)
+    pdf_filename = f"FIR_{safe_name}.pdf"
+    pdf_path = os.path.join(PDF_FOLDER, pdf_filename)
+    if not os.path.exists(pdf_path):
+        return jsonify({"error": f"PDF for FIR {fir_no} not found"}), 404
+    return send_from_directory(
+        PDF_FOLDER,
+        pdf_filename,
+        as_attachment=True,
+        download_name=f"{fir_no}.pdf"
+    )
+
 
 def seed_evidence_from_filesystem():
     """Migrate existing on-disk evidence files into MongoDB (skips already-present records)."""

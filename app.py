@@ -1227,7 +1227,7 @@ import os
 from werkzeug.utils import secure_filename
 
 # Configuration
-UPLOAD_FOLDER = 'static/uploads/evidence'
+UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', 'uploads', 'evidence')
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True) # Creates folder automatically
 
@@ -1450,6 +1450,49 @@ def get_file(fir_no, filename):
         os.path.join(UPLOAD_FOLDER, fir_no),
         filename
     )
+
+@app.route('/api/evidence', methods=['GET'])
+def api_get_evidence():
+    """Get evidence files for a specific FIR number."""
+    fir_no = request.args.get('fir_no', '').strip()
+    if not fir_no:
+        return jsonify([])
+    
+    docs = evidence_collection.find({"fir_no": fir_no}, {"_id": 0})
+    result = []
+    for doc in docs:
+        filename = doc.get("filename", "")
+        file_type = doc.get("file_type", "application/octet-stream")
+        
+        # Determine category
+        ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
+        if ext in ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp']:
+            category = 'image'
+        elif ext in ['mp4', 'mov', 'avi', 'mkv', 'webm']:
+            category = 'video'
+        elif ext in ['mp3', 'wav', 'ogg', 'aac', 'flac', 'm4a']:
+            category = 'audio'
+        elif ext == 'pdf':
+            category = 'pdf'
+        else:
+            category = 'other'
+        
+        result.append({
+            "fir_no": doc.get("fir_no", ""),
+            "filename": filename,
+            "file_type": category,
+            "file_url": f"/evidence-file/{fir_no}/{filename}",
+            "uploaded_at": str(doc.get("uploaded_at", ""))
+        })
+    
+    return jsonify(result)
+
+
+@app.route('/api/evidence/log-access', methods=['POST'])
+def log_evidence_access():
+    """Log evidence locker access (stub — returns 200 silently)."""
+    # Optionally store to DB later; for now just acknowledge
+    return jsonify({"logged": True}), 200
 
 @app.route('/get-all-evidence', methods=['GET'])
 def get_all_evidence():

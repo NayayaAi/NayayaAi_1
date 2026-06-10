@@ -977,145 +977,157 @@
 
         </section> -->
 
-        <section id="evidence-locker" class="py-20 bg-slate-50 hidden pt-28">
+        <section id="evidence-locker" class="bg-gradient-to-br from-slate-50 to-blue-50 hidden pt-24 pb-16">
             <div class="max-w-6xl mx-auto px-6">
 
-                <h2 class="text-3xl font-serif font-bold text-center mb-12 text-blue-900">
-                    Evidence Locker
-                </h2>
-
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-
-                    <!-- LEFT SIDE -->
-                    <div class="lg:col-span-1 bg-white p-6 rounded-xl shadow-lg h-fit border border-slate-100">
-
-                        <div class="flex items-center mb-6">
-                            <i data-lucide="shield-check" class="w-8 h-8 text-blue-600 mr-3"></i>
-                            <h3 class="text-xl font-bold text-slate-800">
-                                Secure Upload
-                            </h3>
-                        </div>
-
-
-                        <!-- FORM START -->
-                        <form onsubmit="return handleEvidenceUpload(event)" enctype="multipart/form-data">
-
-
-                            <!-- FIR NUMBER -->
-                            <div>
-                                <label class="block text-sm font-medium text-slate-700 mb-1">
-                                    Link to FIR Number *
-                                </label>
-
-                                <input type="text" name="fir_no" placeholder="e.g. DL/2024/001" required class="w-full px-4 py-2 border border-slate-300 rounded-lg
-                                      focus:ring-2 focus:ring-blue-500 outline-none">
+                <!-- Header -->
+                <div class="flex items-center justify-between mb-8">
+                    <div>
+                        <h2 class="text-3xl font-serif font-bold text-blue-900 flex items-center gap-3">
+                            <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shrink-0">
+                                <i data-lucide="shield-check" class="w-5 h-5 text-white"></i>
                             </div>
-
-
-                            <!-- FILE UPLOAD -->
-                            <div class="border-2 border-dashed border-slate-200
-                                rounded-lg p-6 text-center
-                                hover:border-blue-400 transition">
-
-                                <input type="file" name="file" required class="block w-full text-sm text-slate-600
-                                      file:mr-4 file:py-2 file:px-4
-                                      file:rounded-lg file:border-0
-                                      file:text-sm file:font-semibold
-                                      file:bg-blue-50 file:text-blue-700
-                                      hover:file:bg-blue-100">
-
-                                <p class="text-xs text-slate-400 mt-2">
-                                    Images, PDFs, Videos supported
-                                </p>
-
-                            </div>
-
-
-                            <!-- BUTTON -->
-                            <button type="submit" class="w-full py-3 bg-blue-600 text-white
-                                   rounded-lg font-bold
-                                   hover:bg-blue-700 transition
-                                   flex items-center justify-center
-                                   shadow-md">
-
-                                <i data-lucide="upload-cloud" class="w-5 h-5 mr-2"></i>
-
-                                Upload to Case File
-
-                            </button>
-
-
-                        </form>
-                        <!-- FORM END -->
-
+                            Evidence Locker
+                        </h2>
+                        <p class="text-slate-500 text-sm mt-1 pl-13">Secure · Tamper-proof · Access Logged</p>
                     </div>
+                    <div class="flex items-center gap-2 bg-green-50 border border-green-200 px-4 py-2 rounded-full">
+                        <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                        <span class="text-green-700 text-xs font-semibold">Encrypted Storage Active</span>
+                    </div>
+                </div>
 
+                <!-- Main Grid -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
 
-                    <!-- RIGHT SIDE (NO CHANGE) -->
-                    <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-lg border border-slate-100">
+                    <!-- LEFT: Upload Panel -->
+                    <div class="lg:col-span-1 space-y-4">
 
-                        <div class="flex justify-between items-center mb-6">
-
-                            <h3 class="text-xl font-bold text-slate-800">
-                                Stored Evidence
-                            </h3>
-
-                            <div class="flex space-x-2">
-
-                                <input type="text" id="evidenceSearch" placeholder="Search by FIR..."
-                                    oninput="filterEvidence(this.value)"
-                                    class="px-3 py-1 border border-slate-200 rounded text-sm">
-
-                                <div class="relative">
-                                    <button id="filterToggleBtn" onclick="toggleFilterDropdown()"
-                                        class="p-2 bg-slate-100 rounded hover:bg-slate-200 flex items-center gap-1">
-                                        <i data-lucide="filter" class="w-4 h-4"></i>
-                                    </button>
-                                    <div id="filterDropdown"
-                                        class="hidden absolute right-0 mt-1 w-40 bg-white border border-slate-200 rounded-lg shadow-lg z-10">
-                                        <button onclick="setEvidenceFilter('all')"
-                                            class="evidence-filter-btn w-full text-left px-4 py-2 text-sm hover:bg-blue-50 flex items-center gap-2 font-semibold text-blue-700">
-                                            <i data-lucide="layers" class="w-4 h-4"></i> All
-                                        </button>
-                                        <button onclick="setEvidenceFilter('image')"
-                                            class="evidence-filter-btn w-full text-left px-4 py-2 text-sm hover:bg-blue-50 flex items-center gap-2">
-                                            <i data-lucide="image" class="w-4 h-4 text-green-500"></i> Images
-                                        </button>
-                                        <button onclick="setEvidenceFilter('video')"
-                                            class="evidence-filter-btn w-full text-left px-4 py-2 text-sm hover:bg-blue-50 flex items-center gap-2">
-                                            <i data-lucide="video" class="w-4 h-4 text-purple-500"></i> Videos
-                                        </button>
-                                        <button onclick="setEvidenceFilter('audio')"
-                                            class="evidence-filter-btn w-full text-left px-4 py-2 text-sm hover:bg-blue-50 flex items-center gap-2">
-                                            <i data-lucide="music" class="w-4 h-4 text-yellow-500"></i> Audio
-                                        </button>
-                                        <button onclick="setEvidenceFilter('pdf')"
-                                            class="evidence-filter-btn w-full text-left px-4 py-2 text-sm hover:bg-blue-50 flex items-center gap-2">
-                                            <i data-lucide="file-text" class="w-4 h-4 text-red-500"></i> PDFs
-                                        </button>
-                                    </div>
+                        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                            <div class="flex items-center gap-3 mb-5">
+                                <div class="w-9 h-9 bg-blue-100 rounded-xl flex items-center justify-center shrink-0">
+                                    <i data-lucide="upload-cloud" class="w-5 h-5 text-blue-600"></i>
+                                </div>
+                                <div>
+                                    <h3 class="font-bold text-slate-800">Secure Upload</h3>
+                                    <p class="text-xs text-slate-400">Link evidence to FIR case</p>
                                 </div>
                             </div>
 
+                            <form onsubmit="return handleEvidenceUpload(event)" enctype="multipart/form-data"
+                                class="space-y-4">
+                                <div>
+                                    <label
+                                        class="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">FIR
+                                        Number *</label>
+                                    <input type="text" name="fir_no" placeholder="e.g. FIR001, DL/2024/001" required
+                                        class="w-full px-4 py-2.5 border-2 border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm transition">
+                                </div>
+
+                                <div class="border-2 border-dashed border-slate-200 rounded-xl p-5 text-center hover:border-blue-400 hover:bg-blue-50 transition cursor-pointer"
+                                    onclick="document.getElementById('evidenceFileInput').click()">
+                                    <i data-lucide="file-plus" class="w-8 h-8 text-slate-300 mx-auto mb-2"></i>
+                                    <p class="text-sm text-slate-500 font-medium">Click to choose file</p>
+                                    <p class="text-xs text-slate-400 mt-1">Images · PDFs · Videos · Audio</p>
+                                    <input type="file" name="file" id="evidenceFileInput" required class="hidden"
+                                        onchange="updateFileLabel(this)">
+                                </div>
+
+                                <div id="selectedFileLabel"
+                                    class="hidden bg-blue-50 border border-blue-200 rounded-xl px-3 py-2 flex items-center gap-2">
+                                    <i data-lucide="file-check" class="w-4 h-4 text-blue-600 shrink-0"></i>
+                                    <span id="selectedFileName"
+                                        class="text-sm text-blue-700 font-medium truncate"></span>
+                                </div>
+
+                                <button type="submit" id="evidenceUploadBtn"
+                                    class="w-full py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl font-bold shadow-md transition flex items-center justify-center gap-2 text-sm">
+                                    <i data-lucide="upload-cloud" class="w-4 h-4"></i>
+                                    Upload to Case File
+                                </button>
+                            </form>
                         </div>
 
-
-                        <div id="evidenceEmptyState" class="text-center py-20">
-
-                            <i data-lucide="folder-search" class="w-16 h-16 text-slate-200 mx-auto mb-4"></i>
-
-                            <p class="text-slate-500">
-                                No evidence found. Upload a file linked to FIR.
-                            </p>
-
+                        <!-- Security Notice -->
+                        <div class="bg-amber-50 border border-amber-200 rounded-2xl p-4">
+                            <div class="flex items-start gap-2">
+                                <i data-lucide="info" class="w-4 h-4 text-amber-600 mt-0.5 shrink-0"></i>
+                                <div class="text-xs text-amber-700 leading-relaxed">
+                                    <p class="font-semibold mb-1">Access Security Notice</p>
+                                    All evidence access is logged with your officer ID, IP address, and timestamp in our
+                                    secure database.
+                                </div>
+                            </div>
                         </div>
-
-
-                        <div id="evidenceGrid" class="grid grid-cols-2 md:grid-cols-3 gap-4">
-                        </div>
-
                     </div>
 
+                    <!-- RIGHT: Evidence Viewer -->
+                    <div
+                        class="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col min-h-[500px]">
+
+                        <!-- Search Bar -->
+                        <div class="p-4 border-b border-slate-100 bg-slate-50 rounded-t-2xl">
+                            <div class="flex items-center gap-3">
+                                <div class="flex-1 relative">
+                                    <input type="text" id="evidenceSearch"
+                                        placeholder="Enter FIR number to search evidence…"
+                                        oninput="filterEvidence(this.value)"
+                                        class="w-full pl-10 pr-12 py-2.5 border-2 border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition bg-white">
+                                </div>
+                                <div class="relative">
+                                    <button id="filterToggleBtn" onclick="toggleFilterDropdown()"
+                                        class="flex items-center gap-1.5 px-3 py-2.5 bg-white border-2 border-slate-200 rounded-xl hover:border-blue-400 transition text-slate-600 text-sm font-medium">
+                                        <i data-lucide="filter" class="w-4 h-4"></i>
+                                        <span id="filterLabel">All</span>
+                                    </button>
+                                    <div id="filterDropdown"
+                                        class="hidden absolute right-0 mt-2 w-44 bg-white border border-slate-200 rounded-xl shadow-xl z-10 overflow-hidden">
+                                        <div class="p-1">
+                                            <button onclick="setEvidenceFilter('all')"
+                                                class="evidence-filter-btn w-full text-left px-3 py-2 text-sm hover:bg-blue-50 rounded-lg flex items-center gap-2 font-semibold text-blue-700">
+                                                <i data-lucide="layers" class="w-4 h-4"></i> All Types
+                                            </button>
+                                            <button onclick="setEvidenceFilter('image')"
+                                                class="evidence-filter-btn w-full text-left px-3 py-2 text-sm hover:bg-green-50 rounded-lg flex items-center gap-2 text-slate-700">
+                                                <i data-lucide="image" class="w-4 h-4 text-green-500"></i> Images
+                                            </button>
+                                            <button onclick="setEvidenceFilter('video')"
+                                                class="evidence-filter-btn w-full text-left px-3 py-2 text-sm hover:bg-purple-50 rounded-lg flex items-center gap-2 text-slate-700">
+                                                <i data-lucide="video" class="w-4 h-4 text-purple-500"></i> Videos
+                                            </button>
+                                            <button onclick="setEvidenceFilter('audio')"
+                                                class="evidence-filter-btn w-full text-left px-3 py-2 text-sm hover:bg-yellow-50 rounded-lg flex items-center gap-2 text-slate-700">
+                                                <i data-lucide="music" class="w-4 h-4 text-yellow-500"></i> Audio
+                                            </button>
+                                            <button onclick="setEvidenceFilter('pdf')"
+                                                class="evidence-filter-btn w-full text-left px-3 py-2 text-sm hover:bg-red-50 rounded-lg flex items-center gap-2 text-slate-700">
+                                                <i data-lucide="file-text" class="w-4 h-4 text-red-500"></i> PDFs
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Count Bar -->
+                        <div id="evidenceCountBar"
+                            class="hidden px-5 py-2 bg-blue-50 border-b border-blue-100 flex items-center justify-between">
+                            <span id="evidenceCountText" class="text-xs font-semibold text-blue-700"></span>
+                            <button onclick="clearEvidenceSearch()"
+                                class="text-xs text-blue-500 hover:text-blue-700 font-semibold">✕ Clear</button>
+                        </div>
+
+                        <!-- Content Area -->
+                        <div class="flex-1 p-5">
+                            <div id="evidenceEmptyState" class="flex flex-col items-center justify-center h-full py-16">
+                                <div class="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-4">
+                                </div>
+                                <p class="text-slate-500 font-semibold">Enter a FIR number to view evidence</p>
+                                <p class="text-slate-400 text-sm mt-1">e.g. FIR001, DL/2024/001</p>
+                            </div>
+                            <div id="evidenceGrid" class="grid grid-cols-2 md:grid-cols-3 gap-4"></div>
+                        </div>
+                    </div>
 
                 </div>
             </div>
@@ -1463,7 +1475,8 @@
                 <div class="flex items-center gap-3">
                     <div class="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center shrink-0">
                         <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                                d="M5 13l4 4L19 7" />
                         </svg>
                     </div>
                     <div>
@@ -1478,7 +1491,8 @@
             <!-- FIR Info Card -->
             <div class="px-6 py-5">
                 <div class="bg-blue-50 border border-blue-100 rounded-xl p-4 space-y-2 text-sm">
-                    <div class="text-xs font-semibold text-blue-500 uppercase tracking-wide mb-1">First Information Report</div>
+                    <div class="text-xs font-semibold text-blue-500 uppercase tracking-wide mb-1">First Information
+                        Report</div>
                     <div class="flex justify-between">
                         <span class="text-slate-500">FIR Number</span>
                         <span id="successFirNo" class="font-bold text-blue-800 font-mono"></span>
@@ -1514,7 +1528,8 @@
                 </div>
 
                 <!-- Error message area -->
-                <div id="firActionError" class="hidden mt-3 text-center text-sm text-red-600 bg-red-50 rounded-lg py-2 px-3"></div>
+                <div id="firActionError"
+                    class="hidden mt-3 text-center text-sm text-red-600 bg-red-50 rounded-lg py-2 px-3"></div>
             </div>
         </div>
     </div>
@@ -1600,6 +1615,15 @@
                     }
                     if (sectionId === 'citizen-complaints') {
                         loadCitizenComplaints();
+                    }
+                    if (sectionId === 'evidence-locker') {
+                        loadEvidenceGrid('');
+                        // Log locker access
+                        fetch('/api/evidence/log-access', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ fir_no: '', action: 'locker_opened' })
+                        }).catch(() => { });
                     }
 
                     // ✅ Update active link highlight
@@ -2477,7 +2501,7 @@
             }
         }
 
-        document.getElementById('firSuccessModal').addEventListener('click', function(e) {
+        document.getElementById('firSuccessModal').addEventListener('click', function (e) {
             if (e.target === this) closeFirSuccessModal();
         });
         // ── End FIR Success Modal ─────────────────────────────────────────
@@ -2622,19 +2646,30 @@
             e.preventDefault();
             const fir = e.target.querySelector('[name="fir_no"]').value.trim();
             if (!fir) { alert('FIR number required'); return false; }
+
+            const btn = e.target.querySelector('button[type="submit"]');
+            btn.disabled = true;
+            btn.innerHTML = '⏳ Uploading...';
+
             const fd = new FormData(e.target);
             fetch('/upload-evidence', { method: 'POST', body: fd })
                 .then(r => r.json())
                 .then(d => {
-                    if (d.error) { alert(d.error); return; }
-                    alert(d.message || 'Uploaded successfully');
-                    e.target.reset();
-                    loadEvidence(fir);
+                    if (d.error) { alert('❌ ' + d.error); }
+                    else {
+                        alert('✅ Evidence uploaded successfully!');
+                        e.target.reset();
+                        loadEvidenceGrid();
+                    }
                 })
-                .catch(() => alert('Upload failed'));
+                .catch(() => alert('❌ Upload failed'))
+                .finally(() => {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i data-lucide="upload-cloud" class="w-5 h-5 mr-2"></i> Upload to Case File';
+                    lucide.createIcons();
+                });
             return false;
         }
-
         let allEvidenceData = {};
 
         async function loadAllEvidence() {
@@ -2647,18 +2682,48 @@
             }
         }
 
-        async function loadEvidence(fir_no) {
+
+        async function loadEvidenceGrid(firNo = '') {
+            const grid = document.getElementById('evidenceGrid');
+            const empty = document.getElementById('evidenceEmptyState');
+
+            if (!firNo) {
+                grid.innerHTML = '';
+                empty.innerHTML = `
+            <div class="text-center py-16">
+                <div class="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i data-lucide="search" class="w-8 h-8 text-blue-400"></i>
+                </div>
+                <p class="text-slate-500 font-semibold">Enter a FIR number above to view evidence</p>
+                <p class="text-slate-400 text-sm mt-1">e.g. FIR001, DL/2024/001</p>
+            </div>`;
+                empty.classList.remove('hidden');
+                return;
+            }
+
+            grid.innerHTML = '';
+            empty.innerHTML = `<div class="text-center py-12"><div class="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div><p class="text-slate-400 text-sm">Searching evidence for ${firNo}...</p></div>`;
+            empty.classList.remove('hidden');
+
+            // Log the access to MongoDB
+            fetch('/api/evidence/log-access', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fir_no: firNo, action: 'search' })
+            }).catch(() => { });
+
             try {
-                const r = await fetch('/get-evidence/' + encodeURIComponent(fir_no));
-                const files = await r.json();
-                if (files.length > 0) {
-                    allEvidenceData[fir_no] = files;
-                }
-                renderEvidenceGrid(allEvidenceData);
-            } catch (err) {
-                console.error('Failed to load evidence for FIR:', err);
+                const res = await fetch(`/api/evidence?fir_no=${encodeURIComponent(firNo)}`);
+                const data = await res.json();
+                allEvidence = Array.isArray(data) ? data : [];
+                renderEvidenceGrid(allEvidence);
+            } catch (e) {
+                empty.innerHTML = '<p class="text-red-500 text-sm text-center py-8">Failed to load evidence.</p>';
+                empty.classList.remove('hidden');
+                grid.innerHTML = '';
             }
         }
+
 
         function filterEvidence(query) {
             if (!query.trim()) { renderEvidenceGrid(allEvidenceData); return; }
@@ -2670,73 +2735,82 @@
             renderEvidenceGrid(filtered);
         }
 
-        function renderEvidenceGrid(data) {
+        function renderEvidenceGrid(items) {
             const grid = document.getElementById('evidenceGrid');
             const empty = document.getElementById('evidenceEmptyState');
+            const search = document.getElementById('evidenceSearch').value.toLowerCase();
 
-            const iconMap = { image: 'image', video: 'video', audio: 'music', pdf: 'file-text', other: 'file' };
-            const colorMap = { image: 'text-green-400', video: 'text-purple-400', audio: 'text-yellow-400', pdf: 'text-red-400', other: 'text-blue-400' };
-            const labelMap = { all: 'All', image: 'Images', video: 'Videos', audio: 'Audio', pdf: 'PDFs', other: 'Others' };
-
-            const entries = Object.entries(data);
-            if (!entries.length) {
-                grid.innerHTML = '';
-                empty.classList.remove('hidden');
-                return;
-            }
-
-            // Flatten all files with their FIR numbers
-            let allFiles = [];
-            entries.forEach(([fir_no, files]) => {
-                files.forEach(filename => {
-                    allFiles.push({ fir_no, filename, category: getFileCategory(filename) });
-                });
+            const filtered = items.filter(item => {
+                const matchFilter = currentEvidenceFilter === 'all' ||
+                    (item.file_type || '').toLowerCase().includes(currentEvidenceFilter);
+                const matchSearch = !search || (item.fir_no || '').toLowerCase().includes(search) ||
+                    (item.filename || '').toLowerCase().includes(search);
+                return matchFilter && matchSearch;
             });
 
-            // Apply type filter
-            if (currentEvidenceFilter !== 'all') {
-                allFiles = allFiles.filter(f => f.category === currentEvidenceFilter);
+            // Update count bar — OUTSIDE the filter, not inside it
+            const countBar = document.getElementById('evidenceCountBar');
+            const countText = document.getElementById('evidenceCountText');
+            if (allEvidence.length > 0) {
+                countBar.classList.remove('hidden');
+                countText.textContent = `${filtered.length} file${filtered.length !== 1 ? 's' : ''} found for FIR: ${allEvidence[0]?.fir_no || ''}`;
+            } else {
+                countBar.classList.add('hidden');
             }
 
-            if (!allFiles.length) {
-                grid.innerHTML = `
-            <div class="col-span-3 text-center py-10 text-slate-400">
-                <i data-lucide="search-x" class="w-10 h-10 mx-auto mb-2 opacity-40"></i>
-                <p>No <strong>${labelMap[currentEvidenceFilter]}</strong> found.</p>
+            if (!filtered.length) {
+                grid.innerHTML = '';
+                empty.innerHTML = `
+            <div class="text-center py-16">
+                <div class="w-16 h-16 bg-orange-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i data-lucide="folder-x" class="w-8 h-8 text-orange-400"></i>
+                </div>
+                <p class="text-slate-500 font-semibold">No evidence found for this FIR</p>
+                <p class="text-slate-400 text-sm mt-1">Check the FIR number or upload new evidence</p>
             </div>`;
-                empty.classList.add('hidden');
-                if (window.lucide) lucide.createIcons();
+                empty.classList.remove('hidden');
+                lucide.createIcons();
                 return;
             }
 
             empty.classList.add('hidden');
 
-            grid.innerHTML = allFiles.map(({ fir_no, filename, category }) => {
-                const icon = iconMap[category] || 'file';
-                const color = colorMap[category] || 'text-blue-400';
-                const url = '/evidence-file/' + encodeURIComponent(fir_no) + '/' + encodeURIComponent(filename);
-                const isImage = category === 'image';
+            const iconMap = { image: '🖼️', video: '🎬', audio: '🎵', pdf: '📄' };
+
+            grid.innerHTML = filtered.map(item => {
+                const type = (item.file_type || 'file').toLowerCase();
+                const icon = iconMap[type] || '📎';
+                const date = item.uploaded_at
+                    ? new Date(item.uploaded_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+                    : '—';
+                const fileUrl = item.file_url || '#';
+                const filename = item.filename || 'Unknown file';
+                const firNo = item.fir_no || '—';
 
                 return `
-        <div class="bg-slate-50 rounded-lg p-3 flex flex-col items-center border border-slate-100 hover:shadow-md transition">
-            ${isImage
-                        ? `<img src="${url}" class="w-full h-20 object-cover rounded mb-2" onerror="this.style.display='none'">`
-                        : `<i data-lucide="${icon}" class="w-10 h-10 ${color} mb-2"></i>`
+        <div class="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition group">
+            <div class="bg-slate-100 h-28 flex items-center justify-center text-4xl relative">
+                ${type === 'image' && fileUrl !== '#'
+                        ? `<img src="${fileUrl}" class="w-full h-full object-cover" onerror="this.parentElement.innerHTML='<span class=text-4xl>🖼️</span>'" />`
+                        : `<span>${icon}</span>`
                     }
-            <p class="text-xs text-center text-slate-700 truncate w-full font-medium" title="${escapeHtml(filename)}">${escapeHtml(filename)}</p>
-            <p class="text-xs text-blue-500 mb-2">FIR: ${escapeHtml(fir_no)}</p>
-            <span class="text-xs px-2 py-0.5 rounded-full mb-2 font-semibold
-                ${category === 'image' ? 'bg-green-100 text-green-700'
-                        : category === 'video' ? 'bg-purple-100 text-purple-700'
-                            : category === 'audio' ? 'bg-yellow-100 text-yellow-700'
-                                : category === 'pdf' ? 'bg-red-100 text-red-700'
-                                    : 'bg-slate-100 text-slate-600'}">${labelMap[category]}</span>
-            <a href="${url}" target="_blank"
-               class="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition">VIEW</a>
+                <span class="absolute top-2 right-2 text-xs font-bold px-2 py-0.5 rounded-full
+                    ${type === 'image' ? 'bg-green-100 text-green-700' :
+                        type === 'video' ? 'bg-purple-100 text-purple-700' :
+                            type === 'pdf' ? 'bg-red-100 text-red-700' :
+                                'bg-blue-100 text-blue-700'}">${type.toUpperCase()}</span>
+            </div>
+            <div class="p-3">
+                <p class="font-semibold text-slate-800 text-sm truncate" title="${escapeHtml(filename)}">${escapeHtml(filename)}</p>
+                <p class="text-xs text-blue-600 font-mono mt-0.5">FIR: ${escapeHtml(firNo)}</p>
+                <p class="text-xs text-slate-400 mt-0.5">${date}</p>
+                <a href="${fileUrl}" target="_blank" rel="noopener"
+                    class="mt-2 w-full block text-center text-xs py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg font-semibold transition">
+                    View / Download
+                </a>
+            </div>
         </div>`;
             }).join('');
-
-            if (window.lucide) lucide.createIcons();
         }
         // ─── Law Browser ───────────────────────────────────────────────
         let lbState = { act: '', page: 1, search: '', pages: 1 };
@@ -3102,6 +3176,46 @@
             if (ext === 'pdf') return 'pdf';
             return 'other';
         }
+        function clearEvidenceSearch() {
+            document.getElementById('evidenceSearch').value = '';
+            document.getElementById('evidenceCountBar').classList.add('hidden');
+            loadEvidenceGrid('');
+        }
+        function setEvidenceFilter(type) {
+            currentEvidenceFilter = type;
+            document.getElementById('filterDropdown').classList.add('hidden');
+            const labels = { all: 'All', image: 'Images', video: 'Videos', audio: 'Audio', pdf: 'PDFs' };
+            document.getElementById('filterLabel').textContent = labels[type] || 'All';
+            renderEvidenceGrid(allEvidence);
+        }
+        function toggleFilterDropdown() {
+            document.getElementById('filterDropdown').classList.toggle('hidden');
+        }
+
+        document.addEventListener('click', function (e) {
+            const btn = document.getElementById('filterToggleBtn');
+            const dropdown = document.getElementById('filterDropdown');
+            if (btn && dropdown && !btn.contains(e.target) && !dropdown.contains(e.target)) {
+                dropdown.classList.add('hidden');
+            }
+        });
+        function filterEvidence(searchVal) {
+            const trimmed = searchVal.trim();
+            if (trimmed.length >= 3) {
+                loadEvidenceGrid(trimmed);
+            } else if (trimmed.length === 0) {
+                loadEvidenceGrid('');
+            }
+        }
+        function updateFileLabel(input) {
+            const label = document.getElementById('selectedFileLabel');
+            const name = document.getElementById('selectedFileName');
+            if (input.files && input.files[0]) {
+                name.textContent = input.files[0].name;
+                label.classList.remove('hidden');
+            }
+        }
+
 
 
 

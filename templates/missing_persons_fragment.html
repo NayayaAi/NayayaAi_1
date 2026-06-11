@@ -97,17 +97,31 @@
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-slate-700 mb-1">Photo *</label>
-                                <div class="border-2 border-dashed border-slate-200 rounded-lg p-5 text-center hover:border-blue-400 hover:bg-blue-50 transition cursor-pointer"
+                                <div class="border-2 border-dashed border-blue-200 rounded-xl p-6 text-center hover:border-blue-500 hover:bg-blue-50 transition cursor-pointer bg-slate-50 group"
                                     onclick="document.getElementById('mp-police-photo').click()">
                                     <input type="file" accept="image/jpeg,image/png,image/webp,image/gif"
                                         id="mp-police-photo" class="hidden"
                                         onchange="mpPreviewPhoto(this,'mp-police-preview','mp-police-photo-label')">
-                                    <i data-lucide="upload-cloud" class="w-10 h-10 text-slate-300 mx-auto mb-2"></i>
-                                    <p class="text-sm text-slate-500" id="mp-police-photo-label">Click to upload a clear
-                                        frontal photo (JPG / PNG)</p>
+                                    <div
+                                        class="w-14 h-14 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-3 group-hover:bg-blue-200 transition">
+                                        <i data-lucide="upload-cloud" class="w-7 h-7 text-blue-500"></i>
+                                    </div>
+                                    <p class="text-sm font-semibold text-slate-600" id="mp-police-photo-label">Click to
+                                        upload a clear frontal photo</p>
+                                    <p class="text-xs text-slate-400 mt-1">JPG, PNG, WEBP — max 10MB</p>
                                 </div>
-                                <img id="mp-police-preview" class="mt-3 rounded-lg max-h-40 w-full object-cover hidden"
-                                    alt="Preview">
+                                <div id="mp-police-preview-wrapper" class="mt-3 hidden">
+                                    <div
+                                        class="relative rounded-xl overflow-hidden border-2 border-blue-200 bg-slate-100">
+                                        <img id="mp-police-preview" class="w-full object-contain"
+                                            style="max-height: 320px; height: auto;" alt="Preview">
+                                        <div class="absolute top-2 right-2">
+                                            <span
+                                                class="bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full">✓
+                                                Photo ready</span>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                             <button type="button" id="mp-submit-btn" onclick="mpSubmitReport()"
                                 class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold flex items-center justify-center gap-2 shadow transition text-sm">
@@ -199,7 +213,8 @@
                     <i data-lucide="camera" class="w-9 h-9 text-slate-300 mx-auto mb-1"></i>
                     <p class="text-sm text-slate-500" id="mp-sighting-photo-label">Click to upload photo</p>
                 </div>
-                <img id="mp-sighting-preview" class="mt-3 rounded-lg max-h-36 w-full object-cover hidden" alt="Preview">
+                <img id="mp-sighting-preview" class="mt-3 rounded-lg w-full object-contain max-h-72 hidden"
+                    style="height:auto;" alt="Preview">
             </div>
             <div id="mp-sighting-result" class="hidden p-4 rounded-lg border-l-4 text-sm"></div>
         </div>
@@ -309,12 +324,25 @@
     function mpPreviewPhoto(input, previewId, labelId) {
         var f = input.files[0];
         if (!f) return;
-        document.getElementById(labelId).textContent = f.name;
+
+        // Update label with filename
+        var label = document.getElementById(labelId);
+        if (label) label.textContent = f.name;
+
         var reader = new FileReader();
         reader.onload = function (ev) {
             var img = document.getElementById(previewId);
             img.src = ev.target.result;
-            img.classList.remove('hidden');
+            img.style.height = 'auto'; // ensure natural height
+
+            // Show wrapper if it exists (police form), else show img directly
+            var wrapperId = previewId + '-wrapper';
+            var wrapper = document.getElementById(wrapperId);
+            if (wrapper) {
+                wrapper.classList.remove('hidden');
+            } else {
+                img.classList.remove('hidden');
+            }
         };
         reader.readAsDataURL(f);
     }
@@ -352,6 +380,8 @@
                     document.getElementById('mp-gender').value = '';
                     document.getElementById('mp-police-photo').value = '';
                     document.getElementById('mp-police-preview').classList.add('hidden');
+                    var wrapper = document.getElementById('mp-police-preview-wrapper');
+                    if (wrapper) wrapper.classList.add('hidden');
                     document.getElementById('mp-police-photo-label').textContent = 'Click to upload a clear frontal photo (JPG / PNG)';
                     setTimeout(mpLoadPoliceList, 700);
                 } else {

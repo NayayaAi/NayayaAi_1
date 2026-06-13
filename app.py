@@ -1369,6 +1369,10 @@ def login():
     
     return render_template('login.html')
 
+@app.route('/citizen_dashboard')
+def citizen_dashboard_redirect():
+    return redirect(url_for('citizen_dashboard'))
+
 @app.route('/logout')
 def logout():
     session.clear()

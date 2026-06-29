@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 from flask import Flask, request, jsonify, render_template, redirect, url_for, flash, session
 import sqlite3
 import os
@@ -13,15 +12,15 @@ from reportlab.lib.styles import getSampleStyleSheet
 from ai_engine import analyze_complaint_for_sections
 from rag_engine import search_law
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-from flask import requests, jsonify
+from flask import request, jsonify
 import jwt
-import datetime
+from datetime import datetime, timezone
 from functools import wraps
 from werkzeug.utils import secure_filename
 from flask import send_from_directory
 import subprocess
 import json
-
+from main.storage_service import upload_pdf, save_fir, get_all_firs, get_fir, fir_exists
 from missing_person import missing_person_bp, init_missing_person_tables
 
 from case import search_case_outcome, format_outcome_html
@@ -35,7 +34,7 @@ OLLAMA_URL = "http://localhost:11434/api/generate"
 
 def ask_ollama(prompt):
     try:
-        response = requests.post(
+        response = request.post(
             OLLAMA_URL,
             json={
                 "model": "phi3",
@@ -61,11 +60,11 @@ def ask_ollama(prompt):
 
         return result.strip()
 
-    except requests.exceptions.Timeout:
+    except request.exceptions.Timeout:
         print("Ollama Timeout Error")
         return "AI is taking too long. Try again."
 
-    except requests.exceptions.ConnectionError:
+    except request.exceptions.ConnectionError:
         print("Ollama Connection Error")
         return "Cannot connect to AI server. Is Ollama running?"
 
@@ -547,7 +546,7 @@ def build_keyword_fallback(question):
             "• Every person has the right to approach a court for justice.\n"
             "• Free legal aid is available to all citizens who cannot afford a lawyer.\n\n"
             "📞 National Legal Aid Helpline: 15100\n"
-            "Try asking about: arrest rights, bail, FIR filing, lawyer rights, women's rights, or cyber crime."
+            "Try asking about: arrest rights, bail, FIR filing, lawyer rights, women's rights, or cyber crime.")
 
 app.route('/api/sections/<act>', methods=['GET'])
 def get_sections(act):
@@ -819,11 +818,12 @@ def generate_fir():
     try:
 
         # Check duplicate FIR number
-        if fir_collection.find_one({"fir_no": data.get("fir_no")}):
-            return jsonify({"error": f"FIR number {data.get('fir_no')} already exists"}), 400
+        if fir_exists(data.get("fir_no")):
+             return jsonify({"error": "FIR already exists"}), 400
+
 
         # Generate FIR ID
-        fir_id = str(datetime.utcnow().timestamp()).replace(".", "")
+        fir_id = str(datetime.now(timezone.utc).timestamp()).replace(".", "")
 
         formatted_fir = f"""
 FIR ID: {fir_id}
@@ -875,7 +875,7 @@ MESSAGE: FIR has been successfully registered and saved to police records.
 
         pdf = SimpleDocTemplate(pdf_path)
         pdf.build(elements)
-
+        pdf_url = upload_pdf(pdf_path, fir_id)
         # -------------------------
         # Store in MongoDB
         # -------------------------
@@ -909,12 +909,14 @@ MESSAGE: FIR has been successfully registered and saved to police records.
             "reasons_for_delay": data.get("reasons_for_delay", ""),
             "property_particulars": data.get("property_particulars", ""),
             "statement": data.get("statement", ""),
-            "pdf_file": pdf_filename,
-            "created_at": datetime.utcnow(),
+            "pdf_url": pdf_url,
+            
+            "created_at": datetime.now(timezone.utc).isoformat(),
             "status": "Saved to Police Records"
         }
 
-        fir_collection.insert_one(fir_document)
+        fir_document["pdf_url"] = pdf_url
+        save_fir(fir_document)
     
         fir_response = fir_document.copy()
         fir_response.pop("_id", None)
@@ -1148,32 +1150,3 @@ if __name__ == '__main__':
     init_complaints_table()
 
     app.run(debug=True, port=5000)
-=======
-import os
-from flask import Flask
-from main import register_blueprints
-from main.config import PDF_FOLDER, UPLOAD_FOLDER
-from main.database import init_fir_table, init_user_table, init_evidence_table
-
-app = Flask(__name__)
-app.secret_key = "nyaya_ai_ultra_secure_key"
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-
-os.makedirs(PDF_FOLDER, exist_ok=True)
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-# Optional CORS support
-try:
-    from flask_cors import CORS
-    CORS(app)
-except ModuleNotFoundError:
-    print("Warning: flask_cors not installed. API will still work from same origin.")
-
-register_blueprints(app)
-
-if __name__ == '__main__':
-    init_fir_table()
-    init_user_table()
-    init_evidence_table()
-    app.run(debug=True, port=5000)
->>>>>>> Person-A

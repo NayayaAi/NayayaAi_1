@@ -14,6 +14,8 @@ from rag_engine import search_law
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from flask import  jsonify
 import jwt
+from authlib.integrations.flask_client import OAuth
+from urllib.parse import urlencode
 
 from functools import wraps
 from werkzeug.utils import secure_filename
@@ -27,6 +29,9 @@ load_dotenv()
 # Import missing person routes
 from missing_person import missing_person_bp, init_missing_person_tables
 from case import search_case_outcome, format_outcome_html
+
+
+
 
 # ---------------- OLLAMA SETUP ----------------
 import requests
@@ -76,8 +81,27 @@ def ask_ollama(prompt):
 app = Flask(__name__)
 app.secret_key = "nyaya_ai_ultra_secure_key"
 
-# Initialize CSRF protection
-# csrf = CSRFProtect(app)  # Disabled CSRF protection
+oauth = OAuth(app)
+ 
+google = oauth.register(
+    name='google',
+    client_id=os.environ.get('GOOGLE_CLIENT_ID'),
+    client_secret=os.environ.get('GOOGLE_CLIENT_SECRET'),
+    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+    client_kwargs={'scope': 'openid email profile'}
+)
+ 
+github = oauth.register(
+    name='github',
+    client_id=os.environ.get('GITHUB_CLIENT_ID'),
+    client_secret=os.environ.get('GITHUB_CLIENT_SECRET'),
+    access_token_url='https://github.com/login/oauth/access_token',
+    access_token_params=None,
+    authorize_url='https://github.com/login/oauth/authorize',
+    authorize_params=None,
+    api_base_url='https://api.github.com/',
+    client_kwargs={'scope': 'user:email'},
+)
 
 # 2. DATABASE CONNECTIONS
 DB_PATH = os.path.join(app.root_path, "IndiaLaw.db")
@@ -1368,6 +1392,167 @@ def login():
             }), 200
     
     return render_template('login.html')
+
+
+@app.route('/auth/google')
+def auth_google():
+    """Redirect user to Google OAuth"""
+    redirect_uri = url_for('auth_google_callback', _external=True)
+    return google.authorize_redirect(redirect_uri)
+ 
+ 
+@app.route('/auth/google/callback')
+def auth_google_callback():
+    """Handle Google OAuth callback"""
+    try:
+        token = google.authorize_access_token()
+        user_info = token.get('userinfo')
+        
+        if not user_info:
+            return redirect(url_for('login'))
+        
+        email = user_info.get('email')
+        fullname = user_info.get('name', 'Google User')
+        profile_pic = user_info.get('picture', '')
+        
+        # Find or create user
+        user = users_collection.find_one({'email': email})
+        
+        if not user:
+            # Create new user (default role: citizen for OAuth signups)
+            unique_id = generate_unique_id('citizen')
+            password_hash = bcrypt.hashpw(
+                os.urandom(16),  # Random password since OAuth
+                bcrypt.gensalt()
+            )
+            
+            user = {
+                'fullname': fullname,
+                'email': email,
+                'password_hash': password_hash,
+                'role': 'citizen',  # Default role
+                'unique_id': unique_id,
+                'profile_pic': profile_pic,
+                'oauth_provider': 'google',
+                'created_at': datetime.utcnow()
+            }
+            users_collection.insert_one(user)
+        else:
+            # Update profile pic if not already set
+            if not user.get('profile_pic'):
+                users_collection.update_one(
+                    {'_id': user['_id']},
+                    {'$set': {'profile_pic': profile_pic, 'oauth_provider': 'google'}}
+                )
+            user = users_collection.find_one({'_id': user['_id']})
+        
+        # Log user in
+        session['user_id'] = str(user['_id'])
+        session['role'] = user['role']
+        session['unique_id'] = user['unique_id']
+        session['fullname'] = user.get('fullname', 'User')
+        
+        # Redirect based on role
+        if user['role'] == 'citizen':
+            return redirect(url_for('citizen_dashboard'))
+        elif user['role'] == 'judge':
+            return redirect(url_for('judge_dashboard'))
+        elif user['role'] == 'lawyer':
+            return redirect(url_for('lawyer_dashboard'))
+        else:
+            return redirect(url_for('home'))
+        
+    except Exception as e:
+        print(f"Google OAuth error: {e}")
+        flash("Authentication failed. Please try again.", "error")
+        return redirect(url_for('login'))
+ 
+ 
+# ──── GITHUB OAUTH ────────────────────────────────────
+ 
+@app.route('/auth/github')
+def auth_github():
+    """Redirect user to GitHub OAuth"""
+    redirect_uri = url_for('auth_github_callback', _external=True)
+    return github.authorize_redirect(redirect_uri)
+ 
+ 
+@app.route('/auth/github/callback')
+def auth_github_callback():
+    """Handle GitHub OAuth callback"""
+    try:
+        token = github.authorize_access_token()
+        
+        # Get user info from GitHub API
+        resp = github.get('user', token=token)
+        user_info = resp.json()
+        
+        github_id = user_info.get('id')
+        email = user_info.get('email') or f"github_{github_id}@noreply.github.com"
+        fullname = user_info.get('name') or user_info.get('login')
+        profile_pic = user_info.get('avatar_url', '')
+        
+        # Find or create user
+        user = users_collection.find_one({'email': email})
+        
+        if not user:
+            # Create new user (default role: citizen for OAuth signups)
+            unique_id = generate_unique_id('citizen')
+            password_hash = bcrypt.hashpw(
+                os.urandom(16),  # Random password since OAuth
+                bcrypt.gensalt()
+            )
+            
+            user = {
+                'fullname': fullname,
+                'email': email,
+                'password_hash': password_hash,
+                'role': 'citizen',  # Default role
+                'unique_id': unique_id,
+                'profile_pic': profile_pic,
+                'github_id': github_id,
+                'oauth_provider': 'github',
+                'created_at': datetime.utcnow()
+            }
+            users_collection.insert_one(user)
+        else:
+            # Update profile pic and github_id if not already set
+            updates = {}
+            if not user.get('profile_pic'):
+                updates['profile_pic'] = profile_pic
+            if not user.get('github_id'):
+                updates['github_id'] = github_id
+            if updates:
+                updates['oauth_provider'] = 'github'
+                users_collection.update_one(
+                    {'_id': user['_id']},
+                    {'$set': updates}
+                )
+            user = users_collection.find_one({'_id': user['_id']})
+        
+        # Log user in
+        session['user_id'] = str(user['_id'])
+        session['role'] = user['role']
+        session['unique_id'] = user['unique_id']
+        session['fullname'] = user.get('fullname', 'User')
+        
+        # Redirect based on role
+        if user['role'] == 'citizen':
+            return redirect(url_for('citizen_dashboard'))
+        elif user['role'] == 'judge':
+            return redirect(url_for('judge_dashboard'))
+        elif user['role'] == 'lawyer':
+            return redirect(url_for('lawyer_dashboard'))
+        else:
+            return redirect(url_for('home'))
+        
+    except Exception as e:
+        print(f"GitHub OAuth error: {e}")
+        flash("Authentication failed. Please try again.", "error")
+        return redirect(url_for('login'))
+    
+    
+    
 
 @app.route('/citizen_dashboard')
 def citizen_dashboard_redirect():

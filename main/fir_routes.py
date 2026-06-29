@@ -7,7 +7,7 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from ai_engine import analyze_complaint_for_sections
 from main.config import PDF_FOLDER
-from main.database import fir_collection
+from main.storage_service import upload_pdf, save_fir, fir_exists, get_all_firs, get_fir
 
 fir_bp = Blueprint('fir', __name__)
 
@@ -17,7 +17,7 @@ def get_fir_records():
     """Get all FIR records."""
     try:
         fir_records = []
-        for fir in fir_collection.find({}, {"_id": 0}):
+        for fir in get_all_firs():
             fir_records.append(fir)
         return jsonify(fir_records)
     except Exception as e:
@@ -28,7 +28,7 @@ def get_fir_records():
 def get_fir_record(fir_no):
     """Get a specific FIR by FIR number."""
     try:
-        fir = fir_collection.find_one({"fir_no": fir_no}, {"_id": 0})
+        fir = get_fir(fir_no)
         if fir:
             return jsonify(fir)
         else:
@@ -46,14 +46,14 @@ def generate_fir():
 
     complaint_text = data.get("statement", "")
 
-    # AI-suggested sections if not provided
+    
     if not data.get("act_sections"):
         ai_suggested_sections = analyze_complaint_for_sections(complaint_text)
         data["act_sections"] = ", ".join(ai_suggested_sections)
 
     try:
         # Check for duplicate FIR number
-        if fir_collection.find_one({"fir_no": data.get("fir_no")}):
+        if fir_exists(fir_no):
             return jsonify({"error": f"FIR number {data.get('fir_no')} already exists"}), 400
 
         fir_id = str(datetime.utcnow().timestamp()).replace(".", "")
@@ -105,7 +105,7 @@ MESSAGE: FIR has been successfully registered and saved to police records.
         pdf = SimpleDocTemplate(pdf_path)
         pdf.build(elements)
 
-        # Store in MongoDB
+       
         fir_document = {
             "fir_id": fir_id,
             "fir_no": data.get("fir_no", ""),
@@ -136,11 +136,11 @@ MESSAGE: FIR has been successfully registered and saved to police records.
             "property_particulars": data.get("property_particulars", ""),
             "statement": data.get("statement", ""),
             "pdf_file": pdf_filename,
-            "created_at": datetime.utcnow(),
+            "created_at": datetime.now(timezone.utc),
             "status": "Saved to Police Records"
         }
 
-        fir_collection.insert_one(fir_document)
+        save_fir(fir_document)
 
         fir_response = fir_document.copy()
         fir_response.pop("_id", None)

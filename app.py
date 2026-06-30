@@ -31,6 +31,68 @@ from missing_person import missing_person_bp, init_missing_person_tables
 from case import search_case_outcome, format_outcome_html
 
 
+OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
+OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+
+def ask_openrouter(prompt, system_prompt=None, max_tokens=1000, temperature=0.3):
+    
+    if not OPENROUTER_API_KEY:
+        print("ERROR: OPENROUTER_API_KEY not set in .env")
+        return None
+    
+    try:
+        headers = {
+            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+            "HTTP-Referer": "https://nyayaai.local",
+            "X-Title": "NyayaAI"
+        }
+        
+        default_system = "You are an expert Indian legal advisor. Be clear, simple, and helpful."
+        
+        payload = {
+            "model": "mistralai/mistral-7b-instruct",
+            "messages": [
+                {
+                    "role": "system",
+                    "content": system_prompt or default_system
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+        }
+        
+        response = requests.post(
+            OPENROUTER_URL,
+            headers=headers,
+            json=payload,
+            timeout=30
+        )
+        
+        if response.status_code != 200:
+            print(f"OpenRouter error: {response.status_code} - {response.text}")
+            return None
+        
+        data = response.json()
+        if 'choices' not in data or len(data['choices']) == 0:
+            print(f"Unexpected OpenRouter response: {data}")
+            return None
+            
+        return data['choices'][0]['message']['content'].strip()
+    
+    except requests.exceptions.Timeout:
+        print("OpenRouter timeout - request took too long")
+        return None
+    except requests.exceptions.ConnectionError:
+        print("OpenRouter connection error - check your internet")
+        return None
+    except Exception as e:
+        print(f"OpenRouter API Error: {e}")
+        return None
+
 
 
 # ---------------- OLLAMA SETUP ----------------
@@ -472,22 +534,41 @@ def track_complaint(tracking_id):
 
 @app.route('/api/rights-chat', methods=['POST'])
 def rights_chat():
-    """Know Your Rights chat — powered entirely by RAG, no Ollama."""
-    data = request.get_json()
-    question = data.get('question', '').strip()
-    if not question:
-        return jsonify({"answer": "Please ask a question about your rights."}), 400
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"answer": "Invalid request."}), 400
+        question = data.get('question', '').strip()
+        print(f"DEBUG: OPENROUTER_KEY set={bool(OPENROUTER_API_KEY)}, question={question[:30]}")
+        if not question:
+            return jsonify({"answer": "Please ask a question about your rights."}), 400
 
-    results = search_law(question)
+        try:
+            results = search_law(question)
+        except Exception as rag_err:
+            print(f"RAG failed: {rag_err}")
+            results = None
 
-    if not results:
-        # Pure keyword fallback — no Ollama, instant response
-        answer = build_keyword_fallback(question)
+        if not results:
+            # RAG failed or no results — try OpenRouter
+            or_answer = ask_openrouter(
+                prompt=f"A citizen asks about their rights under Indian law: {question}\n\nAnswer in simple, plain language. Be concise.",
+                system_prompt="You are a helpful Indian legal assistant. Explain legal rights simply. End with: ⚠️ For official help call 15100.",
+                max_tokens=400
+            )
+            if or_answer:
+                return jsonify({"answer": or_answer})
+            # Final fallback — keyword
+            return jsonify({"answer": build_keyword_fallback(question)})
+
+        answer = format_rights_answer(results, question)
         return jsonify({"answer": answer})
 
-    # Format top results in a citizen-friendly way
-    answer = format_rights_answer(results, question)
-    return jsonify({"answer": answer})
+    except Exception as e:
+        print(f"rights_chat error: {e}")
+        return jsonify({"answer": build_keyword_fallback(
+            request.get_json(silent=True, force=True).get('question', '')
+        )}), 200
 
 
 def format_rights_answer(results, question):

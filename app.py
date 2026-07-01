@@ -32,7 +32,7 @@ from case import search_case_outcome, format_outcome_html
 
 
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
-OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+OPENROUTER_URL = os.environ.get("OPENROUTER_URL", "")
 
 def ask_openrouter(prompt, system_prompt=None, max_tokens=1000, temperature=0.3):
     

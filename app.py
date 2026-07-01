@@ -765,7 +765,7 @@ def ask_law():
 
 # MongoDB connection
 
-fir_collection = db["fir_records"]
+fir_collection = db[" "]
 
 # Folder to store generated PDFs
 PDF_FOLDER = "generated_firs"

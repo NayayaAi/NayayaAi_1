@@ -1,14 +1,2571 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NyayaAI | Judge Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Playfair+Display:wght@700&display=swap"
+    rel="stylesheet" />
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      scroll-behavior: smooth;
+      margin: 0;
+      padding: 0;
+    }
+
+    .font-serif {
+      font-family: 'Playfair Display', serif;
+    }
+
+    /* ── Sidebar ── */
+    #sidebar {
+      overflow-y: auto;
+      max-height: 100vh;
+      padding-bottom: 1rem;
+      /* FIX: removed hover CSS that caused overlap - now JS controlled */
+    }
+
+    /* ── Layout FIX: sidebar pushes main, no overlap ── */
+    #app-wrapper {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    #sidebar {
+      width: 16rem;
+      /* 256px = w-64 */
+      flex-shrink: 0;
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 100vh;
+      z-index: 40;
+      transform: translateX(-100%);
+      transition: transform 0.3s ease;
+    }
+
+    #sidebar-hover-zone {
+      position: fixed;
+      left: 0;
+      top: 0;
+      width: 16px;
+      height: 100vh;
+      z-index: 50;
+    }
+
+    #main-content {
+      flex: 1;
+      min-width: 0;
+      transition: margin-left 0.3s ease;
+      margin-left: 0;
+    }
+
+    #main-content.sidebar-open {
+      margin-left: 16rem;
+    }
+
+    /* ── FIX: No whitespace after footer ── */
+    html,
+    body {
+      height: 100%;
+    }
+
+    /* ── Panels ── */
+    .section-panel {
+      display: none;
+    }
+
+    .section-panel.active {
+      display: block;
+    }
+
+    /* ── Cards ── */
+    .j-card {
+      background: #fff;
+      border-radius: 12px;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, .05);
+    }
+
+    .j-card-header {
+      padding: 16px 20px 12px;
+      border-bottom: 1px solid #f1f5f9;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .j-card-body {
+      padding: 18px 20px;
+    }
+
+    /* ── Stat tiles ── */
+    .stat-tile {
+      background: #fff;
+      border-radius: 12px;
+      border: 1px solid #e2e8f0;
+      padding: 18px;
+    }
+
+    /* ── Tables ── */
+    .j-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12.5px;
+    }
+
+    .j-table th {
+      background: #eff6ff;
+      padding: 9px 14px;
+      text-align: left;
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+      color: #1e3a8a;
+      border-bottom: 1px solid #bfdbfe;
+    }
+
+    .j-table td {
+      padding: 11px 14px;
+      border-bottom: 1px solid #f1f5f9;
+      color: #334155;
+      vertical-align: middle;
+    }
+
+    .j-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .j-table tr:hover td {
+      background: #f8fafc;
+    }
+
+    tr.prio-high td:first-child {
+      border-left: 3px solid #dc2626;
+    }
+
+    tr.prio-medium td:first-child {
+      border-left: 3px solid #f59e0b;
+    }
+
+    tr.prio-low td:first-child {
+      border-left: 3px solid #22c55e;
+    }
+
+    /* ── Pills ── */
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 9px;
+      border-radius: 999px;
+      font-size: 10.5px;
+      font-weight: 700;
+    }
+
+    .pill-blue {
+      background: #dbeafe;
+      color: #1d4ed8;
+    }
+
+    .pill-yellow {
+      background: #fef3c7;
+      color: #b45309;
+    }
+
+    .pill-green {
+      background: #dcfce7;
+      color: #15803d;
+    }
+
+    .pill-red {
+      background: #fee2e2;
+      color: #dc2626;
+    }
+
+    .pill-purple {
+      background: #ede9fe;
+      color: #7c3aed;
+    }
+
+    .pill-slate {
+      background: #f1f5f9;
+      color: #475569;
+    }
+
+    .pill-orange {
+      background: #ffedd5;
+      color: #c2410c;
+    }
+
+    /* ── Buttons ── */
+    .j-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 7px 14px;
+      border-radius: 8px;
+      font-size: 12.5px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all .15s;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .j-btn-primary {
+      background: #2563eb;
+      color: #fff;
+    }
+
+    .j-btn-primary:hover {
+      background: #1d4ed8;
+    }
+
+    .j-btn-secondary {
+      background: #f1f5f9;
+      color: #334155;
+      border: 1px solid #e2e8f0;
+    }
+
+    .j-btn-secondary:hover {
+      background: #e2e8f0;
+    }
+
+    .j-btn-danger {
+      background: #fee2e2;
+      color: #dc2626;
+    }
+
+    .j-btn-danger:hover {
+      background: #fecaca;
+    }
+
+    .j-btn-gold {
+      background: #fef3c7;
+      color: #b45309;
+      border: 1px solid #fde68a;
+    }
+
+    .j-btn-gold:hover {
+      background: #fde68a;
+    }
+
+    .j-btn-sm {
+      padding: 4px 10px;
+      font-size: 11.5px;
+    }
+
+    /* ── Forms ── */
+    .j-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      color: #475569;
+      margin-bottom: 4px;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+    }
+
+    .j-input {
+      width: 100%;
+      padding: 8px 11px;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 8px;
+      font-size: 13px;
+      color: #1e293b;
+      background: #fff;
+      outline: none;
+      font-family: 'Inter', sans-serif;
+      transition: border-color .15s;
+      height: auto !important;
+      box-sizing: border-box;
+    }
+
+    .j-input:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, .08);
+    }
+
+    textarea.j-input {
+      resize: vertical;
+      min-height: 80px;
+    }
+
+    select.j-input {
+      cursor: pointer;
+    }
+
+    /* ── Alerts ── */
+    .j-alert {
+      border-radius: 8px;
+      padding: 11px 14px;
+      font-size: 12.5px;
+      display: flex;
+      align-items: flex-start;
+      gap: 9px;
+    }
+
+    .j-alert-yellow {
+      background: #fefce8;
+      border: 1px solid #fde047;
+      color: #854d0e;
+    }
+
+    .j-alert-red {
+      background: #fef2f2;
+      border: 1px solid #fca5a5;
+      color: #991b1b;
+    }
+
+    .j-alert-blue {
+      background: #eff6ff;
+      border: 1px solid #93c5fd;
+      color: #1e40af;
+    }
+
+    .j-alert-green {
+      background: #f0fdf4;
+      border: 1px solid #86efac;
+      color: #166534;
+    }
+
+    .j-alert svg {
+      width: 15px;
+      height: 15px;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    /* ── Modal ── */
+    .j-modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .4);
+      backdrop-filter: blur(4px);
+      z-index: 200;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .j-modal-backdrop.open {
+      display: flex;
+    }
+
+    .j-modal-box {
+      background: #fff;
+      border-radius: 16px;
+      width: 100%;
+      max-width: 600px;
+      max-height: 88vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, .18);
+    }
+
+    .j-modal-header {
+      padding: 18px 22px 14px;
+      border-bottom: 1px solid #f1f5f9;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      background: #fff;
+      z-index: 1;
+    }
+
+    .j-modal-body {
+      padding: 18px 22px 22px;
+    }
+
+    /* ── Hearing card ── */
+    .hearing-card {
+      border-left: 4px solid #2563eb;
+      background: #fff;
+      border-radius: 0 10px 10px 0;
+      padding: 12px 14px;
+      margin-bottom: 8px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, .05);
+    }
+
+    .hearing-card.urgent {
+      border-left-color: #dc2626;
+    }
+
+    /* ── Timeline ── */
+    .tl-item {
+      display: flex;
+      gap: 14px;
+      position: relative;
+    }
+
+    .tl-item:not(:last-child)::before {
+      content: '';
+      position: absolute;
+      left: 14px;
+      top: 28px;
+      bottom: -4px;
+      width: 2px;
+      background: #e2e8f0;
+    }
+
+    .tl-dot {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 2px;
+      font-size: 11px;
+      font-weight: 700;
+      z-index: 1;
+    }
+
+    .tl-content {
+      flex: 1;
+      padding-bottom: 18px;
+    }
+
+    /* ── Sealed stamp ── */
+    .sealed-stamp {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      border: 3px solid #dc2626;
+      border-radius: 50%;
+      width: 64px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transform: rotate(-15deg);
+      color: #dc2626;
+      font-size: 8.5px;
+      font-weight: 800;
+      text-align: center;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+      line-height: 1.2;
+      opacity: .8;
+    }
+
+    /* ── Risk bar ── */
+    .risk-bar {
+      height: 9px;
+      border-radius: 999px;
+      background: #f1f5f9;
+      overflow: hidden;
+    }
+
+    .risk-fill {
+      height: 100%;
+      border-radius: 999px;
+      transition: width .6s ease;
+    }
+
+    /* ── Tabs ── */
+    .j-tab-bar {
+      display: flex;
+      gap: 3px;
+      border-bottom: 2px solid #e2e8f0;
+      margin-bottom: 18px;
+    }
+
+    .j-tab-btn {
+      padding: 8px 16px;
+      font-size: 12.5px;
+      font-weight: 600;
+      border: none;
+      background: none;
+      cursor: pointer;
+      color: #64748b;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      border-radius: 6px 6px 0 0;
+      transition: all .15s;
+    }
+
+    .j-tab-btn.active {
+      color: #2563eb;
+      border-bottom-color: #2563eb;
+      background: #eff6ff;
+    }
+
+    .j-tab-panel {
+      display: none;
+    }
+
+    .j-tab-panel.active {
+      display: block;
+    }
+
+    /* ── Feature cards ── */
+    .judge-feature-card {
+      background: #f8fafc;
+      border-radius: 16px;
+      border: 1px solid #e2e8f0;
+      padding: 20px;
+      transition: transform .25s ease, box-shadow .25s ease;
+    }
+
+    .judge-feature-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 24px rgba(37, 99, 235, .08);
+    }
+
+    /* ── Hero gradient ── */
+    .judge-hero {
+      background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #2563eb 100%);
+    }
+
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 3px;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2.5px solid #e2e8f0;
+      border-top-color: #2563eb;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+
+    /* ── Sidebar nav ── */
+
+
+    /* ── Sidebar active link ── */
+    .sidebar-link.active {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    #sidebar-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.4);
+      z-index: 39;
+    }
+
+    #sidebar-overlay.show {
+      display: block;
+    }
+
+    #sidebar.open {
+      transform: translateX(0);
+    }
+
+    #sidebar-hover-zone::after {
+      content: '›';
+      position: absolute;
+      top: 50%;
+      left: 2px;
+      transform: translateY(-50%);
+      color: #94a3b8;
+      font-size: 18px;
+      opacity: 0.5;
+    }
+  </style>
 </head>
 
 <body>
-<div>
-    <h1>Page Under Construction</h1>
-    <p>This page is being built. Please check back soon.</p>
-</div>
+
+  <!-- FIX: Single wrapper div — sidebar + main side by side -->
+  <div id="app-wrapper">
+
+    <!-- Sidebar Overlay (mobile tap-to-close) -->
+    <div id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+    <!-- Sidebar -->
+    <div id="sidebar-hover-zone"></div>
+    <aside id="sidebar" class="text-white bg-blue-900">
+      <div class="p-6 border-b border-blue-800">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center space-x-2">
+            <div class="bg-blue-600 p-1.5 rounded-lg text-white"><i data-lucide="scale"></i></div>
+            <span class="text-2xl font-serif font-bold text-white">NyayaAI</span>
+          </div>
+          <!-- Close button -->
+
+        </div>
+        <div class="mt-3 bg-blue-950/40 rounded-lg p-3">
+          <div class="text-xs text-blue-400">Signed in as</div>
+          <div class="text-sm font-semibold text-white mt-0.5" id="judge-name-display">Hon. Justice</div>
+          <div class="text-xs text-blue-300" id="judge-court-display">High Court</div>
+        </div>
+      </div>
+
+      <nav class="mt-4 px-4">
+        <div class="text-xs font-bold text-blue-400 uppercase tracking-widest px-2 py-2">Overview</div>
+        <div class="space-y-1">
+          <button
+            class="sidebar-link w-full flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors text-left active bg-blue-800"
+            onclick="showPanel('overview')">
+            <i data-lucide="layout-dashboard" class="w-5 h-5"></i><span>Overview</span>
+          </button>
+        </div>
+
+        <div class="text-xs font-bold text-blue-400 uppercase tracking-widest px-2 py-2 mt-2">Case Management</div>
+        <div class="space-y-1">
+          <button
+            class="sidebar-link w-full flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors text-left"
+            onclick="showPanel('docket')">
+            <i data-lucide="folder-open" class="w-5 h-5"></i><span>Case Docket</span>
+            <span id="badge-docket"
+              class="ml-auto bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full hidden">0</span>
+          </button>
+          <button
+            class="sidebar-link w-full flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors text-left"
+            onclick="showPanel('hearings')">
+            <i data-lucide="calendar" class="w-5 h-5"></i><span>Hearing Scheduler</span>
+          </button>
+          <button
+            class="sidebar-link w-full flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors text-left"
+            onclick="showPanel('timeline')">
+            <i data-lucide="git-branch" class="w-5 h-5"></i><span>Case Timeline</span>
+          </button>
+          <button
+            class="sidebar-link w-full flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors text-left"
+            onclick="showPanel('charges')">
+            <i data-lucide="file-pen-line" class="w-5 h-5"></i><span>Charge Framing</span>
+          </button>
+        </div>
+
+        <div class="text-xs font-bold text-blue-400 uppercase tracking-widest px-2 py-2 mt-2">AI Tools</div>
+        <div class="space-y-1">
+          <button
+            class="sidebar-link w-full flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors text-left"
+            onclick="showPanel('verdict')">
+            <i data-lucide="gavel" class="w-5 h-5"></i><span>Verdict Assistant</span>
+          </button>
+          <button
+            class="sidebar-link w-full flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors text-left"
+            onclick="showPanel('bail-risk')">
+            <i data-lucide="shield-alert" class="w-5 h-5"></i><span>Bail Risk Assessor</span>
+          </button>
+          <button
+            class="sidebar-link w-full flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors text-left"
+            onclick="showPanel('precedent')">
+            <i data-lucide="search" class="w-5 h-5"></i><span>Precedent Finder</span>
+          </button>
+          <button
+            class="sidebar-link w-full flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors text-left"
+            onclick="showPanel('sentencing')">
+            <i data-lucide="scale" class="w-5 h-5"></i><span>Sentencing Guide</span>
+          </button>
+        </div>
+
+        <div class="text-xs font-bold text-blue-400 uppercase tracking-widest px-2 py-2 mt-2">Orders & Documents</div>
+        <div class="space-y-1">
+          <button
+            class="sidebar-link w-full flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors text-left"
+            onclick="showPanel('orders')">
+            <i data-lucide="file-text" class="w-5 h-5"></i><span>Daily Order Sheet</span>
+          </button>
+          <button
+            class="sidebar-link w-full flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors text-left"
+            onclick="showPanel('warrants')">
+            <i data-lucide="stamp" class="w-5 h-5"></i><span>Warrants / Summons</span>
+          </button>
+          <button
+            class="sidebar-link w-full flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors text-left"
+            onclick="showPanel('bail-order')">
+            <i data-lucide="key-round" class="w-5 h-5"></i><span>Bail Orders</span>
+          </button>
+          <button
+            class="sidebar-link w-full flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors text-left"
+            onclick="showPanel('remand')">
+            <i data-lucide="timer" class="w-5 h-5"></i><span>Remand Tracker</span>
+            <span id="badge-remand"
+              class="ml-auto bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full hidden">0</span>
+          </button>
+        </div>
+
+        <div class="text-xs font-bold text-blue-400 uppercase tracking-widest px-2 py-2 mt-2">Stakeholders</div>
+        <div class="space-y-1">
+          <button
+            class="sidebar-link w-full flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors text-left"
+            onclick="showPanel('accused')">
+            <i data-lucide="user-round" class="w-5 h-5"></i><span>Accused Profile</span>
+          </button>
+          <button
+            class="sidebar-link w-full flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors text-left"
+            onclick="showPanel('efiling')">
+            <i data-lucide="upload-cloud" class="w-5 h-5"></i><span>e-Filing Inbox</span>
+            <span id="badge-efiling"
+              class="ml-auto bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full hidden">0</span>
+          </button>
+          <button
+            class="sidebar-link w-full flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors text-left"
+            onclick="showPanel('submissions')">
+            <i data-lucide="clock" class="w-5 h-5"></i><span>Response Tracker</span>
+          </button>
+        </div>
+
+        <div class="text-xs font-bold text-blue-400 uppercase tracking-widest px-2 py-2 mt-2">Analytics</div>
+        <div class="space-y-1">
+          <button
+            class="sidebar-link w-full flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors text-left"
+            onclick="showPanel('pendency')">
+            <i data-lucide="bar-chart-2" class="w-5 h-5"></i><span>Pendency Dashboard</span>
+          </button>
+          <button
+            class="sidebar-link w-full flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors text-left"
+            onclick="showPanel('audit')">
+            <i data-lucide="shield-check" class="w-5 h-5"></i><span>Audit Trail</span>
+          </button>
+          <button
+            class="sidebar-link w-full flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors text-left"
+            onclick="showPanel('digsign')">
+            <i data-lucide="pen-line" class="w-5 h-5"></i><span>Digital Signature</span>
+          </button>
+        </div>
+      </nav>
+
+      <div class="p-4 border-t border-blue-800 mt-4">
+        <a href="/" class="flex items-center space-x-2 text-xs text-blue-400 hover:text-white transition">
+          <i data-lucide="arrow-left" class="w-3 h-3"></i><span>Back to NyayaAI</span>
+        </a>
+        <div class="text-xs text-blue-400 text-center mt-1">Judge Dashboard</div>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <div id="main-content" class="flex flex-col min-h-screen">
+
+      <!-- Top Nav -->
+      <nav
+        class="sticky top-0 w-full z-30 bg-white/80 backdrop-blur-md border-b border-slate-100 px-4 md:px-8 py-4 flex justify-between items-center">
+        <div class="flex items-center gap-3">
+          <!-- Hamburger — always visible, toggles sidebar -->
+
+          <div class="flex items-center space-x-2">
+            <div class="bg-blue-600 p-1.5 rounded-lg text-white"><i data-lucide="scale"></i></div>
+            <span class="text-xl md:text-2xl font-serif font-bold text-blue-950">NyayaAI</span>
+            <span class="ml-1 text-xs font-semibold bg-blue-100 text-blue-700 px-2 py-1 rounded-full">Judge
+              Portal</span>
+          </div>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="text-sm text-slate-500 hidden md:block" id="topbar-date"></span>
+          <button class="j-btn j-btn-primary j-btn-sm" onclick="openModal('modal-new-case')">
+            <i data-lucide="plus" class="w-3 h-3"></i> Add Case
+          </button>
+          <div
+            class="w-9 h-9 rounded-full bg-gradient-to-br from-blue-900 to-blue-600 flex items-center justify-center text-white font-bold text-sm cursor-pointer"
+            id="topbar-avatar">J</div>
+        </div>
+      </nav>
+
+      <!-- Page Content -->
+      <div class="flex-1 px-4 md:px-6 pt-6 pb-16">
+
+        <!-- ═══ OVERVIEW ═══ -->
+        <div class="section-panel active" id="panel-overview">
+          <div class="judge-hero rounded-2xl p-8 mb-8 text-white">
+            <h1 class="text-3xl font-serif font-bold mb-1" id="greeting-text">Good morning, Justice</h1>
+            <p class="text-blue-200 text-sm" id="greeting-sub">Loading bench overview…</p>
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mt-6">
+              <div class="bg-white/10 rounded-xl p-4 backdrop-blur-sm">
+                <div class="text-xs font-semibold text-blue-200 uppercase tracking-widest mb-1">Active Cases</div>
+                <div class="text-3xl font-serif font-bold" id="stat-active">0</div>
+              </div>
+              <div class="bg-white/10 rounded-xl p-4 backdrop-blur-sm">
+                <div class="text-xs font-semibold text-blue-200 uppercase tracking-widest mb-1">Today's Hearings</div>
+                <div class="text-3xl font-serif font-bold" id="stat-hearings">0</div>
+              </div>
+              <div class="bg-white/10 rounded-xl p-4 backdrop-blur-sm">
+                <div class="text-xs font-semibold text-blue-200 uppercase tracking-widest mb-1">Bail Pending</div>
+                <div class="text-3xl font-serif font-bold" id="stat-bail">0</div>
+              </div>
+              <div class="bg-white/10 rounded-xl p-4 backdrop-blur-sm">
+                <div class="text-xs font-semibold text-blue-200 uppercase tracking-widest mb-1">Remand Alerts</div>
+                <div class="text-3xl font-serif font-bold" id="stat-remand">0</div>
+              </div>
+              <div class="bg-white/10 rounded-xl p-4 backdrop-blur-sm">
+                <div class="text-xs font-semibold text-blue-200 uppercase tracking-widest mb-1">e-Filings</div>
+                <div class="text-3xl font-serif font-bold" id="stat-efiling">0</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid md:grid-cols-4 gap-6 mb-8">
+            <div class="judge-feature-card cursor-pointer" onclick="showPanel('docket')">
+              <div class="text-blue-600 mb-3"><i data-lucide="folder-open" class="w-8 h-8"></i></div>
+              <h3 class="font-bold text-lg text-blue-900 mb-1">Case Docket</h3>
+              <p class="text-slate-600 text-sm">Manage all cases assigned to your bench.</p>
+            </div>
+            <div class="judge-feature-card cursor-pointer" onclick="showPanel('verdict')">
+              <div class="text-blue-600 mb-3"><i data-lucide="gavel" class="w-8 h-8"></i></div>
+              <h3 class="font-bold text-lg text-blue-900 mb-1">Verdict Assistant</h3>
+              <p class="text-slate-600 text-sm">AI-drafted judgements with section citations.</p>
+            </div>
+            <div class="judge-feature-card cursor-pointer" onclick="showPanel('bail-risk')">
+              <div class="text-blue-600 mb-3"><i data-lucide="shield-alert" class="w-8 h-8"></i></div>
+              <h3 class="font-bold text-lg text-blue-900 mb-1">Bail Risk Assessor</h3>
+              <p class="text-slate-600 text-sm">AI-scored flight risk and recidivism probability.</p>
+            </div>
+            <div class="judge-feature-card cursor-pointer" onclick="showPanel('precedent')">
+              <div class="text-blue-600 mb-3"><i data-lucide="search" class="w-8 h-8"></i></div>
+              <h3 class="font-bold text-lg text-blue-900 mb-1">Precedent Finder</h3>
+              <p class="text-slate-600 text-sm">Similar SC and HC judgements at a glance.</p>
+            </div>
+          </div>
+
+          <div class="grid md:grid-cols-3 gap-6">
+            <div class="j-card md:col-span-2">
+              <div class="j-card-header">
+                <span class="text-lg font-serif font-bold text-blue-900">Today's Hearings</span>
+                <button class="j-btn j-btn-secondary j-btn-sm" onclick="showPanel('hearings')">Schedule</button>
+              </div>
+              <div id="overview-hearings" class="j-card-body">
+                <div class="text-center py-8 text-slate-400">
+                  <i data-lucide="calendar" class="w-8 h-8 mx-auto mb-2 text-slate-300"></i>
+                  <p class="text-sm">No hearings scheduled today</p>
+                </div>
+              </div>
+            </div>
+            <div class="j-card">
+              <div class="j-card-header"><span class="text-lg font-serif font-bold text-blue-900">⚡ Priority
+                  Alerts</span></div>
+              <div class="j-card-body space-y-3" id="overview-alerts">
+                <div class="text-center text-slate-400 text-sm py-4">No active alerts</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid md:grid-cols-2 gap-6 mt-6">
+            <div class="j-card">
+              <div class="j-card-header"><span class="text-base font-bold text-blue-900">Cases by Status</span></div>
+              <div class="j-card-body flex items-center justify-center">
+                <canvas id="statusChart" height="200" width="200"></canvas>
+              </div>
+            </div>
+            <div class="j-card">
+              <div class="j-card-header"><span class="text-base font-bold text-blue-900">Priority Split</span></div>
+              <div class="j-card-body">
+                <canvas id="priorityChart" height="200"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ CASE DOCKET ═══ -->
+        <div class="section-panel" id="panel-docket">
+          <h2 class="text-3xl font-serif font-bold text-blue-900 mb-1">Case Docket</h2>
+          <p class="text-slate-500 text-sm mb-6">All cases assigned to your bench</p>
+          <div class="flex flex-wrap gap-3 mb-4 items-center">
+            <input class="j-input" style="max-width:240px" placeholder="Search case or party…"
+              oninput="filterDocket(this.value)" />
+            <select class="j-input" style="max-width:160px;height:38px!important"
+              onchange="filterDocketStatus(this.value)">
+              <option value="">All Status</option>
+              <option>Active</option>
+              <option>Bail Pending</option>
+              <option>Charge Framing</option>
+              <option>Trial</option>
+              <option>Verdict</option>
+            </select>
+            <button class="j-btn j-btn-primary" onclick="openModal('modal-new-case')">
+              <i data-lucide="plus" class="w-4 h-4"></i> Add Case
+            </button>
+          </div>
+          <div class="j-card overflow-x-auto">
+            <table class="j-table">
+              <thead>
+                <tr>
+                  <th>Case No.</th>
+                  <th>Parties</th>
+                  <th>Sections</th>
+                  <th>Next Hearing</th>
+                  <th>Status</th>
+                  <th>Priority</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="docket-body">
+                <tr>
+                  <td colspan="7" class="text-center text-slate-400 py-10">No cases added yet. Click "Add Case" to
+                    begin.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ═══ HEARINGS ═══ -->
+        <div class="section-panel" id="panel-hearings">
+          <h2 class="text-3xl font-serif font-bold text-blue-900 mb-1">Hearing Scheduler</h2>
+          <p class="text-slate-500 text-sm mb-6">Schedule and manage hearing dates</p>
+          <div class="grid md:grid-cols-2 gap-6">
+            <div class="j-card">
+              <div class="j-card-header"><span class="font-bold text-blue-900">Schedule Hearing</span></div>
+              <div class="j-card-body space-y-4">
+                <div><label class="j-label">Case Number *</label><input class="j-input" id="hs-case"
+                    placeholder="e.g. CR-2026-0001" /></div>
+                <div><label class="j-label">Hearing Date *</label><input type="date" class="j-input" id="hs-date" />
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                  <div><label class="j-label">Start Time</label><input type="time" class="j-input" id="hs-time"
+                      value="10:00" /></div>
+                  <div><label class="j-label">Courtroom</label>
+                    <select class="j-input" id="hs-room">
+                      <option>Main Bench</option>
+                      <option>Annex</option>
+                      <option>Video Conference</option>
+                    </select>
+                  </div>
+                </div>
+                <div><label class="j-label">Hearing Type</label>
+                  <select class="j-input" id="hs-type">
+                    <option>Bail Hearing</option>
+                    <option>Charge Framing</option>
+                    <option>Evidence Recording</option>
+                    <option>Arguments</option>
+                    <option>Verdict Pronouncement</option>
+                    <option>Remand</option>
+                  </select>
+                </div>
+                <div><label class="j-label">Notes</label><textarea class="j-input" id="hs-notes"
+                    placeholder="Agenda points…"></textarea></div>
+                <button class="j-btn j-btn-primary w-full justify-center" onclick="scheduleHearing()">
+                  <i data-lucide="calendar-plus" class="w-4 h-4"></i> Schedule Hearing
+                </button>
+                <div id="hs-msg" class="hidden text-sm font-semibold"></div>
+              </div>
+            </div>
+            <div class="j-card">
+              <div class="j-card-header"><span class="font-bold text-blue-900">Upcoming Hearings</span></div>
+              <div class="j-card-body" id="hearing-list">
+                <div class="text-center text-slate-400 text-sm py-8">No hearings scheduled</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ TIMELINE ═══ -->
+        <div class="section-panel" id="panel-timeline">
+          <h2 class="text-3xl font-serif font-bold text-blue-900 mb-1">Case Timeline</h2>
+          <p class="text-slate-500 text-sm mb-6">Chronological view from FIR to verdict</p>
+          <div class="flex gap-3 mb-6">
+            <input class="j-input" style="max-width:280px" placeholder="Enter Case No." id="tl-case-input" />
+            <button class="j-btn j-btn-primary" onclick="loadTimeline()">Load Timeline</button>
+          </div>
+          <div id="tl-empty" class="j-card p-12 text-center text-slate-400">
+            <i data-lucide="git-branch" class="w-10 h-10 mx-auto mb-3 text-slate-300"></i>
+            <p>Enter a case number and click Load Timeline.</p>
+          </div>
+          <div class="j-card hidden" id="timeline-card">
+            <div class="j-card-header">
+              <span class="font-bold text-blue-900" id="tl-case-label"></span>
+              <span class="pill pill-blue" id="tl-status-pill"></span>
+            </div>
+            <div class="j-card-body">
+              <div id="timeline-body" class="space-y-0"></div>
+              <div class="mt-4 flex gap-3">
+                <input class="j-input flex-1" id="tl-new-event" placeholder="Add event description…" />
+                <input type="date" class="j-input" id="tl-new-date" style="max-width:160px" />
+                <button class="j-btn j-btn-primary" onclick="addTimelineEvent()">Add</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ CHARGE FRAMING ═══ -->
+        <div class="section-panel" id="panel-charges">
+          <h2 class="text-3xl font-serif font-bold text-blue-900 mb-1">Charge Framing Tool</h2>
+          <p class="text-slate-500 text-sm mb-6">Draft charges with AI assistance</p>
+          <div class="grid md:grid-cols-2 gap-6">
+            <div class="j-card">
+              <div class="j-card-header"><span class="font-bold text-blue-900">FIR Details</span></div>
+              <div class="j-card-body space-y-4">
+                <div><label class="j-label">Case Number</label><input class="j-input" id="cf-case"
+                    placeholder="CR-2026-0001" /></div>
+                <div><label class="j-label">FIR Sections</label><input class="j-input" id="cf-sections"
+                    placeholder="e.g. BNS 101, BNS 34" /></div>
+                <div><label class="j-label">Accused Name(s)</label><input class="j-input" id="cf-accused"
+                    placeholder="Full name(s)" /></div>
+                <div><label class="j-label">Incident Summary</label><textarea class="j-input" id="cf-summary"
+                    placeholder="Brief facts from FIR…"></textarea></div>
+                <button class="j-btn j-btn-primary w-full justify-center" onclick="frameCharges()">
+                  <i data-lucide="brain" class="w-4 h-4"></i> Generate Draft Charges
+                </button>
+              </div>
+            </div>
+            <div class="j-card flex flex-col">
+              <div class="j-card-header">
+                <span class="font-bold text-blue-900">Draft Charge Sheet</span>
+                <div class="flex gap-2">
+                  <button class="j-btn j-btn-secondary j-btn-sm" onclick="copyText('cf-output')">Copy</button>
+                  <button class="j-btn j-btn-gold j-btn-sm"
+                    onclick="signDoc('Charge Sheet',document.getElementById('cf-case').value)">Sign</button>
+                </div>
+              </div>
+              <div class="j-card-body flex-1">
+                <div id="cf-output" class="min-h-64 text-sm leading-relaxed text-slate-700 whitespace-pre-wrap">
+                  <div class="text-center text-slate-400 py-16">
+                    <i data-lucide="file-pen-line" class="w-8 h-8 mx-auto mb-3 text-slate-300"></i>
+                    Fill the form and click Generate
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ VERDICT ASSISTANT ═══ -->
+        <div class="section-panel" id="panel-verdict">
+          <h2 class="text-3xl font-serif font-bold text-blue-900 mb-1">Verdict Drafting Assistant</h2>
+          <p class="text-slate-500 text-sm mb-6">AI-generated judgement templates with section citations</p>
+          <div class="grid md:grid-cols-5 gap-6">
+            <div class="md:col-span-2 space-y-6">
+              <div class="j-card">
+                <div class="j-card-header"><span class="font-bold text-blue-900">Case Parameters</span></div>
+                <div class="j-card-body space-y-4">
+                  <div><label class="j-label">Case No.</label><input class="j-input" id="vd-case"
+                      placeholder="CR-2026-0001" /></div>
+                  <div><label class="j-label">Offences Charged</label><input class="j-input" id="vd-offences"
+                      placeholder="BNS 101, BNS 34" /></div>
+                  <div><label class="j-label">Verdict Type</label>
+                    <select class="j-input" id="vd-type">
+                      <option>Conviction</option>
+                      <option>Acquittal</option>
+                      <option>Partial Conviction</option>
+                      <option>Discharge</option>
+                    </select>
+                  </div>
+                  <div><label class="j-label">Key Proven Facts</label>
+                    <textarea class="j-input" id="vd-facts"
+                      placeholder="Core proven facts, witness testimony…"></textarea>
+                  </div>
+                  <button class="j-btn j-btn-primary w-full justify-center" onclick="generateVerdict()">
+                    <i data-lucide="brain" class="w-4 h-4"></i> Draft Judgement
+                  </button>
+                </div>
+              </div>
+              <div class="j-card">
+                <div class="j-card-header"><span class="font-bold text-blue-900">Sentencing Guidance</span></div>
+                <div class="j-card-body text-sm text-slate-500 leading-relaxed" id="sent-guide">
+                  Enter offence codes above — AI will display recommended range.
+                </div>
+              </div>
+            </div>
+            <div class="md:col-span-3 j-card flex flex-col">
+              <div class="j-card-header">
+                <span class="font-bold text-blue-900">Draft Judgement</span>
+                <div class="flex gap-2">
+                  <button class="j-btn j-btn-gold j-btn-sm"
+                    onclick="signDoc('Judgement',document.getElementById('vd-case').value)">
+                    <i data-lucide="pen-line" class="w-3 h-3"></i> Sign
+                  </button>
+                  <button class="j-btn j-btn-primary j-btn-sm">Export PDF</button>
+                </div>
+              </div>
+              <div class="j-card-body flex-1 overflow-y-auto">
+                <div id="vd-output"
+                  class="min-h-72 text-sm leading-loose text-slate-700 whitespace-pre-wrap font-serif">
+                  <div class="text-center text-slate-400 py-20 font-sans">
+                    <i data-lucide="gavel" class="w-10 h-10 mx-auto mb-3 text-slate-300"></i>
+                    Fill the parameters and click Draft Judgement
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ BAIL RISK ═══ -->
+        <div class="section-panel" id="panel-bail-risk">
+          <h2 class="text-3xl font-serif font-bold text-blue-900 mb-1">Bail Risk Assessor</h2>
+          <p class="text-slate-500 text-sm mb-6">AI-scored flight risk, recidivism probability, and community ties</p>
+          <div class="grid md:grid-cols-2 gap-6">
+            <div class="j-card">
+              <div class="j-card-header"><span class="font-bold text-blue-900">Accused Details</span></div>
+              <div class="j-card-body space-y-4">
+                <div><label class="j-label">Name</label><input class="j-input" id="br-name" placeholder="Full name" />
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                  <div><label class="j-label">Age</label><input class="j-input" id="br-age" type="number"
+                      placeholder="e.g. 32" /></div>
+                  <div><label class="j-label">Prior Convictions</label><input class="j-input" id="br-convictions"
+                      type="number" placeholder="0" /></div>
+                </div>
+                <div><label class="j-label">Offence(s) Charged</label><input class="j-input" id="br-offence"
+                    placeholder="e.g. BNS 101 — Murder" /></div>
+                <div><label class="j-label">Has Fixed Address?</label>
+                  <select class="j-input" id="br-address">
+                    <option>Yes</option>
+                    <option>No</option>
+                    <option>Unknown</option>
+                  </select>
+                </div>
+                <div><label class="j-label">Employment Status</label>
+                  <select class="j-input" id="br-employment">
+                    <option>Employed</option>
+                    <option>Self-employed</option>
+                    <option>Unemployed</option>
+                    <option>Unknown</option>
+                  </select>
+                </div>
+                <div><label class="j-label">Prior Bail Violations</label>
+                  <select class="j-input" id="br-violations">
+                    <option>None</option>
+                    <option>1</option>
+                    <option>2+</option>
+                  </select>
+                </div>
+                <button class="j-btn j-btn-primary w-full justify-center" onclick="assessBailRisk()">
+                  <i data-lucide="shield-alert" class="w-4 h-4"></i> Assess Risk
+                </button>
+              </div>
+            </div>
+            <div id="br-result-card" class="j-card hidden">
+              <div class="j-card-header"><span class="font-bold text-blue-900">Risk Assessment Report</span></div>
+              <div class="j-card-body" id="br-result"></div>
+            </div>
+            <div id="br-placeholder" class="j-card flex items-center justify-center min-h-48">
+              <div class="text-center text-slate-400">
+                <i data-lucide="shield-alert" class="w-10 h-10 mx-auto mb-3 text-slate-300"></i>
+                <p class="text-sm">Complete the form to generate a risk report</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ PRECEDENT FINDER ═══ -->
+        <div class="section-panel" id="panel-precedent">
+          <h2 class="text-3xl font-serif font-bold text-blue-900 mb-1">Precedent Finder</h2>
+          <p class="text-slate-500 text-sm mb-6">Search similar Supreme Court and High Court judgements</p>
+          <div class="flex gap-3 mb-6 flex-wrap">
+            <input class="j-input flex-1" id="pf-query"
+              placeholder="e.g. Section 302 murder sudden provocation acquittal…" style="min-width:200px" />
+            <select class="j-input" style="max-width:160px;height:45px!important" id="pf-court">
+              <option>All Courts</option>
+              <option>Supreme Court</option>
+              <option>Delhi HC</option>
+              <option>Bombay HC</option>
+              <option>Madras HC</option>
+            </select>
+            <button class="j-btn j-btn-primary" onclick="findPrecedents()">
+              <i data-lucide="search" class="w-4 h-4"></i> Search
+            </button>
+          </div>
+          <div id="pf-results" class="j-card">
+            <div class="p-12 text-center text-slate-400">
+              <i data-lucide="search" class="w-10 h-10 mx-auto mb-3 text-slate-300"></i>
+              <p class="text-sm">Enter a legal scenario or section to find similar judgements</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ SENTENCING GUIDE ═══ -->
+        <div class="section-panel" id="panel-sentencing">
+          <h2 class="text-3xl font-serif font-bold text-blue-900 mb-1">Sentencing Guide</h2>
+          <p class="text-slate-500 text-sm mb-6">AI-recommended range based on offence and factors</p>
+          <div class="grid md:grid-cols-2 gap-6">
+            <div class="j-card">
+              <div class="j-card-header"><span class="font-bold text-blue-900">Offence Parameters</span></div>
+              <div class="j-card-body space-y-4">
+                <div><label class="j-label">Primary Offence Section</label><input class="j-input" id="sg-section"
+                    placeholder="e.g. BNS 318 — Cheating" /></div>
+                <div><label class="j-label">Prior Convictions</label>
+                  <select class="j-input" id="sg-prior">
+                    <option>None (first offence)</option>
+                    <option>1 prior</option>
+                    <option>2+ priors</option>
+                  </select>
+                </div>
+                <div><label class="j-label">Mitigating Factors</label>
+                  <div class="space-y-2 text-sm mt-1">
+                    <label class="flex items-center gap-2"><input type="checkbox" id="mit-age" /> Advanced age or
+                      minor</label>
+                    <label class="flex items-center gap-2"><input type="checkbox" id="mit-remorse" /> Demonstrated
+                      remorse</label>
+                    <label class="flex items-center gap-2"><input type="checkbox" id="mit-cooperate" /> Cooperated with
+                      investigation</label>
+                    <label class="flex items-center gap-2"><input type="checkbox" id="mit-restitution" /> Made
+                      restitution to victim</label>
+                  </div>
+                </div>
+                <div><label class="j-label">Aggravating Factors</label>
+                  <div class="space-y-2 text-sm mt-1">
+                    <label class="flex items-center gap-2"><input type="checkbox" id="agg-premeditated" /> Premeditated
+                      / planned</label>
+                    <label class="flex items-center gap-2"><input type="checkbox" id="agg-vulnerable" /> Victim was
+                      vulnerable</label>
+                    <label class="flex items-center gap-2"><input type="checkbox" id="agg-weapon" /> Weapon used</label>
+                  </div>
+                </div>
+                <button class="j-btn j-btn-primary w-full justify-center" onclick="getSentencingGuide()">Get Sentencing
+                  Range</button>
+              </div>
+            </div>
+            <div class="j-card" id="sg-result">
+              <div class="j-card-header"><span class="font-bold text-blue-900">Recommended Range</span></div>
+              <div class="j-card-body text-center text-slate-400 py-12">
+                <i data-lucide="scale" class="w-10 h-10 mx-auto mb-3 text-slate-300"></i>
+                <p class="text-sm">Configure parameters and click Get Sentencing Range</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ DAILY ORDER SHEET ═══ -->
+        <div class="section-panel" id="panel-orders">
+          <h2 class="text-3xl font-serif font-bold text-blue-900 mb-1">Daily Order Sheet</h2>
+          <p class="text-slate-500 text-sm mb-6">Generate formatted court orders</p>
+          <div class="grid md:grid-cols-2 gap-6">
+            <div class="j-card">
+              <div class="j-card-header"><span class="font-bold text-blue-900">Order Details</span></div>
+              <div class="j-card-body space-y-4">
+                <div><label class="j-label">Case Number</label><input class="j-input" id="os-case"
+                    placeholder="CR-2026-0001" /></div>
+                <div><label class="j-label">Order Date</label><input type="date" class="j-input" id="os-date" /></div>
+                <div><label class="j-label">Order Type</label>
+                  <select class="j-input" id="os-type">
+                    <option>Interim Order</option>
+                    <option>Bail Order</option>
+                    <option>Charge Framing Order</option>
+                    <option>Final Order</option>
+                    <option>Notice to Show Cause</option>
+                    <option>Adjournment Order</option>
+                  </select>
+                </div>
+                <div><label class="j-label">Order Content</label>
+                  <textarea class="j-input" id="os-content" style="min-height:110px"
+                    placeholder="Dictate or type the order text…"></textarea>
+                </div>
+                <div><label class="j-label">Next Hearing Date</label><input type="date" class="j-input" id="os-next" />
+                </div>
+                <button class="j-btn j-btn-primary w-full justify-center" onclick="generateOrder()">
+                  <i data-lucide="file-text" class="w-4 h-4"></i> Generate Order
+                </button>
+              </div>
+            </div>
+            <div class="j-card hidden" id="os-preview">
+              <div class="j-card-header">
+                <span class="font-bold text-blue-900">Order Preview</span>
+                <div class="flex gap-2">
+                  <button class="j-btn j-btn-gold j-btn-sm"
+                    onclick="signDoc('Order',document.getElementById('os-case').value)">
+                    <i data-lucide="pen-line" class="w-3 h-3"></i> Sign
+                  </button>
+                  <button class="j-btn j-btn-primary j-btn-sm">Export PDF</button>
+                </div>
+              </div>
+              <div class="j-card-body font-serif text-base leading-loose text-slate-800 relative" id="os-preview-body">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ WARRANTS ═══ -->
+        <div class="section-panel" id="panel-warrants">
+          <h2 class="text-3xl font-serif font-bold text-blue-900 mb-1">Warrant &amp; Summons Issuer</h2>
+          <p class="text-slate-500 text-sm mb-6">Generate and dispatch warrants and summons digitally</p>
+          <div class="grid md:grid-cols-2 gap-6">
+            <div class="j-card">
+              <div class="j-card-header"><span class="font-bold text-blue-900">Issue Document</span></div>
+              <div class="j-card-body space-y-4">
+                <div><label class="j-label">Document Type</label>
+                  <select class="j-input" id="ws-type">
+                    <option>Arrest Warrant</option>
+                    <option>Bailable Warrant</option>
+                    <option>Non-Bailable Warrant</option>
+                    <option>Summons to Accused</option>
+                    <option>Summons to Witness</option>
+                    <option>Search Warrant</option>
+                  </select>
+                </div>
+                <div><label class="j-label">Case Number</label><input class="j-input" id="ws-case"
+                    placeholder="CR-2026-0001" /></div>
+                <div><label class="j-label">Addressed To</label><input class="j-input" id="ws-addressee"
+                    placeholder="Full name" /></div>
+                <div><label class="j-label">Address</label><textarea class="j-input" id="ws-address"
+                    placeholder="Full address…" style="min-height:60px"></textarea></div>
+                <div><label class="j-label">Appearance Date</label><input type="date" class="j-input" id="ws-appear" />
+                </div>
+                <button class="j-btn j-btn-primary w-full justify-center" onclick="generateWarrant()">
+                  <i data-lucide="stamp" class="w-4 h-4"></i> Generate Document
+                </button>
+              </div>
+            </div>
+            <div class="j-card hidden" id="ws-preview">
+              <div class="j-card-header">
+                <span class="font-bold text-blue-900" id="ws-preview-title">Document Preview</span>
+                <div class="flex gap-2">
+                  <button class="j-btn j-btn-gold j-btn-sm"
+                    onclick="signDoc(document.getElementById('ws-type').value, document.getElementById('ws-case').value)">Sign</button>
+                  <button class="j-btn j-btn-primary j-btn-sm">Dispatch</button>
+                </div>
+              </div>
+              <div class="j-card-body font-serif text-sm leading-loose text-slate-800 relative min-h-64"
+                id="ws-preview-body"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ BAIL ORDER ═══ -->
+        <div class="section-panel" id="panel-bail-order">
+          <h2 class="text-3xl font-serif font-bold text-blue-900 mb-1">Bail Order Generator</h2>
+          <p class="text-slate-500 text-sm mb-6">Structured bail grant / rejection orders with conditions</p>
+          <div class="grid md:grid-cols-2 gap-6">
+            <div class="j-card">
+              <div class="j-card-header"><span class="font-bold text-blue-900">Bail Order Details</span></div>
+              <div class="j-card-body space-y-4">
+                <div><label class="j-label">Case Number</label><input class="j-input" id="bo-case"
+                    placeholder="CR-2026-0001" /></div>
+                <div><label class="j-label">Accused Name</label><input class="j-input" id="bo-accused"
+                    placeholder="Full name" /></div>
+                <div><label class="j-label">Decision</label>
+                  <select class="j-input" id="bo-decision" onchange="toggleBailConditions()">
+                    <option value="grant">Bail Granted</option>
+                    <option value="reject">Bail Rejected</option>
+                  </select>
+                </div>
+                <div id="bo-conditions-section" class="space-y-2 text-sm">
+                  <label class="j-label">Bail Conditions</label>
+                  <label class="flex items-center gap-2"><input type="checkbox" id="bc-surety" checked /> Surety ₹<input
+                      id="bc-surety-amt"
+                      style="width:80px;border:1px solid #e2e8f0;border-radius:4px;padding:2px 6px;font-size:11.5px;height:auto"
+                      placeholder="1,00,000" /></label>
+                  <label class="flex items-center gap-2"><input type="checkbox" id="bc-passport" /> Surrender
+                    passport</label>
+                  <label class="flex items-center gap-2"><input type="checkbox" id="bc-travel" /> No travel outside
+                    state</label>
+                  <label class="flex items-center gap-2"><input type="checkbox" id="bc-report" checked /> Weekly police
+                    reporting</label>
+                  <label class="flex items-center gap-2"><input type="checkbox" id="bc-tamper" /> No witness
+                    contact</label>
+                </div>
+                <div><label class="j-label">Grounds</label><textarea class="j-input" id="bo-grounds"
+                    placeholder="Grounds for decision…" style="min-height:60px"></textarea></div>
+                <button class="j-btn j-btn-primary w-full justify-center" onclick="generateBailOrder()">Generate Bail
+                  Order</button>
+              </div>
+            </div>
+            <div class="j-card hidden" id="bo-preview">
+              <div class="j-card-header">
+                <span class="font-bold text-blue-900" id="bo-preview-title">Bail Order Preview</span>
+                <div class="flex gap-2">
+                  <button class="j-btn j-btn-gold j-btn-sm"
+                    onclick="signDoc('Bail Order', document.getElementById('bo-case').value)">Sign</button>
+                  <button class="j-btn j-btn-primary j-btn-sm">Export PDF</button>
+                </div>
+              </div>
+              <div class="j-card-body font-serif text-sm leading-loose text-slate-800 relative min-h-64"
+                id="bo-preview-body"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ REMAND TRACKER ═══ -->
+        <div class="section-panel" id="panel-remand">
+          <h2 class="text-3xl font-serif font-bold text-blue-900 mb-1">Remand Extension Tracker</h2>
+          <p class="text-slate-500 text-sm mb-6">Statutory remand period alerts — BNSS §187 compliance</p>
+          <div class="j-card">
+            <div class="j-card-header">
+              <span class="font-bold text-blue-900">Active Remands</span>
+              <button class="j-btn j-btn-primary j-btn-sm" onclick="openModal('modal-add-remand')">+ Add Remand</button>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="j-table">
+                <thead>
+                  <tr>
+                    <th>Case</th>
+                    <th>Accused</th>
+                    <th>Custody Type</th>
+                    <th>Start Date</th>
+                    <th>Expiry</th>
+                    <th>Days Left</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="remand-body">
+                  <tr>
+                    <td colspan="7" class="text-center text-slate-400 py-8">No remands tracked.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ ACCUSED PROFILE ═══ -->
+        <div class="section-panel" id="panel-accused">
+          <h2 class="text-3xl font-serif font-bold text-blue-900 mb-1">Accused Profile Viewer</h2>
+          <p class="text-slate-500 text-sm mb-6">Prior FIRs, convictions, bail history — consolidated view</p>
+          <div class="flex gap-3 mb-6">
+            <input class="j-input flex-1" id="acc-search" placeholder="Search by name or Accused ID…"
+              style="max-width:400px" />
+            <button class="j-btn j-btn-primary" onclick="loadAccusedProfile()">Search</button>
+          </div>
+          <div id="acc-empty" class="j-card p-12 text-center text-slate-400">
+            <i data-lucide="user-round" class="w-10 h-10 mx-auto mb-3 text-slate-300"></i>
+            <p>Search for an accused by name or ID</p>
+          </div>
+          <div id="acc-profile" class="j-card hidden">
+            <div class="j-card-header">
+              <div>
+                <span class="font-bold text-blue-900 text-lg" id="acc-name"></span>
+                <div class="text-xs text-slate-500 mt-0.5" id="acc-meta"></div>
+              </div>
+              <span class="pill pill-red" id="acc-risk-tag"></span>
+            </div>
+            <div class="j-card-body">
+              <div class="grid grid-cols-3 gap-4 mb-6">
+                <div class="stat-tile text-center">
+                  <div class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">FIRs</div>
+                  <div class="text-2xl font-serif font-bold text-blue-900" id="acc-firs">0</div>
+                </div>
+                <div class="stat-tile text-center">
+                  <div class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Convictions</div>
+                  <div class="text-2xl font-serif font-bold text-blue-900" id="acc-conv">0</div>
+                </div>
+                <div class="stat-tile text-center">
+                  <div class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Bail Violations</div>
+                  <div class="text-2xl font-serif font-bold text-blue-900" id="acc-bail-v">0</div>
+                </div>
+              </div>
+              <div class="j-tab-bar">
+                <button class="j-tab-btn active" onclick="switchAccTab(this,'acc-tab-firs')">Prior FIRs</button>
+                <button class="j-tab-btn" onclick="switchAccTab(this,'acc-tab-bail')">Bail History</button>
+                <button class="j-tab-btn" onclick="switchAccTab(this,'acc-tab-conv')">Convictions</button>
+              </div>
+              <div class="j-tab-panel active" id="acc-tab-firs">
+                <table class="j-table">
+                  <thead>
+                    <tr>
+                      <th>FIR No.</th>
+                      <th>Station</th>
+                      <th>Date</th>
+                      <th>Offence</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="acc-firs-body">
+                    <tr>
+                      <td colspan="5" class="text-center text-slate-400 py-4">Connect to records database to view FIR
+                        history</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="j-tab-panel" id="acc-tab-bail">
+                <table class="j-table">
+                  <thead>
+                    <tr>
+                      <th>Case</th>
+                      <th>Granted</th>
+                      <th>Conditions</th>
+                      <th>Violation</th>
+                    </tr>
+                  </thead>
+                  <tbody id="acc-bail-body">
+                    <tr>
+                      <td colspan="4" class="text-center text-slate-400 py-4">No bail records</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="j-tab-panel" id="acc-tab-conv">
+                <table class="j-table">
+                  <thead>
+                    <tr>
+                      <th>Case</th>
+                      <th>Offence</th>
+                      <th>Sentence</th>
+                      <th>Court</th>
+                      <th>Year</th>
+                    </tr>
+                  </thead>
+                  <tbody id="acc-conv-body">
+                    <tr>
+                      <td colspan="5" class="text-center text-slate-400 py-4">No conviction records</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ E-FILING ═══ -->
+        <div class="section-panel" id="panel-efiling">
+          <h2 class="text-3xl font-serif font-bold text-blue-900 mb-1">Lawyer e-Filing Inbox</h2>
+          <p class="text-slate-500 text-sm mb-6">Review and act on digital submissions</p>
+          <div class="j-card">
+            <div class="j-card-header">
+              <span class="font-bold text-blue-900">Pending Filings (<span id="efiling-count">0</span>)</span>
+              <button class="j-btn j-btn-primary j-btn-sm" onclick="openModal('modal-add-efiling')">+ Add
+                Filing</button>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="j-table">
+                <thead>
+                  <tr>
+                    <th>Filing ID</th>
+                    <th>Case</th>
+                    <th>Lawyer</th>
+                    <th>Type</th>
+                    <th>Filed</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="efiling-body">
+                  <tr>
+                    <td colspan="7" class="text-center text-slate-400 py-8">No filings received yet.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ RESPONSE TRACKER ═══ -->
+        <div class="section-panel" id="panel-submissions">
+          <h2 class="text-3xl font-serif font-bold text-blue-900 mb-1">Response Tracker</h2>
+          <p class="text-slate-500 text-sm mb-6">Deadlines for submissions and overdue alerts</p>
+          <div class="j-card">
+            <div class="j-card-header">
+              <span class="font-bold text-blue-900">Submission Deadlines</span>
+              <button class="j-btn j-btn-primary j-btn-sm" onclick="openModal('modal-add-deadline')">+ Add
+                Deadline</button>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="j-table">
+                <thead>
+                  <tr>
+                    <th>Case</th>
+                    <th>Party</th>
+                    <th>Submission Type</th>
+                    <th>Due Date</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="submissions-body">
+                  <tr>
+                    <td colspan="6" class="text-center text-slate-400 py-8">No deadlines set.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ PENDENCY ═══ -->
+        <div class="section-panel" id="panel-pendency">
+          <h2 class="text-3xl font-serif font-bold text-blue-900 mb-1">Pendency Dashboard</h2>
+          <p class="text-slate-500 text-sm mb-6">Overdue cases and case aging analysis</p>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div class="stat-tile">
+              <div class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Total Active</div>
+              <div class="text-2xl font-serif font-bold text-blue-900" id="pend-total">0</div>
+            </div>
+            <div class="stat-tile">
+              <div class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Overdue</div>
+              <div class="text-2xl font-serif font-bold text-red-600" id="pend-overdue">0</div>
+            </div>
+            <div class="stat-tile">
+              <div class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">0–6 Months</div>
+              <div class="text-2xl font-serif font-bold text-blue-900" id="pend-fresh">0</div>
+            </div>
+            <div class="stat-tile">
+              <div class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">&gt;1 Year</div>
+              <div class="text-2xl font-serif font-bold text-red-600" id="pend-old">0</div>
+            </div>
+          </div>
+          <div class="j-card">
+            <div class="j-card-header"><span class="font-bold text-blue-900">Case Aging</span></div>
+            <div class="j-card-body"><canvas id="agingChart" height="200"></canvas></div>
+          </div>
+        </div>
+
+        <!-- ═══ AUDIT ═══ -->
+        <div class="section-panel" id="panel-audit">
+          <h2 class="text-3xl font-serif font-bold text-blue-900 mb-1">Audit Trail</h2>
+          <p class="text-slate-500 text-sm mb-6">Immutable log of every action</p>
+          <div class="flex gap-3 mb-4">
+            <input class="j-input" style="max-width:280px" placeholder="Filter by action or case…"
+              oninput="filterAudit(this.value)" />
+          </div>
+          <div class="j-card">
+            <div class="j-card-header">
+              <span class="font-bold text-blue-900">Audit Log</span>
+              <span class="text-xs text-slate-400">Tamper-proof · Read-only</span>
+            </div>
+            <div class="j-card-body" id="audit-log">
+              <div class="text-center text-slate-400 text-sm py-6">No actions logged yet</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ DIGITAL SIGNATURE ═══ -->
+        <div class="section-panel" id="panel-digsign">
+          <h2 class="text-3xl font-serif font-bold text-blue-900 mb-1">Digital Signature</h2>
+          <p class="text-slate-500 text-sm mb-6">Sign orders, warrants, and judgements electronically</p>
+          <div class="grid md:grid-cols-2 gap-6">
+            <div class="j-card">
+              <div class="j-card-header"><span class="font-bold text-blue-900">Pending Signature Queue</span></div>
+              <div class="overflow-x-auto">
+                <table class="j-table">
+                  <thead>
+                    <tr>
+                      <th>Document</th>
+                      <th>Case</th>
+                      <th>Type</th>
+                      <th>Added</th>
+                      <th>Sign</th>
+                    </tr>
+                  </thead>
+                  <tbody id="sign-queue">
+                    <tr>
+                      <td colspan="5" class="text-center text-slate-400 py-6">No documents pending signature</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div class="j-card">
+              <div class="j-card-header"><span class="font-bold text-blue-900">Certificate</span></div>
+              <div class="j-card-body">
+                <div
+                  class="bg-slate-50 border border-slate-200 rounded-xl p-5 font-serif text-sm leading-loose text-slate-700">
+                  <div class="text-center mb-4">
+                    <div class="font-bold text-blue-900 text-base">Digital Signature Certificate</div>
+                    <div class="text-xs text-slate-500 font-sans">Ministry of Law — Certifying Authority</div>
+                  </div>
+                  <div id="cert-holder"><strong>Holder:</strong> —</div>
+                  <div id="cert-designation"><strong>Designation:</strong> —</div>
+                  <div><strong>Certificate No.:</strong> NCA-2026-DHC-<span id="cert-no">—</span></div>
+                  <div><strong>Valid Until:</strong> 31 December 2027</div>
+                  <div><strong>Algorithm:</strong> RSA-2048 / SHA-256</div>
+                  <div
+                    class="mt-3 p-2 bg-green-50 border border-green-200 rounded-lg text-xs text-green-700 text-center font-semibold font-sans">
+                    ✓ Certificate Active — Verified by NIC CA
+                  </div>
+                </div>
+                <button class="j-btn j-btn-primary w-full justify-center mt-4" onclick="signAllPending()">
+                  <i data-lucide="pen-line" class="w-4 h-4"></i> Sign All Pending
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- end page content -->
+
+      <!-- FIX: Footer inside main-content flex column, no extra whitespace -->
+      <footer class="bg-blue-950 py-10 text-white text-center mt-auto">
+        <div class="max-w-6xl mx-auto px-6">
+          <h2 class="text-2xl font-serif font-bold mb-2">NyayaAI</h2>
+          <p class="text-blue-300 text-sm opacity-70">Empowering the judiciary with legal intelligence.</p>
+          <div class="border-t border-white/10 pt-6 mt-6 text-xs opacity-50">&copy; 2026 Team NyayaAI. All Rights
+            Reserved.</div>
+        </div>
+      </footer>
+
+    </div><!-- end main-content -->
+  </div><!-- end app-wrapper -->
+
+  <!-- ═══════════ MODALS ═══════════ -->
+
+  <!-- New Case -->
+  <div class="j-modal-backdrop" id="modal-new-case">
+    <div class="j-modal-box">
+      <div class="j-modal-header">
+        <div>
+          <div class="text-xl font-serif font-bold text-blue-900">Register New Case</div>
+          <div class="text-xs text-slate-500">Add to Case Docket</div>
+        </div>
+        <span class="text-2xl text-slate-400 cursor-pointer hover:text-red-500 font-bold leading-none"
+          onclick="closeModal('modal-new-case')">×</span>
+      </div>
+      <div class="j-modal-body grid grid-cols-2 gap-4">
+        <div><label class="j-label">Case Number *</label><input class="j-input" id="nc-no" placeholder="CR-2026-XXXX" />
+        </div>
+        <div><label class="j-label">FIR Reference</label><input class="j-input" id="nc-fir" placeholder="DL/2026/001" />
+        </div>
+        <div class="col-span-2"><label class="j-label">Parties *</label><input class="j-input" id="nc-parties"
+            placeholder="State v. Accused Name" /></div>
+        <div><label class="j-label">Sections</label><input class="j-input" id="nc-sections"
+            placeholder="BNS 101, BNS 34" /></div>
+        <div><label class="j-label">Priority</label><select class="j-input" id="nc-priority">
+            <option>High</option>
+            <option>Medium</option>
+            <option>Low</option>
+          </select></div>
+        <div><label class="j-label">First Hearing Date</label><input type="date" class="j-input" id="nc-hearing" />
+        </div>
+        <div><label class="j-label">Status</label><select class="j-input" id="nc-status">
+            <option>Active</option>
+            <option>Bail Pending</option>
+            <option>Charge Framing</option>
+            <option>Trial</option>
+          </select></div>
+        <div class="col-span-2 flex justify-end gap-3 mt-2">
+          <button class="j-btn j-btn-secondary" onclick="closeModal('modal-new-case')">Cancel</button>
+          <button class="j-btn j-btn-primary" onclick="addNewCase()">Add to Docket</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Deadline -->
+  <div class="j-modal-backdrop" id="modal-add-deadline">
+    <div class="j-modal-box" style="max-width:460px">
+      <div class="j-modal-header">
+        <div class="text-xl font-serif font-bold text-blue-900">Add Submission Deadline</div><span
+          class="text-2xl text-slate-400 cursor-pointer hover:text-red-500 font-bold"
+          onclick="closeModal('modal-add-deadline')">×</span>
+      </div>
+      <div class="j-modal-body space-y-4">
+        <div><label class="j-label">Case Number</label><input class="j-input" id="dl-case" placeholder="CR-2026-0001" />
+        </div>
+        <div><label class="j-label">Party</label><select class="j-input" id="dl-party">
+            <option>Prosecution</option>
+            <option>Defence</option>
+            <option>Both</option>
+          </select></div>
+        <div><label class="j-label">Submission Type</label>
+          <select class="j-input" id="dl-type">
+            <option>Written Submission</option>
+            <option>Evidence List</option>
+            <option>Reply to Chargesheet</option>
+            <option>Bail Application Response</option>
+          </select>
+        </div>
+        <div><label class="j-label">Due Date</label><input type="date" class="j-input" id="dl-date" /></div>
+        <div class="flex justify-end gap-3">
+          <button class="j-btn j-btn-secondary" onclick="closeModal('modal-add-deadline')">Cancel</button>
+          <button class="j-btn j-btn-primary" onclick="addDeadline()">Add Deadline</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Remand -->
+  <div class="j-modal-backdrop" id="modal-add-remand">
+    <div class="j-modal-box" style="max-width:460px">
+      <div class="j-modal-header">
+        <div class="text-xl font-serif font-bold text-blue-900">Add Remand Record</div><span
+          class="text-2xl text-slate-400 cursor-pointer hover:text-red-500 font-bold"
+          onclick="closeModal('modal-add-remand')">×</span>
+      </div>
+      <div class="j-modal-body space-y-4">
+        <div><label class="j-label">Case Number</label><input class="j-input" id="rm-case" placeholder="CR-2026-0001" />
+        </div>
+        <div><label class="j-label">Accused Name</label><input class="j-input" id="rm-accused"
+            placeholder="Full name" /></div>
+        <div><label class="j-label">Custody Type</label><select class="j-input" id="rm-type">
+            <option>Police Custody</option>
+            <option>Judicial Custody</option>
+          </select></div>
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="j-label">Start Date</label><input type="date" class="j-input" id="rm-start" /></div>
+          <div><label class="j-label">Duration (Days)</label><input type="number" class="j-input" id="rm-days"
+              placeholder="15" /></div>
+        </div>
+        <div class="flex justify-end gap-3">
+          <button class="j-btn j-btn-secondary" onclick="closeModal('modal-add-remand')">Cancel</button>
+          <button class="j-btn j-btn-primary" onclick="addRemand()">Add Remand</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add e-Filing -->
+  <div class="j-modal-backdrop" id="modal-add-efiling">
+    <div class="j-modal-box" style="max-width:460px">
+      <div class="j-modal-header">
+        <div class="text-xl font-serif font-bold text-blue-900">Add e-Filing Entry</div><span
+          class="text-2xl text-slate-400 cursor-pointer hover:text-red-500 font-bold"
+          onclick="closeModal('modal-add-efiling')">×</span>
+      </div>
+      <div class="j-modal-body space-y-4">
+        <div><label class="j-label">Case Number</label><input class="j-input" id="ef-case" placeholder="CR-2026-0001" />
+        </div>
+        <div><label class="j-label">Lawyer Name</label><input class="j-input" id="ef-lawyer"
+            placeholder="Adv. Full Name" /></div>
+        <div><label class="j-label">Filing Type</label>
+          <select class="j-input" id="ef-type">
+            <option>Bail Application</option>
+            <option>Motion</option>
+            <option>Written Submission</option>
+            <option>Evidence</option>
+            <option>Reply to Chargesheet</option>
+          </select>
+        </div>
+        <div><label class="j-label">Filed Date</label><input type="date" class="j-input" id="ef-date" /></div>
+        <div class="flex justify-end gap-3">
+          <button class="j-btn j-btn-secondary" onclick="closeModal('modal-add-efiling')">Cancel</button>
+          <button class="j-btn j-btn-primary" onclick="addEFiling()">Add Filing</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Judge Setup (first run) -->
+  <div class="j-modal-backdrop open" id="modal-setup">
+    <div class="j-modal-box" style="max-width:480px">
+      <div class="j-modal-header">
+        <div>
+          <div class="text-xl font-serif font-bold text-blue-900">Welcome to NyayaAI</div>
+          <div class="text-xs text-slate-500">Set up your judge profile to begin</div>
+        </div>
+      </div>
+      <div class="j-modal-body space-y-4">
+        <div class="j-alert j-alert-blue"><i data-lucide="info"></i>
+          <div>This information will appear on all orders and judgements you generate.</div>
+        </div>
+        <div><label class="j-label">Full Name *</label><input class="j-input" id="setup-name"
+            placeholder="Justice S. Mehta" /></div>
+        <div><label class="j-label">Designation</label><input class="j-input" id="setup-designation"
+            placeholder="Additional Judge, Delhi High Court" /></div>
+        <div><label class="j-label">Court / Bench</label><input class="j-input" id="setup-court"
+            placeholder="Delhi High Court, Bench 3" /></div>
+        <div><label class="j-label">Initials (for avatar)</label><input class="j-input" id="setup-initials"
+            placeholder="SM" maxlength="3" /></div>
+        <button class="j-btn j-btn-primary w-full justify-center mt-1" onclick="saveSetup()">
+          <i data-lucide="check" class="w-4 h-4"></i> Save &amp; Begin
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sign Confirm -->
+  <div class="j-modal-backdrop" id="modal-sign-confirm">
+    <div class="j-modal-box" style="max-width:400px">
+      <div class="j-modal-header">
+        <div class="text-xl font-serif font-bold text-blue-900">Confirm Digital Signature</div>
+        <span class="text-2xl text-slate-400 cursor-pointer hover:text-red-500 font-bold"
+          onclick="closeModal('modal-sign-confirm')">×</span>
+      </div>
+      <div class="j-modal-body space-y-4">
+        <div class="j-alert j-alert-blue"><i data-lucide="shield-check"></i>
+          <div>This applies your PKI digital signature. It is legally binding and cannot be undone.</div>
+        </div>
+        <div><label class="j-label">Document</label>
+          <div id="sign-doc-label" class="text-sm font-semibold text-blue-900 p-3 bg-slate-50 rounded-lg"></div>
+        </div>
+        <div><label class="j-label">Enter PIN to Sign</label><input type="password" class="j-input" id="sign-pin"
+            placeholder="6-digit DSC PIN" maxlength="6" /></div>
+        <div class="flex justify-end gap-3">
+          <button class="j-btn j-btn-secondary" onclick="closeModal('modal-sign-confirm')">Cancel</button>
+          <button class="j-btn j-btn-primary" onclick="confirmSign()">
+            <i data-lucide="pen-line" class="w-3 h-3"></i> Apply Signature
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    const fmt = d => d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+    const today = () => new Date().toISOString().slice(0, 10);
+    const esc = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    // ══════════════════════════════════════════════════════════════
+    // FIX 1 & 2: SIDEBAR TOGGLE — click to open/close, pushes main
+    // ══════════════════════════════════════════════════════════════
+    const sidebarEl = document.getElementById('sidebar');
+    const mainEl = document.getElementById('main-content');
+    const hoverZone = document.getElementById('sidebar-hover-zone');
+
+    function openSidebar() {
+      sidebarEl.classList.add('open');
+      mainEl.classList.add('sidebar-open');
+    }
+    function closeSidebar() {
+      sidebarEl.classList.remove('open');
+      mainEl.classList.remove('sidebar-open');
+    }
+
+    hoverZone.addEventListener('mouseenter', openSidebar);
+    sidebarEl.addEventListener('mouseleave', closeSidebar);
+
+    // Remove the old click toggle from hamburger or keep it as fallback only
+    function toggleSidebar() {
+      sidebarEl.classList.contains('open') ? closeSidebar() : openSidebar();
+    }
+
+    // ── Judge profile ──────────────────────────────────────────────
+    let judgeProfile = JSON.parse(localStorage.getItem('nyayaai_judge') || 'null');
+
+    function saveSetup() {
+      const name = $('setup-name').value.trim();
+      if (!name) { alert('Please enter your full name.'); return; }
+      judgeProfile = {
+        name,
+        designation: $('setup-designation').value.trim() || 'Judge',
+        court: $('setup-court').value.trim() || 'High Court',
+        initials: $('setup-initials').value.trim().toUpperCase() || name.split(' ').map(w => w[0]).join('').slice(0, 2)
+      };
+      localStorage.setItem('nyayaai_judge', JSON.stringify(judgeProfile));
+      applyProfile();
+      closeModal('modal-setup');
+      refreshOverview();
+    }
+
+    function applyProfile() {
+      if (!judgeProfile) return;
+      $('judge-name-display').textContent = 'Hon. ' + judgeProfile.name;
+      $('judge-court-display').textContent = judgeProfile.court;
+      $('topbar-avatar').textContent = judgeProfile.initials || 'J';
+      $('cert-holder').innerHTML = '<strong>Holder:</strong> ' + esc(judgeProfile.name);
+      $('cert-designation').innerHTML = '<strong>Designation:</strong> ' + esc(judgeProfile.designation);
+      $('cert-no').textContent = Math.random().toString(36).substring(2, 8).toUpperCase();
+      updateGreeting();
+    }
+
+    function updateGreeting() {
+      if (!judgeProfile) return;
+      const h = new Date().getHours();
+      const g = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+      $('greeting-text').textContent = `${g}, ${judgeProfile.name}`;
+      const d = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+      $('greeting-sub').textContent = `${d} · ${judgeProfile.court}`;
+    }
+
+    // ── Navigation ──────────────────────────────────────────────────
+    function showPanel(id) {
+      document.querySelectorAll('.section-panel').forEach(p => p.classList.remove('active'));
+      $('panel-' + id)?.classList.add('active');
+      document.querySelectorAll('.sidebar-link').forEach(n => n.classList.remove('bg-blue-800'));
+      document.querySelector(`.sidebar-link[onclick*="'${id}'"]`)?.classList.add('bg-blue-800');
+      if (id === 'pendency') updatePendency();
+      // On mobile, close sidebar after navigation
+      if (window.innerWidth < 768) closeSidebar();
+      window.scrollTo(0, 0);
+    }
+
+    function openModal(id) { $(id)?.classList.add('open'); lucide.createIcons(); }
+    function closeModal(id) { $(id)?.classList.remove('open'); }
+
+    document.querySelectorAll('.j-modal-backdrop').forEach(m => {
+      m.addEventListener('click', e => { if (e.target === m && m.id !== 'modal-setup') m.classList.remove('open'); });
+    });
+
+    // ── Topbar date ────────────────────────────────────────────────
+    $('topbar-date').textContent = new Date().toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+    $('os-date').value = today();
+    $('hs-date').value = today();
+
+    // ══════════════════════════════════════════════════════════════
+    // SAMPLE DATA — pre-loaded so dashboard is never empty
+    // ══════════════════════════════════════════════════════════════
+    const SAMPLE_DOCKET = [
+      { no: 'CR-2026-0042', fir: 'DL/2026/042', parties: 'State v. Rajan Mehta', sections: 'BNS 101, BNS 34', priority: 'High', next: '28 May 2026', status: 'Trial' },
+      { no: 'CR-2026-0039', fir: 'DL/2026/039', parties: 'State v. Priya Sharma', sections: 'BNS 318, IT Act 66C', priority: 'Medium', next: '30 May 2026', status: 'Charge Framing' },
+      { no: 'CR-2026-0035', fir: 'MH/2026/107', parties: 'State v. Abdul Karim', sections: 'BNS 309, BNS 308', priority: 'High', next: '27 May 2026', status: 'Bail Pending' },
+      { no: 'CR-2026-0031', fir: 'UP/2026/088', parties: 'State v. Sunita Devi', sections: 'BNS 63', priority: 'High', next: '29 May 2026', status: 'Active' },
+      { no: 'CR-2026-0028', fir: 'DL/2026/028', parties: 'State v. Deepak Jain', sections: 'BNS 318, BNS 319', priority: 'Low', next: '02 Jun 2026', status: 'Active' },
+      { no: 'CR-2026-0021', fir: 'KA/2026/055', parties: 'State v. Harish Nair', sections: 'NDPS Act S.21', priority: 'Medium', next: '05 Jun 2026', status: 'Trial' },
+    ];
+
+    const SAMPLE_HEARINGS = [
+      { caseNo: 'CR-2026-0042', type: 'Evidence Recording', date: today(), time: '10:00', room: 'Main Bench', notes: 'Cross-examination of PW-3', urgent: true },
+      { caseNo: 'CR-2026-0035', type: 'Bail Hearing', date: today(), time: '11:30', room: 'Main Bench', notes: 'Prosecution to file reply', urgent: true },
+      { caseNo: 'CR-2026-0039', type: 'Charge Framing', date: today(), time: '14:00', room: 'Annex', notes: 'Charge sheet verification', urgent: false },
+      { caseNo: 'CR-2026-0028', type: 'Arguments', date: '2026-05-28', time: '10:30', room: 'Main Bench', notes: 'Final arguments from both sides', urgent: false },
+      { caseNo: 'CR-2026-0021', type: 'Verdict Pronouncement', date: '2026-05-30', time: '11:00', room: 'Main Bench', notes: 'Judgement ready for pronouncement', urgent: false },
+    ];
+
+    const SAMPLE_REMANDS = [
+      { caseNo: 'CR-2026-0042', accused: 'Rajan Mehta', type: 'Judicial Custody', start: '2026-05-10', days: 15 },
+      { caseNo: 'CR-2026-0035', accused: 'Abdul Karim', type: 'Police Custody', start: '2026-05-19', days: 5 },
+      { caseNo: 'CR-2026-0031', accused: 'Sunita Devi', type: 'Judicial Custody', start: '2026-05-05', days: 20 },
+    ];
+
+    const SAMPLE_EFILINGS = [
+      { id: 'EF-001423', caseNo: 'CR-2026-0035', lawyer: 'Adv. Ramesh Gupta', type: 'Bail Application', filed: '2026-05-20', status: 'Pending' },
+      { id: 'EF-001418', caseNo: 'CR-2026-0039', lawyer: 'Adv. Meera Pillai', type: 'Written Submission', filed: '2026-05-18', status: 'Pending' },
+      { id: 'EF-001410', caseNo: 'CR-2026-0042', lawyer: 'Adv. Suresh Iyer', type: 'Evidence', filed: '2026-05-15', status: 'Reviewed' },
+    ];
+
+    const SAMPLE_DEADLINES = [
+      { caseNo: 'CR-2026-0035', party: 'Prosecution', type: 'Bail Application Response', due: '2026-05-22', status: 'Overdue' },
+      { caseNo: 'CR-2026-0039', party: 'Defence', type: 'Written Submission', due: '2026-05-28', status: 'Pending' },
+      { caseNo: 'CR-2026-0042', party: 'Both', type: 'Evidence List', due: '2026-05-30', status: 'Pending' },
+    ];
+
+    const SAMPLE_TIMELINES = {
+      'CR-2026-0042': [
+        { title: 'FIR Registered at Delhi PS', date: '2026-01-15' },
+        { title: 'Accused Arrested', date: '2026-01-18' },
+        { title: 'Chargesheet filed by Police', date: '2026-02-10' },
+        { title: 'Court takes cognizance', date: '2026-02-20' },
+        { title: 'Charges framed under BNS 101 & 34', date: '2026-03-05' },
+        { title: 'PW-1 & PW-2 examined', date: '2026-04-12' },
+        { title: 'PW-3 cross-examination scheduled', date: today() },
+      ],
+      'CR-2026-0035': [
+        { title: 'FIR Registered at Andheri PS', date: '2026-02-28' },
+        { title: 'Accused Arrested', date: '2026-03-01' },
+        { title: 'Bail application filed', date: '2026-05-20' },
+      ]
+    };
+
+    // Load sample data into localStorage only if no existing data
+    function loadSampleData() {
+      if (!localStorage.getItem('nyayaai_docket')) localStorage.setItem('nyayaai_docket', JSON.stringify(SAMPLE_DOCKET));
+      if (!localStorage.getItem('nyayaai_hearings')) localStorage.setItem('nyayaai_hearings', JSON.stringify(SAMPLE_HEARINGS));
+      if (!localStorage.getItem('nyayaai_remands')) localStorage.setItem('nyayaai_remands', JSON.stringify(SAMPLE_REMANDS));
+      if (!localStorage.getItem('nyayaai_efilings')) localStorage.setItem('nyayaai_efilings', JSON.stringify(SAMPLE_EFILINGS));
+      if (!localStorage.getItem('nyayaai_deadlines')) localStorage.setItem('nyayaai_deadlines', JSON.stringify(SAMPLE_DEADLINES));
+      if (!localStorage.getItem('nyayaai_timelines')) localStorage.setItem('nyayaai_timelines', JSON.stringify(SAMPLE_TIMELINES));
+    }
+
+    // ── App state (localStorage) ───────────────────────────────────
+    loadSampleData();
+    let docketData = JSON.parse(localStorage.getItem('nyayaai_docket') || '[]');
+    let hearings = JSON.parse(localStorage.getItem('nyayaai_hearings') || '[]');
+    let remands = JSON.parse(localStorage.getItem('nyayaai_remands') || '[]');
+    let deadlines = JSON.parse(localStorage.getItem('nyayaai_deadlines') || '[]');
+    let efilings = JSON.parse(localStorage.getItem('nyayaai_efilings') || '[]');
+    let auditEntries = JSON.parse(localStorage.getItem('nyayaai_audit') || '[]');
+    let timelineEvents = JSON.parse(localStorage.getItem('nyayaai_timelines') || '{}');
+    let signQueue = JSON.parse(localStorage.getItem('nyayaai_signqueue') || '[]');
+
+    function save(key, val) { localStorage.setItem('nyayaai_' + key, JSON.stringify(val)); }
+
+    // ── Audit ──────────────────────────────────────────────────────
+    function auditLog(actor, action, detail) {
+      auditEntries.unshift({ time: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }), actor, action, detail, date: new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) });
+      if (auditEntries.length > 200) auditEntries = auditEntries.slice(0, 200);
+      save('audit', auditEntries);
+      if ($('panel-audit').classList.contains('active')) renderAudit(auditEntries);
+    }
+    function renderAudit(entries) {
+      if (!entries.length) { $('audit-log').innerHTML = '<div class="text-center text-slate-400 text-sm py-6">No actions logged yet</div>'; return; }
+      $('audit-log').innerHTML = entries.map(e => `
+    <div class="flex gap-3 py-2 border-b border-slate-100 text-xs">
+      <span class="text-slate-400 w-20 flex-shrink-0">${e.date} ${e.time}</span>
+      <span class="font-semibold text-blue-900 w-24 flex-shrink-0">${esc(e.actor)}</span>
+      <span class="font-semibold text-slate-700 flex-1">${esc(e.action)}</span>
+      <span class="text-slate-500">${esc(e.detail)}</span>
+    </div>`).join('');
+    }
+    function filterAudit(q) {
+      const v = q.toLowerCase();
+      renderAudit(auditEntries.filter(e => e.action.toLowerCase().includes(v) || e.detail.toLowerCase().includes(v)));
+    }
+
+    // ── Docket ─────────────────────────────────────────────────────
+    function renderDocket(data) {
+      const sPill = { 'Active': 'pill-blue', 'Bail Pending': 'pill-yellow', 'Charge Framing': 'pill-orange', 'Trial': 'pill-purple', 'Verdict': 'pill-red' };
+      const pClass = { 'High': 'prio-high', 'Medium': 'prio-medium', 'Low': 'prio-low' };
+      if (!data.length) { $('docket-body').innerHTML = '<tr><td colspan="7" class="text-center text-slate-400 py-10">No cases. Click "Add Case" to begin.</td></tr>'; return; }
+      $('docket-body').innerHTML = data.map((r, i) => `
+    <tr class="${pClass[r.priority] || ''}">
+      <td class="font-bold text-blue-900">${esc(r.no)}</td>
+      <td>${esc(r.parties)}</td>
+      <td class="text-xs">${esc(r.sections || '—')}</td>
+      <td class="text-xs">${esc(r.next || '—')}</td>
+      <td><span class="pill ${sPill[r.status] || 'pill-slate'}">${esc(r.status)}</span></td>
+      <td><span class="pill ${r.priority === 'High' ? 'pill-red' : r.priority === 'Medium' ? 'pill-yellow' : 'pill-green'}">${esc(r.priority)}</span></td>
+      <td class="flex gap-2">
+        <button class="j-btn j-btn-secondary j-btn-sm" onclick="loadTimelineForCase('${esc(r.no)}')">Timeline</button>
+        <button class="j-btn j-btn-danger j-btn-sm" onclick="removeCase(${i})">Remove</button>
+      </td>
+    </tr>`).join('');
+    }
+    function filterDocket(q) { const v = q.toLowerCase(); renderDocket(docketData.filter(r => r.no.toLowerCase().includes(v) || r.parties.toLowerCase().includes(v))); }
+    function filterDocketStatus(s) { renderDocket(s ? docketData.filter(r => r.status === s) : docketData); }
+    function addNewCase() {
+      const no = $('nc-no').value.trim();
+      if (!no) { alert('Case number is required.'); return; }
+      docketData.unshift({ no, fir: $('nc-fir').value.trim(), parties: $('nc-parties').value.trim() || '—', sections: $('nc-sections').value.trim(), priority: $('nc-priority').value, next: $('nc-hearing').value ? fmt($('nc-hearing').value) : '—', status: $('nc-status').value });
+      save('docket', docketData); renderDocket(docketData); updateBadges(); refreshOverview(); closeModal('modal-new-case');
+      auditLog('Judge', 'Case Added', no);
+      ['nc-no', 'nc-fir', 'nc-parties', 'nc-sections'].forEach(id => $(id).value = '');
+    }
+    function removeCase(idx) {
+      if (!confirm('Remove this case from docket?')) return;
+      const no = docketData[idx].no;
+      docketData.splice(idx, 1); save('docket', docketData); renderDocket(docketData); updateBadges(); refreshOverview();
+      auditLog('Judge', 'Case Removed', no);
+    }
+    function loadTimelineForCase(caseNo) { showPanel('timeline'); $('tl-case-input').value = caseNo; loadTimeline(); }
+
+    // ── Hearings ────────────────────────────────────────────────────
+    function renderHearings() {
+      if (!hearings.length) { $('hearing-list').innerHTML = '<div class="text-center text-slate-400 text-sm py-8">No hearings scheduled</div>'; return; }
+      // Sort upcoming first
+      const sorted = [...hearings].sort((a, b) => new Date(a.date + ' ' + a.time) - new Date(b.date + ' ' + b.time));
+      $('hearing-list').innerHTML = sorted.map(h => `
+    <div class="hearing-card ${h.urgent ? 'urgent' : ''}">
+      <div class="flex justify-between items-start">
+        <div>
+          <div class="font-bold text-sm text-blue-900">${esc(h.caseNo)}</div>
+          <div class="text-xs text-slate-500 mt-0.5">${esc(h.type)} · ${esc(h.room)}</div>
+          ${h.notes ? `<div class="text-xs text-slate-400 mt-1">${esc(h.notes)}</div>` : ''}
+        </div>
+        <div class="text-right">
+          <div class="font-bold text-sm">${esc(h.time)}</div>
+          <div class="text-xs text-slate-400">${fmt(h.date)}</div>
+        </div>
+      </div>
+    </div>`).join('');
+    }
+    function scheduleHearing() {
+      const caseNo = $('hs-case').value.trim();
+      if (!caseNo) { alert('Case number is required.'); return; }
+      hearings.unshift({ caseNo, type: $('hs-type').value, date: $('hs-date').value, time: $('hs-time').value, room: $('hs-room').value, notes: $('hs-notes').value.trim() });
+      save('hearings', hearings); renderHearings(); refreshOverview();
+      const msg = $('hs-msg');
+      msg.className = 'text-sm font-semibold text-green-700'; msg.textContent = `✓ Hearing scheduled for ${caseNo} on ${fmt($('hs-date').value)} at ${$('hs-time').value}`; msg.classList.remove('hidden');
+      auditLog('Judge', 'Hearing Scheduled', `${caseNo} on ${fmt($('hs-date').value)}`);
+      $('hs-case').value = ''; $('hs-notes').value = '';
+    }
+
+    // ── Timeline ────────────────────────────────────────────────────
+    function loadTimeline() {
+      const cn = $('tl-case-input').value.trim();
+      if (!cn) { alert('Enter a case number.'); return; }
+      $('tl-empty').classList.add('hidden'); $('timeline-card').classList.remove('hidden');
+      const caseData = docketData.find(d => d.no === cn);
+      $('tl-case-label').textContent = cn + (caseData ? ` · ${caseData.parties}` : '');
+      $('tl-status-pill').textContent = caseData?.status || 'Unknown';
+      renderTimelineFor(cn);
+    }
+    function renderTimelineFor(cn) {
+      const events = timelineEvents[cn] || [];
+      if (!events.length) { $('timeline-body').innerHTML = '<div class="text-slate-400 text-sm text-center py-6">No timeline events yet.</div>'; return; }
+      const colors = ['#2563eb', '#7c3aed', '#0891b2', '#d97706', '#dc2626', '#16a34a'];
+      const bgs = ['#dbeafe', '#ede9fe', '#cffafe', '#fef3c7', '#fee2e2', '#dcfce7'];
+      $('timeline-body').innerHTML = events.map((e, i) => {
+        const ci = i % colors.length;
+        return `<div class="tl-item">
+      <div class="tl-dot" style="background:${bgs[ci]};color:${colors[ci]}">●</div>
+      <div class="tl-content">
+        <div class="font-semibold text-sm text-slate-800">${esc(e.title)}</div>
+        <div class="text-xs text-slate-400 mt-0.5">${fmt(e.date)}</div>
+      </div>
+    </div>`;
+      }).join('');
+    }
+    function addTimelineEvent() {
+      const cn = $('tl-case-input').value.trim(), title = $('tl-new-event').value.trim(), date = $('tl-new-date').value;
+      if (!cn || !title) { alert('Case number and event description required.'); return; }
+      if (!timelineEvents[cn]) timelineEvents[cn] = [];
+      timelineEvents[cn].push({ title, date: date || today() });
+      save('timelines', timelineEvents); renderTimelineFor(cn); $('tl-new-event').value = '';
+      auditLog('Judge', 'Timeline Event Added', `${cn}: ${title}`);
+    }
+
+    // ── Charge Framing ──────────────────────────────────────────────
+    function frameCharges() {
+      const sections = $('cf-sections').value || 'BNS (sections to be determined)';
+      const accused = $('cf-accused').value || 'the accused';
+      const cn = $('cf-case').value || 'CR-XXXX';
+      if (!$('cf-case').value) { alert('Case number is required.'); return; }
+      $('cf-output').textContent = `CHARGE SHEET — ${cn}
+IN THE HON'BLE COURT OF ${(judgeProfile?.name || 'THE PRESIDING JUDGE').toUpperCase()}
+${(judgeProfile?.court || 'HIGH COURT').toUpperCase()}
+
+THE STATE
+vs.
+${accused.toUpperCase()}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CHARGE I — ${sections.split(',')[0]?.trim()}
+That you, ${accused}, did commit the offence punishable under ${sections.split(',')[0]?.trim()} of the Bharatiya Nyaya Sanhita, 2023.
+${sections.split(',').length > 1 ? `\nCHARGE II — ${sections.split(',')[1]?.trim()}\nThat you, in furtherance of common intention, did jointly commit the above acts.\n` : ''}
+${$('cf-summary').value ? `FACTS IN BRIEF:\n${$('cf-summary').value}\n` : ''}
+The court is of the opinion that there is sufficient ground to proceed to trial.
+
+Dated: ${new Date().toLocaleDateString('en-IN')}
+                                    Sd/-
+                              ${judgeProfile?.name || 'Judge'}
+                         ${judgeProfile?.court || ''}`;
+      auditLog('Judge', 'Charges Framed', cn); addToSignQueue(`Charge Sheet — ${cn}`, cn, 'Charge Sheet');
+    }
+
+    // ── Verdict ──────────────────────────────────────────────────────
+    function generateVerdict() {
+      const cn = $('vd-case').value || 'CR-XXXX', offences = $('vd-offences').value || '(offences)', type = $('vd-type').value, facts = $('vd-facts').value || '(facts as recorded during trial)';
+      if (!$('vd-case').value) { alert('Case number is required.'); return; }
+      $('vd-output').textContent = `IN THE HON'BLE ${(judgeProfile?.court || 'HIGH COURT').toUpperCase()}
+
+CASE NO. ${cn}
+BEFORE: HON'BLE ${(judgeProfile?.name || 'THE PRESIDING JUDGE').toUpperCase()}
+JUDGMENT PRONOUNCED ON: ${new Date().toLocaleDateString('en-IN')}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. INTRODUCTION
+The accused stands trial for offence(s) punishable under ${offences}.
+
+2. FACTS IN BRIEF
+${facts}
+
+3. ISSUES FRAMED
+(i) Whether the prosecution has proved the charge beyond reasonable doubt?
+(ii) Whether there are mitigating or aggravating circumstances?
+
+4. ANALYSIS & FINDINGS
+The prosecution evidence has been carefully scrutinised. The court finds the prosecution has ${type === 'Acquittal' ? 'failed to prove' : 'successfully established'} its case beyond reasonable doubt.
+
+5. VERDICT
+✦ ${type.toUpperCase()}
+
+${type === 'Conviction' ? 'Sentencing hearing to be held on ___. Accused remanded to judicial custody.' : type === 'Acquittal' ? 'The accused is acquitted of all charges. Bail bonds discharged. Accused set at liberty forthwith.' : 'Further proceedings as per court schedule.'}
+
+6. APPEAL
+This judgment may be appealed before the appropriate appellate court within the prescribed period.
+
+                              Sd/-
+                        ${judgeProfile?.name || 'Judge'}
+               ${judgeProfile?.designation || ''}`;
+      $('sent-guide').innerHTML = `<div class="bg-slate-50 rounded-lg p-4 border border-slate-200 text-sm"><div class="font-bold text-blue-900 mb-2">Sentencing Range — ${esc(offences)}</div><div class="j-alert j-alert-blue mt-2"><i data-lucide="info" class="w-4 h-4"></i><div>Advisory only. Use Sentencing Guide panel for detailed analysis.</div></div></div>`;
+      lucide.createIcons();
+      auditLog('Judge', 'Verdict Drafted', cn); addToSignQueue(`Judgement — ${cn}`, cn, 'Judgement');
+    }
+
+    // ── Bail Risk ───────────────────────────────────────────────────
+    function assessBailRisk() {
+      const name = $('br-name').value.trim();
+      if (!name) { alert('Accused name is required.'); return; }
+      const convictions = parseInt($('br-convictions').value) || 0;
+      const violations = $('br-violations').value, address = $('br-address').value, employ = $('br-employment').value;
+      let score = 25;
+      score += convictions * 15; if (violations === '1') score += 15; if (violations === '2+') score += 28;
+      if (address === 'No') score += 20; if (address === 'Unknown') score += 10;
+      if (employ === 'Unemployed') score += 10; score = Math.min(score, 100);
+      const level = score >= 75 ? { label: 'High Risk', color: '#dc2626', bg: '#fee2e2' } : score >= 45 ? { label: 'Moderate Risk', color: '#d97706', bg: '#fef3c7' } : { label: 'Low Risk', color: '#16a34a', bg: '#dcfce7' };
+      $('br-placeholder').style.display = 'none'; $('br-result-card').classList.remove('hidden');
+      $('br-result').innerHTML = `
+    <div class="text-center mb-6">
+      <div class="text-5xl font-serif font-bold" style="color:${level.color}">${score}</div>
+      <div class="text-xs text-slate-500 uppercase tracking-widest mt-1">Risk Score / 100</div>
+      <div class="mt-2 px-4 py-1 rounded-full inline-block font-bold text-sm" style="background:${level.bg};color:${level.color}">${level.label}</div>
+    </div>
+    <div class="risk-bar mb-4"><div class="risk-fill" style="width:${score}%;background:${level.color}"></div></div>
+    <div class="space-y-2 text-sm">
+      <div class="flex justify-between p-2 bg-slate-50 rounded-lg"><span>Flight Risk</span><span class="font-bold" style="color:${score > 50 ? '#dc2626' : '#16a34a'}">${score > 70 ? 'High' : score > 40 ? 'Moderate' : 'Low'}</span></div>
+      <div class="flex justify-between p-2 bg-slate-50 rounded-lg"><span>Recidivism Probability</span><span class="font-bold" style="color:${convictions > 1 ? '#dc2626' : convictions > 0 ? '#d97706' : '#16a34a'}">${convictions > 1 ? 'High' : convictions > 0 ? 'Moderate' : 'Low'}</span></div>
+      <div class="flex justify-between p-2 bg-slate-50 rounded-lg"><span>Community Ties</span><span class="font-bold" style="color:${address === 'Yes' && employ !== 'Unemployed' ? '#16a34a' : '#d97706'}">${address === 'Yes' && employ !== 'Unemployed' ? 'Strong' : 'Weak'}</span></div>
+    </div>
+    <div class="mt-4 p-3 rounded-lg text-sm font-medium" style="background:${level.bg};color:${level.color}">
+      <strong>AI Recommendation:</strong> ${score >= 75 ? 'Bail should be denied. High flight risk and repeat offence history.' : score >= 45 ? 'Bail may be granted with strict conditions: surety, passport surrender, weekly reporting, no travel.' : 'Bail may be considered with standard sureties and reporting conditions.'}
+    </div>`;
+      auditLog('System', 'Bail Risk Assessed', `${name} — Score: ${score}`);
+    }
+
+    // ── Precedent Finder ────────────────────────────────────────────
+    const PRECEDENTS = [
+      { case: 'Bachan Singh v. State of Punjab', year: '1980', court: 'Supreme Court', sections: 'IPC 302', summary: 'Death penalty reserved for rarest of rare cases only. Laid down the doctrine of balance sheet of aggravating and mitigating circumstances.' },
+      { case: 'K.M. Nanavati v. State of Maharashtra', year: '1962', court: 'Supreme Court', sections: 'IPC 300, IPC 302', summary: 'Landmark case on sudden provocation and premeditation. Distinction between culpable homicide and murder elaborated.' },
+      { case: 'Suresh v. State of Uttar Pradesh', year: '2001', court: 'Supreme Court', sections: 'IPC 376', summary: 'Gang rape conviction upheld. Medical evidence corroborating victim testimony held to be sufficient.' },
+      { case: 'Arnesh Kumar v. State of Bihar', year: '2014', court: 'Supreme Court', sections: 'CrPC 41, IPC 498A', summary: 'Guidelines for arrest in cognizable offences — police must record reasons; magistrates must apply mind before remand.' },
+      { case: 'Lalita Kumari v. Govt. of UP', year: '2013', court: 'Supreme Court', sections: 'CrPC 154', summary: 'Mandatory registration of FIR upon disclosure of cognizable offence; no preliminary inquiry allowed except for specific categories.' },
+      { case: 'State of Rajasthan v. Balchand', year: '1977', court: 'Supreme Court', sections: 'CrPC 437, 439', summary: 'Bail is the rule, jail is the exception. Socio-economic background a relevant consideration.' },
+      { case: 'Satender Kumar Antil v. CBI', year: '2022', court: 'Supreme Court', sections: 'BNSS 187, CrPC 167', summary: 'Directions on default bail rights; strict compliance with statutory timelines for chargesheet filing.' },
+    ];
+    function findPrecedents() {
+      const q = $('pf-query').value.toLowerCase().trim(), court = $('pf-court').value;
+      if (!q) { alert('Enter a search query.'); return; }
+      let hits = PRECEDENTS.filter(p => p.summary.toLowerCase().includes(q) || p.sections.toLowerCase().includes(q) || p.case.toLowerCase().includes(q));
+      if (court !== 'All Courts') hits = hits.filter(p => p.court.includes(court.replace(' HC', '')));
+      if (!hits.length) { $('pf-results').innerHTML = '<div class="p-10 text-center text-slate-400">No matching precedents found. Try different keywords.</div>'; return; }
+      $('pf-results').innerHTML = `<div class="p-4 space-y-4">${hits.map(p => `
+    <div class="p-4 border border-slate-200 rounded-xl bg-slate-50">
+      <div class="flex justify-between items-start mb-2">
+        <div class="font-bold text-blue-900">${esc(p.case)}</div>
+        <div class="flex gap-2 flex-shrink-0 ml-3">
+          <span class="pill pill-blue">${esc(p.court)}</span>
+          <span class="pill pill-slate">${p.year}</span>
+        </div>
+      </div>
+      <div class="text-xs font-bold text-blue-600 mb-1">${esc(p.sections)}</div>
+      <div class="text-sm text-slate-600">${esc(p.summary)}</div>
+    </div>`).join('')}</div>`;
+    }
+
+    // ── Sentencing Guide ────────────────────────────────────────────
+    function getSentencingGuide() {
+      const sec = $('sg-section').value.trim();
+      if (!sec) { alert('Please enter an offence section.'); return; }
+      const prior = $('sg-prior').value;
+      const mits = [$('mit-age'), $('mit-remorse'), $('mit-cooperate'), $('mit-restitution')].filter(c => c.checked).length;
+      const aggs = [$('agg-premeditated'), $('agg-vulnerable'), $('agg-weapon')].filter(c => c.checked).length;
+      const adj = (aggs * 10) - (mits * 8);
+      $('sg-result').innerHTML = `
+    <div class="j-card-header"><span class="font-bold text-blue-900">Recommended Range — ${esc(sec)}</span></div>
+    <div class="j-card-body space-y-4">
+      <div class="grid grid-cols-3 gap-3 text-center">
+        <div class="p-4 bg-green-50 border border-green-200 rounded-xl">
+          <div class="text-xs font-bold text-green-700 uppercase tracking-widest mb-1">Minimum</div>
+          <div class="text-2xl font-serif font-bold text-green-700">${prior.includes('2+') ? '5 Yrs' : prior.includes('1') ? '3 Yrs' : '2 Yrs'}</div>
+        </div>
+        <div class="p-4 bg-blue-50 border border-blue-200 rounded-xl">
+          <div class="text-xs font-bold text-blue-700 uppercase tracking-widest mb-1">Typical</div>
+          <div class="text-2xl font-serif font-bold text-blue-700">${prior.includes('2+') ? '10 Yrs' : prior.includes('1') ? '7 Yrs' : '4 Yrs'}</div>
+        </div>
+        <div class="p-4 bg-red-50 border border-red-200 rounded-xl">
+          <div class="text-xs font-bold text-red-700 uppercase tracking-widest mb-1">Maximum</div>
+          <div class="text-2xl font-serif font-bold text-red-700">Life</div>
+        </div>
+      </div>
+      <div class="p-3 bg-slate-50 rounded-lg text-sm text-slate-600">
+        Mitigating: <strong>-${mits * 8}%</strong> &nbsp;|&nbsp; Aggravating: <strong>+${aggs * 10}%</strong> &nbsp;|&nbsp; Net: <strong>${adj >= 0 ? '+' + adj : adj}%</strong>
+      </div>
+      <div class="j-alert j-alert-blue"><i data-lucide="info" class="w-4 h-4"></i><div>Advisory only — judicial discretion applies per Section 235 BNSS.</div></div>
+    </div>`;
+      lucide.createIcons();
+    }
+
+    // ── Daily Order ─────────────────────────────────────────────────
+    function generateOrder() {
+      const cn = $('os-case').value.trim();
+      if (!cn) { alert('Case number is required.'); return; }
+      $('os-preview').classList.remove('hidden');
+      $('os-preview-body').innerHTML = `
+    <div class="sealed-stamp">DRAFT<br>UNSIGNED</div>
+    <div class="text-center mb-4">
+      <div class="font-bold">IN THE HON'BLE ${esc((judgeProfile?.court || 'HIGH COURT').toUpperCase())}</div>
+      <div class="text-xs text-slate-500 font-sans">${esc(judgeProfile?.designation || '')}</div>
+    </div>
+    <div><strong>Case No.:</strong> ${esc(cn)}</div>
+    <div><strong>Order Date:</strong> ${fmt($('os-date').value)}</div>
+    <div><strong>Order Type:</strong> ${esc($('os-type').value)}</div>
+    <hr class="my-3 border-slate-200"/>
+    <div class="whitespace-pre-wrap text-sm">${esc($('os-content').value) || '(order content)'}</div>
+    ${$('os-next').value ? `<div class="mt-4"><strong>Next Hearing:</strong> ${fmt($('os-next').value)}</div>` : ''}
+    <div class="mt-6 text-right"><div>Sd/-</div><div class="font-bold">${esc(judgeProfile?.name || 'Judge')}</div><div class="text-xs text-slate-400 font-sans">${esc(judgeProfile?.designation || '')}</div></div>`;
+      auditLog('Judge', 'Order Generated', `${cn} — ${$('os-type').value}`); addToSignQueue(`${$('os-type').value} — ${cn}`, cn, 'Order');
+    }
+
+    // ── Warrant ──────────────────────────────────────────────────────
+    function generateWarrant() {
+      const cn = $('ws-case').value.trim(), type = $('ws-type').value;
+      if (!cn) { alert('Case number is required.'); return; }
+      $('ws-preview').classList.remove('hidden'); $('ws-preview-title').textContent = type;
+      $('ws-preview-body').innerHTML = `
+    <div class="sealed-stamp">DRAFT</div>
+    <div class="text-center mb-4"><div class="font-bold">REPUBLIC OF INDIA</div><div class="font-bold">IN THE HON'BLE ${esc((judgeProfile?.court || 'HIGH COURT').toUpperCase())}</div></div>
+    <div class="text-center font-bold underline mb-4">${esc(type.toUpperCase())}</div>
+    <div><strong>Case No.:</strong> ${esc(cn)}</div>
+    <div><strong>To:</strong> ${esc($('ws-addressee').value) || '(Addressee)'}</div>
+    <div><strong>Address:</strong> ${esc($('ws-address').value) || '(as on record)'}</div>
+    <div class="mt-3">You are hereby directed to appear before this Court on <strong>${$('ws-appear').value ? fmt($('ws-appear').value) : '___'}</strong>.</div>
+    <div class="mt-2">Failure to comply shall be treated as contempt of court.</div>
+    <div class="mt-6 text-right">Sd/- ${esc(judgeProfile?.name || 'Judge')}<br><span class="text-xs font-sans">${new Date().toLocaleDateString('en-IN')}</span></div>`;
+      auditLog('Judge', type + ' Issued', cn); addToSignQueue(`${type} — ${cn}`, cn, type);
+    }
+
+    // ── Bail Order ───────────────────────────────────────────────────
+    function toggleBailConditions() { $('bo-conditions-section').style.display = $('bo-decision').value === 'reject' ? 'none' : 'block'; }
+    function generateBailOrder() {
+      const cn = $('bo-case').value.trim();
+      if (!cn) { alert('Case number is required.'); return; }
+      const accused = $('bo-accused').value.trim() || 'the accused', dec = $('bo-decision').value, grounds = $('bo-grounds').value.trim();
+      const conds = [];
+      if ($('bc-surety').checked) conds.push(`Personal surety of ₹${$('bc-surety-amt').value || '1,00,000'}`);
+      if ($('bc-passport').checked) conds.push('Surrender passport to court');
+      if ($('bc-travel').checked) conds.push('No travel outside state without prior permission');
+      if ($('bc-report').checked) conds.push('Weekly reporting to local police station');
+      if ($('bc-tamper').checked) conds.push('No contact with prosecution witnesses');
+      $('bo-preview').classList.remove('hidden'); $('bo-preview-title').textContent = dec === 'grant' ? 'Bail Granted' : 'Bail Rejected';
+      $('bo-preview-body').innerHTML = `
+    <div class="sealed-stamp" style="border-color:${dec === 'reject' ? '#dc2626' : '#16a34a'};color:${dec === 'reject' ? '#dc2626' : '#16a34a'}">DRAFT</div>
+    <div class="text-center mb-4"><div class="font-bold">IN THE HON'BLE ${esc((judgeProfile?.court || 'HIGH COURT').toUpperCase())}</div><div class="text-xs text-slate-400 font-sans">Case No. ${esc(cn)}</div></div>
+    <div class="text-center font-bold underline mb-4">BAIL ${dec === 'grant' ? 'ORDER' : 'REJECTION ORDER'}</div>
+    <div><strong>Accused:</strong> ${esc(accused)}</div>
+    <div class="mt-2"><strong>Decision:</strong> Bail is hereby <strong>${dec === 'grant' ? 'GRANTED' : 'REJECTED'}</strong></div>
+    ${dec === 'grant' && conds.length ? `<div class="mt-3"><strong>Conditions:</strong><ol class="mt-2 ml-5 space-y-1 text-sm list-decimal">${conds.map(c => `<li>${esc(c)}</li>`).join('')}</ol></div>` : ''}
+    ${grounds ? `<div class="mt-3"><strong>Grounds:</strong> ${esc(grounds)}</div>` : ''}
+    <div class="mt-6 text-right">Sd/- ${esc(judgeProfile?.name || 'Judge')}<br><span class="text-xs font-sans">${new Date().toLocaleDateString('en-IN')}</span></div>`;
+      auditLog('Judge', `Bail ${dec === 'grant' ? 'Granted' : 'Rejected'}`, cn); addToSignQueue(`Bail Order — ${cn}`, cn, 'Bail Order');
+    }
+
+    // ── Remand ───────────────────────────────────────────────────────
+    function renderRemands() {
+      if (!remands.length) { $('remand-body').innerHTML = '<tr><td colspan="7" class="text-center text-slate-400 py-8">No remands tracked.</td></tr>'; return; }
+      $('remand-body').innerHTML = remands.map((r, i) => {
+        const expiry = new Date(r.start); expiry.setDate(expiry.getDate() + parseInt(r.days || 15));
+        const daysLeft = Math.ceil((expiry - new Date()) / (1000 * 60 * 60 * 24));
+        const pill = daysLeft <= 2 ? 'pill-red' : daysLeft <= 7 ? 'pill-yellow' : 'pill-green';
+        return `<tr><td class="font-bold text-blue-900">${esc(r.caseNo)}</td><td>${esc(r.accused)}</td>
+      <td><span class="pill ${r.type === 'Police Custody' ? 'pill-red' : 'pill-blue'}">${esc(r.type)}</span></td>
+      <td class="text-xs">${fmt(r.start)}</td><td class="text-xs">${fmt(expiry.toISOString().slice(0, 10))}</td>
+      <td><span class="pill ${pill}">${daysLeft > 0 ? daysLeft + 'd' : 'Expired'}</span></td>
+      <td class="flex gap-2"><button class="j-btn j-btn-gold j-btn-sm" onclick="extendRemand(${i})">Extend</button><button class="j-btn j-btn-danger j-btn-sm" onclick="removeRemand(${i})">End</button></td></tr>`;
+      }).join('');
+    }
+    function addRemand() {
+      if (!$('rm-case').value || !$('rm-start').value) { alert('Case number and start date required.'); return; }
+      remands.push({ caseNo: $('rm-case').value.trim(), accused: $('rm-accused').value.trim() || '—', type: $('rm-type').value, start: $('rm-start').value, days: parseInt($('rm-days').value) || 15 });
+      save('remands', remands); renderRemands(); updateBadges(); closeModal('modal-add-remand');
+      auditLog('Judge', 'Remand Added', $('rm-case').value);
+    }
+    function removeRemand(i) { const cn = remands[i].caseNo; remands.splice(i, 1); save('remands', remands); renderRemands(); updateBadges(); auditLog('Judge', 'Remand Ended', cn); }
+    function extendRemand(i) { const days = parseInt(prompt('Additional days:', '15')); if (!days || isNaN(days)) return; remands[i].days = parseInt(remands[i].days || 15) + days; save('remands', remands); renderRemands(); auditLog('Judge', 'Remand Extended', `${remands[i].caseNo} +${days}d`); }
+
+    // ── Accused Profile ──────────────────────────────────────────────
+    function loadAccusedProfile() {
+      const q = $('acc-search').value.trim();
+      if (!q) { alert('Enter a name or ID.'); return; }
+      $('acc-empty').classList.add('hidden'); $('acc-profile').classList.remove('hidden');
+      $('acc-name').textContent = q; $('acc-meta').textContent = `Search: ${q} — Connect to records database for full profile`;
+      $('acc-risk-tag').textContent = 'Lookup Required'; $('acc-firs').textContent = '—'; $('acc-conv').textContent = '—'; $('acc-bail-v').textContent = '—';
+    }
+    function switchAccTab(btn, tabId) {
+      document.querySelectorAll('.j-tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.j-tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active'); $(tabId)?.classList.add('active');
+    }
+
+    // ── e-Filing ─────────────────────────────────────────────────────
+    function renderEFilings() {
+      $('efiling-count').textContent = efilings.filter(f => f.status === 'Pending').length;
+      if (!efilings.length) { $('efiling-body').innerHTML = '<tr><td colspan="7" class="text-center text-slate-400 py-8">No filings received yet.</td></tr>'; return; }
+      $('efiling-body').innerHTML = efilings.map((f, i) => `
+    <tr><td class="font-mono text-xs text-blue-700 font-semibold">${esc(f.id)}</td><td class="font-semibold">${esc(f.caseNo)}</td>
+    <td class="text-xs">${esc(f.lawyer)}</td><td><span class="pill pill-purple">${esc(f.type)}</span></td>
+    <td class="text-xs">${fmt(f.filed)}</td><td><span class="pill ${f.status === 'Pending' ? 'pill-yellow' : 'pill-green'}">${esc(f.status)}</span></td>
+    <td class="flex gap-2"><button class="j-btn j-btn-primary j-btn-sm" onclick="reviewFiling(${i})">Review</button><button class="j-btn j-btn-secondary j-btn-sm" onclick="closeFiling(${i})">Close</button></td></tr>`).join('');
+    }
+    function addEFiling() { if (!$('ef-case').value || !$('ef-lawyer').value) { alert('Case number and lawyer name required.'); return; } const id = 'EF-' + Date.now().toString().slice(-6); efilings.unshift({ id, caseNo: $('ef-case').value.trim(), lawyer: $('ef-lawyer').value.trim(), type: $('ef-type').value, filed: $('ef-date').value || today(), status: 'Pending' }); save('efilings', efilings); renderEFilings(); updateBadges(); closeModal('modal-add-efiling'); auditLog('System', 'e-Filing Received', `${id}`); }
+    function reviewFiling(i) { efilings[i].status = 'Reviewed'; save('efilings', efilings); renderEFilings(); updateBadges(); auditLog('Judge', 'e-Filing Reviewed', efilings[i].id); }
+    function closeFiling(i) { efilings.splice(i, 1); save('efilings', efilings); renderEFilings(); updateBadges(); }
+
+    // ── Submissions ──────────────────────────────────────────────────
+    function renderSubmissions() {
+      if (!deadlines.length) { $('submissions-body').innerHTML = '<tr><td colspan="6" class="text-center text-slate-400 py-8">No deadlines set.</td></tr>'; return; }
+      $('submissions-body').innerHTML = deadlines.map((d, i) => `
+    <tr><td class="font-semibold">${esc(d.caseNo)}</td>
+    <td><span class="pill ${d.party === 'Prosecution' ? 'pill-red' : d.party === 'Defence' ? 'pill-blue' : 'pill-purple'}">${esc(d.party)}</span></td>
+    <td class="text-xs">${esc(d.type)}</td><td class="text-xs">${fmt(d.due)}</td>
+    <td><span class="pill ${d.status === 'Overdue' ? 'pill-red' : d.status === 'Submitted' ? 'pill-green' : 'pill-yellow'}">${esc(d.status)}</span></td>
+    <td class="flex gap-2"><button class="j-btn j-btn-secondary j-btn-sm" onclick="markSubmitted(${i})">Mark Submitted</button><button class="j-btn j-btn-danger j-btn-sm" onclick="removeDeadline(${i})">Remove</button></td></tr>`).join('');
+    }
+    function markSubmitted(i) { deadlines[i].status = 'Submitted'; save('deadlines', deadlines); renderSubmissions(); auditLog('System', 'Submission Marked', `${deadlines[i].caseNo} — ${deadlines[i].type}`); }
+    function removeDeadline(i) { deadlines.splice(i, 1); save('deadlines', deadlines); renderSubmissions(); }
+    function addDeadline() { if (!$('dl-case').value) { alert('Case number required.'); return; } const due = $('dl-date').value, overdue = due && due < today(); deadlines.push({ caseNo: $('dl-case').value.trim(), party: $('dl-party').value, type: $('dl-type').value, due, status: overdue ? 'Overdue' : 'Pending' }); save('deadlines', deadlines); renderSubmissions(); closeModal('modal-add-deadline'); auditLog('Judge', 'Deadline Added', $('dl-case').value); }
+
+    // ── Pendency ─────────────────────────────────────────────────────
+    function updatePendency() {
+      $('pend-total').textContent = docketData.length;
+      $('pend-overdue').textContent = deadlines.filter(d => d.status === 'Overdue').length;
+      $('pend-fresh').textContent = docketData.filter(c => c.status === 'Active').length;
+      $('pend-old').textContent = docketData.filter(c => c.status === 'Trial').length;
+      if ($('agingChart')) {
+        const ctx = $('agingChart');
+        if (ctx._chart) ctx._chart.destroy();
+        ctx._chart = new Chart(ctx, { type: 'bar', data: { labels: ['Active', 'Bail Pending', 'Charge Framing', 'Trial', 'Verdict'], datasets: [{ label: 'Cases', data: [docketData.filter(c => c.status === 'Active').length, docketData.filter(c => c.status === 'Bail Pending').length, docketData.filter(c => c.status === 'Charge Framing').length, docketData.filter(c => c.status === 'Trial').length, docketData.filter(c => c.status === 'Verdict').length], backgroundColor: ['#bfdbfe', '#fde68a', '#fed7aa', '#ddd6fe', '#fecaca'] }] }, options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } } });
+      }
+    }
+
+    // ── Sign Queue ───────────────────────────────────────────────────
+    function addToSignQueue(doc, caseNo, type) { if (signQueue.find(s => s.doc === doc)) return; signQueue.unshift({ doc, caseNo, type, added: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) }); save('signqueue', signQueue); renderSignQueue(); }
+    function renderSignQueue() {
+      if (!signQueue.length) { $('sign-queue').innerHTML = '<tr><td colspan="5" class="text-center text-slate-400 py-6">No documents pending signature</td></tr>'; return; }
+      $('sign-queue').innerHTML = signQueue.map((s, i) => `
+    <tr><td class="font-semibold text-xs">${esc(s.doc)}</td><td>${esc(s.caseNo)}</td><td><span class="pill pill-blue">${esc(s.type)}</span></td>
+    <td class="text-xs text-slate-400">${esc(s.added)}</td>
+    <td><button class="j-btn j-btn-gold j-btn-sm" onclick="signDoc('${esc(s.doc)}','${esc(s.caseNo)}')"><i data-lucide="pen-line" class="w-3 h-3"></i> Sign</button></td></tr>`).join('');
+      lucide.createIcons();
+    }
+    let pendingSignTarget = null;
+    function signDoc(doc, caseNo) { pendingSignTarget = { doc, caseNo }; $('sign-doc-label').textContent = doc + (caseNo ? ` — ${caseNo}` : ''); openModal('modal-sign-confirm'); }
+    function signAllPending() { pendingSignTarget = { doc: `All ${signQueue.length} pending documents`, caseNo: 'multiple' }; $('sign-doc-label').textContent = pendingSignTarget.doc; openModal('modal-sign-confirm'); }
+    function confirmSign() {
+      const pin = $('sign-pin').value;
+      if (pin.length < 4) { alert('Enter your DSC PIN (min 4 digits).'); return; }
+      closeModal('modal-sign-confirm');
+      if (pendingSignTarget.caseNo === 'multiple') signQueue = []; else signQueue = signQueue.filter(s => s.doc !== pendingSignTarget.doc);
+      save('signqueue', signQueue); renderSignQueue(); $('sign-pin').value = '';
+      auditLog('Judge', 'Document(s) Digitally Signed', pendingSignTarget.doc);
+      alert('✓ Digital signature applied. Document is legally binding.');
+    }
+
+    // ── Badges & Overview ─────────────────────────────────────────────
+    function updateBadges() {
+      const dc = $('badge-docket'); if (docketData.length > 0) { dc.textContent = docketData.length; dc.classList.remove('hidden'); } else dc.classList.add('hidden');
+      const ra = remands.filter(r => { const e = new Date(r.start); e.setDate(e.getDate() + parseInt(r.days || 15)); return Math.ceil((e - new Date()) / (1000 * 60 * 60 * 24)) <= 7; }).length;
+      const rb = $('badge-remand'); if (ra > 0) { rb.textContent = ra; rb.classList.remove('hidden'); } else rb.classList.add('hidden');
+      const pf = efilings.filter(f => f.status === 'Pending').length;
+      const eb = $('badge-efiling'); if (pf > 0) { eb.textContent = pf; eb.classList.remove('hidden'); } else eb.classList.add('hidden');
+    }
+
+    function refreshOverview() {
+      $('stat-active').textContent = docketData.length || '0';
+      const todayStr = today(), th = hearings.filter(h => h.date === todayStr);
+      $('stat-hearings').textContent = th.length || '0';
+      $('stat-bail').textContent = docketData.filter(c => c.status === 'Bail Pending').length || '0';
+      $('stat-remand').textContent = remands.length || '0';
+      $('stat-efiling').textContent = efilings.filter(f => f.status === 'Pending').length || '0';
+
+      if (th.length) {
+        $('overview-hearings').innerHTML = `<table class="j-table"><thead><tr><th>Time</th><th>Case No.</th><th>Type</th><th>Room</th></tr></thead><tbody>${th.map(h => `<tr><td>${esc(h.time)}</td><td class="font-bold">${esc(h.caseNo)}</td><td><span class="pill pill-blue">${esc(h.type)}</span></td><td class="text-xs">${esc(h.room)}</td></tr>`).join('')}</tbody></table>`;
+      } else {
+        $('overview-hearings').innerHTML = '<div class="text-center py-8 text-slate-400"><i data-lucide="calendar" class="w-8 h-8 mx-auto mb-2 text-slate-300"></i><p class="text-sm">No hearings scheduled today</p></div>'; lucide.createIcons();
+      }
+
+      const alerts = [];
+      remands.forEach(r => { const e = new Date(r.start); e.setDate(e.getDate() + parseInt(r.days || 15)); const dl = Math.ceil((e - new Date()) / (1000 * 60 * 60 * 24)); if (dl <= 3 && dl > 0) alerts.push({ type: 'red', msg: `<strong>${esc(r.caseNo)}</strong> — Remand expires in <strong>${dl} day(s)</strong>.` }); });
+      deadlines.filter(d => d.status === 'Overdue').forEach(d => alerts.push({ type: 'yellow', msg: `<strong>${esc(d.caseNo)}</strong> — ${esc(d.type)} overdue.` }));
+      efilings.filter(f => f.status === 'Pending').forEach(f => alerts.push({ type: 'blue', msg: `e-Filing <strong>${esc(f.id)}</strong> awaiting review.` }));
+      $('overview-alerts').innerHTML = alerts.length ? alerts.slice(0, 5).map(a => `<div class="j-alert j-alert-${a.type} text-xs"><div>${a.msg}</div></div>`).join('') : '<div class="text-center text-slate-400 text-sm py-4">No active alerts</div>';
+      initCharts();
+    }
+
+    // ── Charts ────────────────────────────────────────────────────────
+    let sCInst = null, pCInst = null;
+    function initCharts() {
+      const sCounts = { 'Active': docketData.filter(c => c.status === 'Active').length, 'Bail Pending': docketData.filter(c => c.status === 'Bail Pending').length, 'Charge Framing': docketData.filter(c => c.status === 'Charge Framing').length, 'Trial': docketData.filter(c => c.status === 'Trial').length, 'Verdict': docketData.filter(c => c.status === 'Verdict').length };
+      const pCounts = { 'High': docketData.filter(c => c.priority === 'High').length, 'Medium': docketData.filter(c => c.priority === 'Medium').length, 'Low': docketData.filter(c => c.priority === 'Low').length };
+      if (sCInst) sCInst.destroy(); if (pCInst) pCInst.destroy();
+      const ctxS = $('statusChart'), ctxP = $('priorityChart');
+      if (!ctxS || !ctxP) return;
+      sCInst = new Chart(ctxS, { type: 'doughnut', data: { labels: Object.keys(sCounts), datasets: [{ data: Object.values(sCounts), backgroundColor: ['#2563eb', '#f59e0b', '#f97316', '#7c3aed', '#dc2626'] }] }, options: { responsive: false, plugins: { legend: { position: 'right' } } } });
+      pCInst = new Chart(ctxP, { type: 'bar', data: { labels: ['High', 'Medium', 'Low'], datasets: [{ label: 'Cases', data: [pCounts.High, pCounts.Medium, pCounts.Low], backgroundColor: ['#fca5a5', '#fde68a', '#86efac'] }] }, options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } } });
+    }
+
+    // ── Helpers ────────────────────────────────────────────────────────
+    function copyText(id) { const el = $(id); navigator.clipboard?.writeText(el.textContent || el.innerText).then(() => alert('Copied to clipboard.')); }
+
+    // ── Init ───────────────────────────────────────────────────────────
+    if (judgeProfile) { closeModal('modal-setup'); applyProfile(); }
+    renderDocket(docketData);
+    renderHearings();
+    renderRemands();
+    renderSubmissions();
+    renderEFilings();
+    renderAudit(auditEntries);
+    renderSignQueue();
+    updateBadges();
+    refreshOverview();
+    lucide.createIcons();
+  </script>
 </body>
+
 </html>

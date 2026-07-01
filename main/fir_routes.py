@@ -1,7 +1,7 @@
 # FIR routes: generate FIR, retrieve FIR records, PDF generation
 
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer

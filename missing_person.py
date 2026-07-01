@@ -383,6 +383,8 @@ def get_sightings(person_id):
 
 # ── GET /get_confirmed_matches — police only ─────────────────────────────────
 
+# ── GET /get_confirmed_matches — police only ─────────────────────────────────
+
 @missing_person_bp.route('/get_confirmed_matches', methods=['GET'])
 def get_confirmed_matches():
     if not _is_police():
@@ -390,9 +392,9 @@ def get_confirmed_matches():
     try:
         conn = _get_db()
         rows = conn.execute('''
-            SELECT mp.person_id, mp.name, mp.photo_path  AS mp_photo,
-                   s.sighting_id, s.citizen_photo_path,  s.location,
-                   s.sighting_date, s.face_match_score,  s.uploaded_at
+            SELECT mp.person_id, mp.name, mp.photo_path AS mp_photo,
+                   s.sighting_id, s.citizen_photo_path, s.location,
+                   s.sighting_date, s.face_match_score, s.uploaded_at
             FROM   missing_person_sightings s
             JOIN   missing_persons mp ON mp.person_id = s.person_id
             WHERE  s.is_confirmed = 1
@@ -401,23 +403,35 @@ def get_confirmed_matches():
         ''').fetchall()
         conn.close()
 
-        return jsonify({
-            'success': True,
-            'confirmed_matches': [
-                {
-                    'person_id':            m['person_id'],
+        # Group all sightings under each person instead of one card per sighting
+        grouped = {}
+        for m in rows:
+            pid = m['person_id']
+            if pid not in grouped:
+                grouped[pid] = {
+                    'person_id':            pid,
                     'name':                 m['name'],
                     'missing_person_photo': '/' + m['mp_photo'],
-                    'sighting_id':          m['sighting_id'],
-                    'sighting_photo':       '/' + m['citizen_photo_path'],
+                    'confidence':           round(m['face_match_score'] * 100, 1),
                     'location':             m['location'],
                     'sighting_date':        m['sighting_date'],
-                    'confidence':           round(m['face_match_score'] * 100, 1),
                     'uploaded_at':          m['uploaded_at'],
+                    # keep single sighting_photo for backward compat with frontend fallback
+                    'sighting_photo':       '/' + m['citizen_photo_path'],
+                    'sightings': []
                 }
-                for m in rows
-            ]
+            grouped[pid]['sightings'].append({
+                'photo':    '/' + m['citizen_photo_path'],
+                'location': m['location'],
+                'date':     m['sighting_date'],
+                'score':    round(m['face_match_score'] * 100, 1)
+            })
+
+        return jsonify({
+            'success': True,
+            'confirmed_matches': list(grouped.values())
         }), 200
+
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 

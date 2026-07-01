@@ -17,7 +17,7 @@ def upload_pdf(pdf_path, fir_id):
             {"content-type": "application/pdf"}
         )
     url = supabase.storage.from_("firs").get_public_url(f"{fir_id}.pdf")
-    os.remove(pdf_path)  # delete local temp
+    
     return url
 
 def save_fir(fir_document):

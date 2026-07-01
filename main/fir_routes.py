@@ -53,10 +53,10 @@ def generate_fir():
 
     try:
         # Check for duplicate FIR number
-        if fir_exists(fir_no):
+        if fir_exists(data.get("fir_no")):
             return jsonify({"error": f"FIR number {data.get('fir_no')} already exists"}), 400
 
-        fir_id = str(datetime.utcnow().timestamp()).replace(".", "")
+        fir_id = str(datetime.now(timezone.utc).timestamp()).replace(".", "")
 
         formatted_fir = f"""
 FIR ID: {fir_id}

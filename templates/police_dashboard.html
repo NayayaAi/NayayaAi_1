@@ -1,0 +1,2948 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NyayaAI | Advanced FIR System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Playfair+Display:wght@700&display=swap"
+        rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            scroll-behavior: smooth;
+        }
+
+        .font-serif {
+            font-family: 'Playfair Display', serif;
+        }
+
+        /* The "Impressive" Gradient Background for Hero */
+        .hero-gradient {
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #2563eb 100%);
+        }
+
+        /* Glass effect for the FIR Input Card */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .feature-card:hover {
+            transform: translateY(-8px);
+            transition: all 0.3s ease;
+        }
+
+        /* Sidebar hover behavior */
+        #sidebarHoverArea:hover+#sidebar,
+        #sidebar:hover {
+            transform: translateX(0) !important;
+        }
+
+        #sidebar {
+            overflow-y: auto;
+            max-height: 100vh;
+            padding-bottom: 1rem;
+        }
+
+        body {
+            transition: margin-left 0.3s ease;
+        }
+
+        #sidebar:hover~main {
+            margin-left: 16rem;
+        }
+
+        /* Container Spacing */
+        .form-section {
+            background: #ffffff;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 2rem;
+            /* Separates Step 1 from Step 2 */
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Grid Gap Fix */
+        .grid-cols-3 {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 1.5rem;
+            /* Forces space between District, PS, and Year */
+        }
+
+        .grid-cols-2 {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 1.5rem;
+            /* Forces space between FIR No and Date */
+            margin-top: 1.5rem;
+        }
+
+        /* Input Height Consistency */
+        input,
+        select {
+            height: 45px;
+            padding: 0 12px !important;
+            border: 1px solid #e2e8f0 !important;
+            border-radius: 8px !important;
+            width: 100%;
+        }
+
+        /* AI Info Box Spacing */
+        .ai-info-box {
+            margin-top: 1rem;
+            margin-bottom: 1.5rem;
+            padding: 1rem;
+        }
+
+        section {
+            min-height: 100vh;
+            scroll-margin-top: 100px;
+        }
+
+        #create-fir {
+            min-height: 100vh;
+        }
+    </style>
+</head>
+
+<body class="bg-white flex min-h-screen">
+
+    <!-- Sidebar hover trigger (small edge strip) -->
+    <div id="sidebarHoverArea" class="fixed left-0 top-0 h-full w-4 z-30 bg-transparent"></div>
+
+    <!-- Sidebar Navigation -->
+    <aside id="sidebar"
+        class="w-64 bg-blue-900 text-white fixed h-full z-40 transition-transform duration-300 ease-in-out transform -translate-x-full">
+        <div class="p-6 border-b border-blue-800">
+            <div class="flex items-center space-x-2">
+                <div class="bg-blue-600 p-1.5 rounded-lg text-white">
+                    <i data-lucide="scale"></i>
+                </div>
+                <span class="text-2xl font-serif font-bold text-white">NyayaAI</span>
+            </div>
+        </div>
+
+        <nav class="mt-8 px-4">
+            <div class="space-y-2">
+                <!-- Home -->
+                <a href="#"
+                    class="sidebar-link flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors"
+                    data-section="home">
+                    <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+                    <span>Home</span>
+                </a>
+
+                <!-- Create FIR -->
+                <a href="#"
+                    class="sidebar-link flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors"
+                    data-section="create-fir">
+                    <i data-lucide="plus-circle" class="w-5 h-5"></i>
+                    <span>Create FIR</span>
+                </a>
+
+                <!-- History -->
+                <a href="#"
+                    class="sidebar-link flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors"
+                    data-section="fir-history">
+                    <i data-lucide="folder-open" class="w-5 h-5"></i>
+                    <span>FIR History</span>
+                </a>
+
+                <!-- Law Library -->
+                <a href="#"
+                    class="sidebar-link flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors"
+                    data-section="law-library">
+                    <i data-lucide="gavel" class="w-5 h-5"></i>
+                    <span>Law Library</span>
+                </a>
+
+                <!-- Doc Analysis -->
+                <a href="#"
+                    class="sidebar-link flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors"
+                    data-section="doc-analysis">
+                    <i data-lucide="file-search" class="w-5 h-5"></i>
+                    <span>Doc Analysis</span>
+                </a>
+
+                <!-- Evidence Locker -->
+                <a href="#"
+                    class="sidebar-link flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors"
+                    onclick="secureLockerAccess()" data-section="evidence-locker">
+                    <i data-lucide="folder" class="w-5 h-5"></i>
+                    <span>Evidence Locker</span>
+                </a>
+
+                <!-- Missing Persons -->
+                <a href="#"
+                    class="sidebar-link flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors"
+                    data-section="missing-persons">
+                    <i data-lucide="user-search" class="w-5 h-5"></i>
+                    <span>Missing Persons</span>
+                </a>
+                <a href="#"
+                    class="sidebar-link flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors"
+                    data-section="citizen-complaints">
+                    <i data-lucide="inbox" class="w-5 h-5"></i>
+                    <span>Citizen Complaints</span>
+                    <span id="pendingBadge"
+                        class="ml-auto bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full hidden">0</span>
+                </a>
+
+                <!-- Language -->
+                <!--<a href="#e"
+                    class="sidebar-link flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors"
+                    data-section="language">
+                    <i data-lucide="languages" class="w-5 h-5"></i>
+                    <span>Language</span>
+                </a>-->
+
+                <!-- Settings -->
+                <a href="#"
+                    class="sidebar-link flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors"
+                    data-section="settings">
+                    <i data-lucide="settings" class="w-5 h-5"></i>
+                    <span>Settings</span>
+                </a>
+            </div>
+        </nav>
+
+        <!-- Sidebar Footer -->
+        <div class="absolute bottom-0 left-0 right-0 p-4 border-t border-blue-800">
+            <div class="text-xs text-blue-300 text-center">
+                Police FIR Management System
+            </div>
+        </div>
+    </aside>
+
+    <!-- Mobile Menu Button -->
+    <button id="mobileMenuBtn"
+        class="md:hidden fixed top-4 left-4 z-50 bg-blue-900 text-white p-2 rounded-lg shadow-lg">
+        <i data-lucide="menu" class="w-6 h-6"></i>
+    </button>
+
+    <!-- Main Content -->
+    <main class="flex-1 transition-all duration-300 ease-in-out">
+
+        <nav
+            class="fixed w-full z-50 bg-white/80 backdrop-blur-md border-b border-slate-100 px-8 py-4 flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <div class="bg-blue-600 p-1.5 rounded-lg text-white">
+                    <i data-lucide="scale"></i>
+                </div>
+                <span class="text-2xl font-serif font-bold text-blue-950">NyayaAI</span>
+            </div>
+            <!--<div class="hidden md:flex space-x-10 font-semibold text-slate-600">
+                <a href="#" class="hover:text-blue-600 transition">Home</a>
+                <a href="#features" class="hover:text-blue-600 transition" onclick="showSection('features')">Features</a>
+                <a href="#how-it-works" class="hover:text-blue-600 transition" onclick="showSection('how-it-works')">How it Works</a>
+            </div> -->
+            <div class="hidden md:flex space-x-4">
+                <a href="/login"
+                    class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-full font-bold transition shadow-lg shadow-blue-200">
+                    Sign In
+                </a>
+                <a href="/signup"
+                    class="bg-white hover:bg-blue-50 text-blue-600 border border-blue-600 px-6 py-2.5 rounded-full font-bold transition">
+                    Sign Up
+                </a>
+            </div>
+        </nav>
+
+        <section id="home" class="px-6 pt-28 pb-20 bg-slate-50">
+    <div class="max-w-7xl mx-auto">
+
+        <div class="mb-8">
+            <h1 class="text-3xl font-serif font-bold text-blue-950">Dashboard Overview</h1>
+            <p class="text-slate-500 mt-1">A snapshot of today's cases, complaints, and pending work.</p>
+        </div>
+
+        <!-- Alert -->
+        <div id="homeAlertBanner" class="hidden mb-6 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3">
+            <i data-lucide="alert-triangle" class="w-5 h-5 text-amber-600 shrink-0"></i>
+            <p id="homeAlertText" class="text-sm text-amber-800 font-medium"></p>
+        </div>
+
+        <!-- Stat Cards -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <div class="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-semibold text-slate-400 uppercase tracking-wide">Total FIRs</span>
+                    <i data-lucide="file-text" class="w-4 h-4 text-blue-500"></i>
+                </div>
+                <p id="home-stat-firs" class="text-3xl font-bold text-slate-800">—</p>
+            </div>
+            <div class="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-semibold text-slate-400 uppercase tracking-wide">Pending Complaints</span>
+                    <i data-lucide="inbox" class="w-4 h-4 text-yellow-500"></i>
+                </div>
+                <p id="home-stat-pending" class="text-3xl font-bold text-yellow-600">—</p>
+            </div>
+            <div class="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-semibold text-slate-400 uppercase tracking-wide">Under Review</span>
+                    <i data-lucide="search" class="w-4 h-4 text-blue-500"></i>
+                </div>
+                <p id="home-stat-review" class="text-3xl font-bold text-blue-600">—</p>
+            </div>
+            <div class="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-semibold text-slate-400 uppercase tracking-wide">Complaints → FIR</span>
+                    <i data-lucide="check-circle" class="w-4 h-4 text-green-500"></i>
+                </div>
+                <p id="home-stat-fir-filed" class="text-3xl font-bold text-green-600">—</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+            <!-- Quick Actions -->
+            <div class="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm lg:col-span-1">
+                <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <i data-lucide="zap" class="w-4 h-4 text-blue-600"></i> Quick Actions
+                </h3>
+                <div class="space-y-2">
+                    <button onclick="showSection('create-fir')"
+                        class="w-full flex items-center gap-3 px-4 py-3 bg-blue-50 hover:bg-blue-100 rounded-xl text-blue-800 font-semibold text-sm transition text-left">
+                        <i data-lucide="plus-circle" class="w-4 h-4"></i> File New FIR
+                    </button>
+                    <button onclick="showSection('citizen-complaints')"
+                        class="w-full flex items-center gap-3 px-4 py-3 bg-yellow-50 hover:bg-yellow-100 rounded-xl text-yellow-800 font-semibold text-sm transition text-left">
+                        <i data-lucide="inbox" class="w-4 h-4"></i> Review Complaints
+                    </button>
+                    <button onclick="secureLockerAccess()"
+                        class="w-full flex items-center gap-3 px-4 py-3 bg-slate-50 hover:bg-slate-100 rounded-xl text-slate-700 font-semibold text-sm transition text-left">
+                        <i data-lucide="folder" class="w-4 h-4"></i> Open Evidence Locker
+                    </button>
+                    <button onclick="showSection('missing-persons')"
+                        class="w-full flex items-center gap-3 px-4 py-3 bg-purple-50 hover:bg-purple-100 rounded-xl text-purple-800 font-semibold text-sm transition text-left">
+                        <i data-lucide="user-search" class="w-4 h-4"></i> Missing Persons
+                    </button>
+                    <button onclick="showSection('law-library')"
+                        class="w-full flex items-center gap-3 px-4 py-3 bg-teal-50 hover:bg-teal-100 rounded-xl text-teal-800 font-semibold text-sm transition text-left">
+                        <i data-lucide="gavel" class="w-4 h-4"></i> Law Library
+                    </button>
+                </div>
+            </div>
+
+            <!-- Recent FIRs -->
+            <div class="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm lg:col-span-2">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-bold text-slate-800 flex items-center gap-2">
+                        <i data-lucide="clock" class="w-4 h-4 text-blue-600"></i> Recent FIRs
+                    </h3>
+                    <button onclick="showSection('fir-history')"
+                        class="text-xs font-semibold text-blue-600 hover:text-blue-800">View all →</button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-sm text-left">
+                        <thead class="text-slate-400 text-xs uppercase tracking-wide">
+                            <tr>
+                                <th class="py-2 pr-3">FIR No</th>
+                                <th class="py-2 pr-3">Complainant</th>
+                                <th class="py-2 pr-3">Date</th>
+                                <th class="py-2 pr-3">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="home-recent-firs" class="divide-y divide-slate-100">
+                            <tr><td colspan="4" class="py-6 text-center text-slate-400">Loading…</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        
+
+            <!-- Recent Citizen Activity -->
+            <div class="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm lg:col-span-2 my-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-bold text-slate-800 flex items-center gap-2">
+                        <i data-lucide="activity" class="w-4 h-4 text-blue-600"></i> Recent Citizen Activity
+                    </h3>
+                    <button onclick="showSection('citizen-complaints')"
+                        class="text-xs font-semibold text-blue-600 hover:text-blue-800">View all →</button>
+                </div>
+                <div id="home-recent-complaints" class="space-y-3">
+                    <p class="text-sm text-slate-400">Loading…</p>
+                </div>
+            </div>  
+
+    </div>
+</section>
+
+        <section id="create-fir" class="px-6 pt-28 pb-20 hidden">
+            <div class="w-full max-w-5xl mx-auto px-6">
+                <div class="bg-white rounded-xl shadow pb-8">
+                    <!-- Form Header -->
+                    <div class="bg-gradient-to-r from-blue-600 to-blue-800 px-8 py-6 text-white">
+                        <h2 class="text-3xl font-serif font-bold mb-2">FORM IF-1</h2>
+                        <p class="text-blue-100">First Information Report - All fields required*</p>
+                    </div>
+
+                    <!-- Form Body -->
+                    <div class="p-8 md:p-12">
+                        <form id="firForm" class="space-y-8">
+                            <!-- Section 1: Basic Details -->
+                            <div>
+                                <div class="flex items-center mb-4">
+                                    <div
+                                        class="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm mr-3">
+                                        1</div>
+                                    <h3 class="text-xl font-bold text-blue-900">Basic FIR Details</h3>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-semibold text-slate-700 mb-1">District
+                                            *</label>
+                                        <select id="dist"
+                                            class="w-full border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition"
+                                            onchange="updatePoliceStations()">
+                                            <option value="">Select District</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-semibold text-slate-700 mb-1">Police Station
+                                            *</label>
+                                        <select id="ps"
+                                            class="w-full border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition">
+                                            <option value="">Select Police Station</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-semibold text-slate-700 mb-1">Year *</label>
+                                        <input type="number" id="year" placeholder="2026"
+                                            class="w-full border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition" />
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-semibold text-slate-700 mb-1">FIR No. *</label>
+                                        <input type="text" id="fir_no" placeholder="e.g., FIR001"
+                                            class="w-full border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition" />
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-semibold text-slate-700 mb-1">Date of FIR
+                                            *</label>
+                                        <input type="date" id="fir_date"
+                                            class="w-full border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Section 2: Act & Sections -->
+                            <div>
+                                <div class="flex items-center mb-4">
+                                    <div
+                                        class="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm mr-3">
+                                        2</div>
+                                    <h3 class="text-xl font-bold text-blue-900">Legal Act(s) & Section(s)</h3>
+                                    <span class="ml-2 text-sm text-blue-600 bg-blue-50 px-2 py-1 rounded-full">AI
+                                        Auto-Generated</span>
+                                </div>
+                                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-3">
+                                    <p class="text-sm text-blue-800">
+                                        <i data-lucide="brain" class="inline w-4 h-4 mr-1"></i>
+                                        <strong>AI-Powered Analysis:</strong> The system will automatically analyze your
+                                        complaint narrative and suggest relevant legal sections. You can also manually
+                                        add additional sections if needed.
+                                    </p>
+                                </div>
+                                <div id="actSections" class="space-y-3"></div>
+                                <button type="button" onclick="addActSection()"
+                                    class="mt-3 px-4 py-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 font-semibold transition text-sm">+
+                                    Add Additional Act/Section</button>
+
+                                <div class="mt-4">
+                                    <label for="policeActSections"
+                                        class="block text-sm font-semibold text-slate-700 mb-1">Police-entered
+                                        Act/Section (optional)</label>
+                                    <textarea id="policeActSections" rows="2"
+                                        class="w-full border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition resize-none"
+                                        placeholder="E.g., IPC Section 302, IPC Section 34"></textarea>
+                                    <p class="text-xs text-slate-500 mt-1">If filled, this value is used. Otherwise AI
+                                        suggests sections from narrative.</p>
+                                </div>
+                            </div>
+
+                            <!-- Section 3: Occurrence -->
+                            <div>
+                                <div class="flex items-center mb-4">
+                                    <div
+                                        class="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm mr-3">
+                                        3</div>
+                                    <h3 class="text-xl font-bold text-blue-900">Occurrence of Offence</h3>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                    <input type="text" id="occ_day" placeholder="Day (e.g., Monday)"
+                                        class="border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition text-sm" />
+                                    <input type="date" id="occ_date"
+                                        class="border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition text-sm" />
+                                    <input type="time" id="occ_time"
+                                        class="border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition text-sm" />
+                                    <input type="text" id="gdr_entry" placeholder="GDR Entry No."
+                                        class="border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition text-sm" />
+                                </div>
+                                <div class="mt-3 grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-semibold text-slate-700 mb-1">Info Received
+                                            Date *</label>
+                                        <input type="date" id="info_date"
+                                            class="w-full border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition" />
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-semibold text-slate-700 mb-1">Info Received
+                                            Time *</label>
+                                        <input type="time" id="info_time"
+                                            class="w-full border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Section 4: Type of Information -->
+                            <div>
+                                <div class="flex items-center mb-4">
+                                    <div
+                                        class="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm mr-3">
+                                        4</div>
+                                    <h3 class="text-xl font-bold text-blue-900">Type of Information *</h3>
+                                </div>
+                                <div class="flex gap-6">
+                                    <label class="flex items-center cursor-pointer">
+                                        <input type="radio" name="info_type" value="Written" class="w-4 h-4 mr-2" />
+                                        <span class="font-medium">Written</span>
+                                    </label>
+                                    <label class="flex items-center cursor-pointer">
+                                        <input type="radio" name="info_type" value="Oral" class="w-4 h-4 mr-2" /> <span
+                                            class="font-medium">Oral</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Section 5: Place of Occurrence -->
+                            <div>
+                                <div class="flex items-center mb-4">
+                                    <div
+                                        class="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm mr-3">
+                                        5</div>
+                                    <h3 class="text-xl font-bold text-blue-900">Place of Occurrence</h3>
+                                </div>
+                                <div class="space-y-3">
+                                    <input type="text" id="direction_distance"
+                                        placeholder="Direction & Distance from P.S. / Beat No."
+                                        class="w-full border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition" />
+
+                                    <textarea id="place_address" placeholder="Exact Address" rows="2"
+                                        class="w-full border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition resize-none"></textarea>
+
+                                    <input type="text" id="ps_outside"
+                                        placeholder="Other P.S./District Name (if outside limit)"
+                                        class="w-full border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition" />
+                                </div>
+                            </div>
+
+                            <!-- Section 6: Complainant -->
+                            <div>
+                                <div class="flex items-center mb-4">
+                                    <div
+                                        class="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm mr-3">
+                                        6</div>
+                                    <h3 class="text-xl font-bold text-blue-900">Complainant / Informant</h3>
+                                </div>
+                                <div class="space-y-3">
+                                    <input type="text" id="comp_name" placeholder="Full Name *"
+                                        class="w-full border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition" />
+
+                                    <input type="text" id="father_name" placeholder="Father's / Husband's Name"
+                                        class="w-full border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition" />
+
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <input type="text" id="dob" placeholder="Date/Year of Birth"
+                                            class="border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition" />
+
+                                        <input type="text" id="nationality" placeholder="Nationality"
+                                            class="border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition" />
+
+                                    </div>
+                                    <div class="grid grid-cols-3 gap-3">
+                                        <input type="text" id="passport" placeholder="Passport No."
+                                            class="border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition" />
+
+                                        <input type="date" id="passport_issue_date"
+                                            class="border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition" />
+
+                                        <input type="text" id="passport_place" placeholder="Place of Issue"
+                                            class="border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition" />
+
+                                    </div>
+                                    <input type="text" id="occupation" placeholder="Occupation"
+                                        class="w-full border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition" />
+
+                                    <textarea id="comp_address" placeholder="Complete Address" rows="2"
+                                        class="w-full border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition resize-none"></textarea>
+                                </div>
+                            </div>
+
+                            <!-- Section 7, 8, 9 -->
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <div>
+                                    <div class="flex items-center mb-3">
+                                        <div
+                                            class="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs mr-2">
+                                            7</div>
+                                        <h4 class="font-bold text-blue-900">Accused Details</h4>
+                                    </div>
+
+                                    <textarea id="accused_details" placeholder="Full particulars of accused..." rows="4"
+                                        class="w-full border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition text-sm resize-none"></textarea>
+                                </div>
+                                <div>
+                                    <div class="flex items-center mb-3">
+                                        <div
+                                            class="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs mr-2">
+                                            8</div>
+                                        <h4 class="font-bold text-blue-900">Delay Reasons</h4>
+                                    </div>
+                                    <textarea id="delay_reasons" placeholder="Reasons for delay in reporting..."
+                                        rows="4"
+                                        class="w-full border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition text-sm resize-none"></textarea>
+                                </div>
+                                <div>
+                                    <div class="flex items-center mb-3">
+                                        <div
+                                            class="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs mr-2">
+                                            9</div>
+                                        <h4 class="font-bold text-blue-900">Properties</h4>
+                                    </div>
+                                    <textarea id="property_particulars"
+                                        placeholder="Details of properties stolen/involved..." rows="4"
+                                        class="w-full border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition text-sm resize-none"></textarea>
+                                </div>
+                            </div>
+
+                            <!-- Narrative -->
+                            <div>
+                                <label class="block text-sm font-bold text-blue-900 mb-2">Detailed Narrative (Exact
+                                    Words of Informant) *</label>
+                                <textarea id="narrative" placeholder="Complete incident narrative..." rows="5"
+                                    class="w-full border-2 border-slate-200 rounded-lg p-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition resize-none"></textarea>
+                            </div>
+
+                            <!-- Submit Button -->
+                            <div class="flex gap-4">
+                                <button id="generateBtn" type="button" onclick="generateFIR()"
+                                    class="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white py-3 rounded-lg font-bold text-lg shadow-lg transition">
+                                    <i data-lucide="file-text" class="inline mr-2 w-5 h-5"></i> Generate Official FIR
+                                </button>
+                                <button type="reset"
+                                    class="px-6 py-3 border-2 border-slate-300 rounded-lg font-semibold text-slate-700 hover:bg-slate-50 transition">Clear
+                                    Form</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="features" class="py-24 max-w-7xl mx-auto px-6 hidden">
+
+        </section>
+
+        <section id="how-it-works" class="py-20 bg-slate-50">
+            <div class="max-w-6xl mx-auto px-6">
+                <h2 class="text-3xl font-serif font-bold text-center mb-16 text-blue-950">Simple 4-Step Process</h2>
+                <div class="flex flex-wrap justify-center gap-12">
+                    <div class="flex flex-col items-center max-w-[150px] text-center">
+                        <div
+                            class="w-16 h-16 bg-white border-2 border-blue-600 text-blue-600 rounded-full flex items-center justify-center font-bold text-xl mb-4 shadow-lg">
+                            1</div>
+                        <p class="font-bold text-slate-700">Submit Incident</p>
+                    </div>
+                    <div class="flex flex-col items-center max-w-[150px] text-center">
+                        <div
+                            class="w-16 h-16 bg-white border-2 border-blue-600 text-blue-600 rounded-full flex items-center justify-center font-bold text-xl mb-4 shadow-lg">
+                            2</div>
+                        <p class="font-bold text-slate-700">AI Processing</p>
+                    </div>
+                    <div class="flex flex-col items-center max-w-[150px] text-center">
+                        <div
+                            class="w-16 h-16 bg-white border-2 border-blue-600 text-blue-600 rounded-full flex items-center justify-center font-bold text-xl mb-4 shadow-lg">
+                            3</div>
+                        <p class="font-bold text-slate-700">Review Draft</p>
+                    </div>
+                    <div class="flex flex-col items-center max-w-[150px] text-center">
+                        <div
+                            class="w-16 h-16 bg-white border-2 border-blue-600 text-blue-600 rounded-full flex items-center justify-center font-bold text-xl mb-4 shadow-lg">
+                            4</div>
+                        <p class="font-bold text-slate-700">Final Download</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="outputPreview" class="py-20 max-w-5xl mx-auto px-6 hidden">
+            <div class="bg-white border-2 border-slate-300 shadow-2xl rounded-lg overflow-hidden">
+                <div id="previewContent" class="p-8 leading-relaxed text-slate-800 font-mono text-sm"
+                    style="background: #f9f9f9;">
+                </div>
+            </div>
+        </section>
+
+        <section id="fir-history" class="py-20 bg-slate-100 hidden pt-28">
+            <div class="max-w-6xl mx-auto px-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-3xl font-serif font-bold text-blue-900">FIR History</h2>
+                    <button onclick="loadFIRHistory()"
+                        class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">Refresh
+                        History</button>
+                </div>
+                <div class="overflow-x-auto bg-white border border-slate-200 rounded-lg">
+                    <table class="min-w-full text-sm text-left">
+                        <thead class="bg-blue-100 text-blue-900">
+                            <tr>
+                                <th class="px-3 py-2">FIR No</th>
+                                <th class="px-3 py-2">Date</th>
+                                <th class="px-3 py-2">Time</th>
+                                <th class="px-3 py-2">Complainant</th>
+                                <th class="px-3 py-2">Complaint</th>
+                                <th class="px-3 py-2">Status</th>
+                                <th class="px-3 py-2 text-center">View</th>
+                                <th class="px-3 py-2 text-center">Download</th>
+                            </tr>
+                        </thead>
+                        <tbody id="firHistoryBody">
+                            <tr>
+                                <td class="px-3 py-2" colspan="8">Loading FIR history...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Law Library Section -->
+        <section id="law-library" class="py-20 bg-white hidden pt-28">
+            <div class="max-w-6xl mx-auto px-6">
+                <h2 class="text-3xl font-serif font-bold text-center mb-12 text-blue-900">
+                    Law Library
+                </h2>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+
+                    <div class="bg-slate-50 p-6 rounded-lg border border-slate-200">
+                        <div class="flex items-center gap-2 mb-2">
+                            <i data-lucide="book-open" class="w-5 h-5 text-blue-600"></i>
+                            <h3 class="font-bold text-lg">Indian Penal Code (IPC)</h3>
+                        </div>
+                        <p class="text-slate-600 text-sm mb-4">511 sections — browse, search, read descriptions</p>
+                        <button onclick="openLawBrowser('IPC')"
+                            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                            Browse IPC
+                        </button>
+                    </div>
+
+                    <div class="bg-slate-50 p-6 rounded-lg border border-slate-200">
+                        <div class="flex items-center gap-2 mb-2">
+                            <i data-lucide="gavel" class="w-5 h-5 text-blue-600"></i>
+                            <h3 class="font-bold text-lg">Criminal Procedure Code (CrPC)</h3>
+                        </div>
+                        <p class="text-slate-600 text-sm mb-4">Procedural laws — bail, trials, appeals</p>
+                        <button onclick="openLawBrowser('CRPC')"
+                            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                            Browse CrPC
+                        </button>
+                    </div>
+
+                    <!-- AI LEGAL ASSISTANT -->
+                    <div class="bg-slate-50 p-6 rounded-lg border border-slate-200">
+                        <h3 class="font-bold text-lg mb-2">AI Legal Assistant 🤖</h3>
+                        <p class="text-slate-600 text-sm mb-4">
+                            Ask anything about law in simple language
+                        </p>
+
+                        <input type="text" id="lawSearch" placeholder="e.g. What is IPC 420?"
+                            class="w-full px-3 py-2 border border-slate-300 rounded-lg mb-2">
+
+                        <button onclick="askLawAI()"
+                            class="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">
+                            Ask AI
+                        </button>
+
+                        <div id="aiResult" class="mt-4 text-sm text-slate-700 bg-white p-3 rounded hidden">
+                        </div>
+                    </div>
+                    <!-- Case Outcome Predictor -->
+                    <div class="bg-slate-50 p-6 rounded-lg border border-slate-200">
+                        <div class="flex items-center gap-2 mb-2">
+                            <i data-lucide="scale" class="w-5 h-5 text-purple-600"></i>
+                            <h3 class="font-bold text-lg">Case Outcome Predictor</h3>
+                        </div>
+                        <p class="text-slate-600 text-sm mb-4">
+                            Describe your situation — AI predicts likely charges and sentencing range
+                        </p>
+                        <textarea id="outcomeInput" rows="3"
+                            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm mb-2 resize-none"
+                            placeholder="e.g. A person was caught stealing a mobile phone worth ₹15,000 from a shop..."></textarea>
+                        <button onclick="predictOutcome()"
+                            class="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition font-semibold">
+                            Predict Outcome
+                        </button>
+                        <div id="outcomeResult"
+                            class="mt-3 text-sm text-slate-700 bg-white border border-slate-200 rounded-lg p-3 hidden">
+                        </div>
+                    </div>
+
+                    <!-- Legal Term Glossary -->
+                    <div class="bg-slate-50 p-6 rounded-lg border border-slate-200">
+                        <div class="flex items-center gap-2 mb-2">
+                            <i data-lucide="book-marked" class="w-5 h-5 text-teal-600"></i>
+                            <h3 class="font-bold text-lg">Legal Glossary</h3>
+                        </div>
+                        <p class="text-slate-600 text-sm mb-4">
+                            Plain-English definitions for 100+ legal terms
+                        </p>
+                        <input type="text" id="glossarySearch"
+                            placeholder="Search term… e.g. bail, cognizable, mens rea"
+                            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm mb-2"
+                            oninput="searchGlossary()" />
+                        <div id="glossaryResults" class="max-h-52 overflow-y-auto space-y-2 text-sm"></div>
+                    </div>
+
+                    <!-- Section Comparison Tool -->
+                    <div class="bg-slate-50 p-6 rounded-lg border border-slate-200">
+                        <div class="flex items-center gap-2 mb-2">
+                            <i data-lucide="git-compare" class="w-5 h-5 text-orange-500"></i>
+                            <h3 class="font-bold text-lg">Compare Sections</h3>
+                        </div>
+                        <p class="text-slate-600 text-sm mb-3">
+                            Compare any two IPC/CrPC sections side by side
+                        </p>
+                        <div class="flex gap-2 mb-2">
+                            <select id="compareAct1"
+                                class="flex-1 border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
+                                <option value="">Act 1</option>
+                                <option value="IPC">IPC</option>
+                                <option value="CRPC">CrPC</option>
+                            </select>
+                            <input type="text" id="compareSec1" placeholder="Section"
+                                class="w-24 border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
+                        </div>
+                        <div class="flex gap-2 mb-3">
+                            <select id="compareAct2"
+                                class="flex-1 border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
+                                <option value="">Act 2</option>
+                                <option value="IPC">IPC</option>
+                                <option value="CRPC">CrPC</option>
+                            </select>
+                            <input type="text" id="compareSec2" placeholder="Section"
+                                class="w-24 border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
+                        </div>
+                        <button onclick="compareSections()"
+                            class="w-full px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition font-semibold">
+                            Compare
+                        </button>
+                        <div id="compareResult" class="mt-3 hidden"></div>
+                    </div>
+
+                    <!-- BNS / BNSS Amendment Tracker -->
+                    <div class="bg-slate-50 p-6 rounded-lg border border-slate-200">
+                        <div class="flex items-center gap-2 mb-2">
+                            <i data-lucide="refresh-cw" class="w-5 h-5 text-red-500"></i>
+                            <h3 class="font-bold text-lg">2024 Law Amendments</h3>
+                            <span
+                                class="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-semibold">New</span>
+                        </div>
+                        <p class="text-slate-600 text-sm mb-4">
+                            IPC → BNS · CrPC → BNSS · Evidence Act → BSA mappings
+                        </p>
+                        <input type="text" id="amendmentSearch" placeholder="Search old section… e.g. IPC 302, CrPC 154"
+                            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm mb-2"
+                            oninput="searchAmendments()" />
+                        <div id="amendmentResults" class="space-y-2 text-sm max-h-52 overflow-y-auto"></div>
+                    </div>
+
+                    <!-- Bare Acts Quick Reference -->
+                    <!-- 
+-->
+                    <div class="bg-slate-50 p-6 rounded-lg border border-slate-200">
+                        <div class="flex items-center gap-2 mb-1">
+                            <i data-lucide="file-text" class="w-5 h-5 text-blue-600"></i>
+                            <h3 class="font-bold text-lg">Bare Acts Reference</h3>
+                        </div>
+                        <p class="text-slate-500 text-xs mb-4">Click any act to read it — opens on Indian Kanoon</p>
+
+                        <div class="space-y-2">
+
+                            <a href="https://indiankanoon.org/doc/1569253/" target="_blank" rel="noopener"
+                                class="flex items-center justify-between px-3 py-2.5 bg-white border border-slate-200 rounded-lg hover:bg-blue-50 hover:border-blue-400 transition text-sm font-medium text-slate-700 group">
+                                <span class="flex items-center gap-2">
+                                    <span
+                                        class="w-6 h-6 rounded bg-orange-100 text-orange-600 flex items-center justify-center text-xs font-bold shrink-0">IPC</span>
+                                    Indian Penal Code, 1860
+                                </span>
+                                <span class="text-xs text-slate-400 group-hover:text-blue-600 transition">Indian Kanoon
+                                    ↗</span>
+                            </a>
+
+                            <a href="https://indiankanoon.org/doc/445276/" target="_blank" rel="noopener"
+                                class="flex items-center justify-between px-3 py-2.5 bg-white border border-slate-200 rounded-lg hover:bg-blue-50 hover:border-blue-400 transition text-sm font-medium text-slate-700 group">
+                                <span class="flex items-center gap-2">
+                                    <span
+                                        class="w-6 h-6 rounded bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold shrink-0">CrPC</span>
+                                    Code of Criminal Procedure, 1973
+                                </span>
+                                <span class="text-xs text-slate-400 group-hover:text-blue-600 transition">Indian Kanoon
+                                    ↗</span>
+                            </a>
+
+                            <a href="https://indiankanoon.org/doc/1121138/" target="_blank" rel="noopener"
+                                class="flex items-center justify-between px-3 py-2.5 bg-white border border-slate-200 rounded-lg hover:bg-blue-50 hover:border-blue-400 transition text-sm font-medium text-slate-700 group">
+                                <span class="flex items-center gap-2">
+                                    <span
+                                        class="w-6 h-6 rounded bg-green-100 text-green-700 flex items-center justify-center text-xs font-bold shrink-0">BNS</span>
+                                    Bharatiya Nyaya Sanhita, 2023
+                                    <span
+                                        class="text-xs bg-green-100 text-green-700 px-1.5 rounded-full font-semibold">New</span>
+                                </span>
+                                <span class="text-xs text-slate-400 group-hover:text-blue-600 transition">Indian Kanoon
+                                    ↗</span>
+                            </a>
+
+                            <a href="https://indiankanoon.org/doc/1537519/" target="_blank" rel="noopener"
+                                class="flex items-center justify-between px-3 py-2.5 bg-white border border-slate-200 rounded-lg hover:bg-blue-50 hover:border-blue-400 transition text-sm font-medium text-slate-700 group">
+                                <span class="flex items-center gap-2">
+                                    <span
+                                        class="w-6 h-6 rounded bg-green-100 text-green-700 flex items-center justify-center text-xs font-bold shrink-0">BNSS</span>
+                                    Bharatiya Nagarik Suraksha Sanhita, 2023
+                                    <span
+                                        class="text-xs bg-green-100 text-green-700 px-1.5 rounded-full font-semibold">New</span>
+                                </span>
+                                <span class="text-xs text-slate-400 group-hover:text-blue-600 transition">Indian Kanoon
+                                    ↗</span>
+                            </a>
+
+                            <a href="https://indiankanoon.org/doc/1312051/" target="_blank" rel="noopener"
+                                class="flex items-center justify-between px-3 py-2.5 bg-white border border-slate-200 rounded-lg hover:bg-blue-50 hover:border-blue-400 transition text-sm font-medium text-slate-700 group">
+                                <span class="flex items-center gap-2">
+                                    <span
+                                        class="w-6 h-6 rounded bg-purple-100 text-purple-600 flex items-center justify-center text-xs font-bold shrink-0">IEA</span>
+                                    Indian Evidence Act, 1872
+                                </span>
+                                <span class="text-xs text-slate-400 group-hover:text-blue-600 transition">Indian Kanoon
+                                    ↗</span>
+                            </a>
+
+                            <a href="https://indiankanoon.org/doc/40760/" target="_blank" rel="noopener"
+                                class="flex items-center justify-between px-3 py-2.5 bg-white border border-slate-200 rounded-lg hover:bg-blue-50 hover:border-blue-400 transition text-sm font-medium text-slate-700 group">
+                                <span class="flex items-center gap-2">
+                                    <span
+                                        class="w-6 h-6 rounded bg-purple-100 text-purple-600 flex items-center justify-center text-xs font-bold shrink-0">BSA</span>
+                                    Bharatiya Sakshya Adhiniyam, 2023
+                                    <span
+                                        class="text-xs bg-green-100 text-green-700 px-1.5 rounded-full font-semibold">New</span>
+                                </span>
+                                <span class="text-xs text-slate-400 group-hover:text-blue-600 transition">Indian Kanoon
+                                    ↗</span>
+                            </a>
+
+                        </div>
+
+                        <!-- Powered by badge -->
+                        <div
+                            class="mt-4 flex items-center gap-2 px-2 py-1.5 bg-orange-50 border border-orange-100 rounded-lg">
+                            <svg class="w-4 h-4 text-orange-500 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd"
+                                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                                    clip-rule="evenodd" />
+                            </svg>
+                            <p class="text-xs text-orange-700">
+                                Powered by <strong>Indian Kanoon</strong> — free, always-accessible legal database
+                                trusted by courts and lawyers across India.
+                            </p>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <!-- Doc Analysis Section -->
+        <section id="doc-analysis" class="py-20 bg-slate-50 hidden pt-28">
+            <div class="max-w-6xl mx-auto px-6">
+                <h2 class="text-3xl font-serif font-bold text-center mb-12 text-blue-900">Document Analysis</h2>
+                <div class="bg-white p-8 rounded-lg shadow-lg">
+                    <div class="text-center mb-8">
+                        <i data-lucide="file-search" class="w-16 h-16 text-blue-600 mx-auto mb-4"></i>
+                        <h3 class="text-xl font-bold mb-2">AI-Powered Document Analysis</h3>
+                        <p class="text-slate-600">Upload legal documents for intelligent analysis and insights</p>
+                    </div>
+                    <div class="border-2 border-dashed border-slate-300 rounded-lg p-8 text-center">
+                        <input type="file" id="docUpload" accept=".pdf,.doc,.docx,.txt" class="hidden"
+                            onchange="analyzeDocument()">
+                        <label for="docUpload" class="cursor-pointer">
+                            <i data-lucide="upload" class="w-12 h-12 text-slate-400 mx-auto mb-4"></i>
+                            <p class="text-slate-600">Click to upload or drag and drop</p>
+                            <p class="text-sm text-slate-500">PDF, DOC, DOCX, TXT files supported</p>
+                        </label>
+                    </div>
+                    <div id="analysisResults" class="mt-6 hidden">
+                        <h4 class="font-bold mb-2">Analysis Results:</h4>
+                        <div class="bg-slate-50 p-4 rounded-lg">
+                            <p id="analysisText" class="text-slate-700"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Language Section -->
+        <!--<section id="language" class="py-20 bg-white hidden pt-28">
+            <div class="max-w-6xl mx-auto px-6">
+                <h2 class="text-3xl font-serif font-bold text-center mb-12 text-blue-900">Language Settings</h2>
+                <div class="bg-slate-50 p-8 rounded-lg">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div>
+                            <h3 class="font-bold text-lg mb-4">Interface Language</h3>
+                            <select id="interfaceLanguageSelect"
+                                class="w-full px-4 py-2 border border-slate-300 rounded-lg">
+                                <option value="en">English</option>
+                                <option value="hi">हिंदी (Hindi)</option>
+                                <option value="mr">मराठी (Marathi)</option>
+                                <option value="gu">ગુજરાતી (Gujarati)</option>
+                                <option value="ta">தமிழ் (Tamil)</option>
+                                <option value="te">తెలుగు (Telugu)</option>
+                                <option value="kn">ಕನ್ನಡ (Kannada)</option>
+                                <option value="ml">മലയാളം (Malayalam)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-lg mb-4">Document Language</h3>
+                            <select id="documentLanguageSelect"
+                                class="w-full px-4 py-2 border border-slate-300 rounded-lg">
+                                <option value="en">English</option>
+                                <option value="hi">हिंदी (Hindi)</option>
+                                <option value="mr">मराठी (Marathi)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mt-6">
+                        <button id="saveLanguageSettingsBtn"
+                            class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">Save
+                            Language Settings</button>
+                        <p id="documentLanguageStatus" class="mt-3 text-sm text-slate-600">Current document language:
+                            English</p>
+                    </div>
+                </div>
+            </div>
+
+        </section> -->
+
+        <section id="evidence-locker" class="bg-gradient-to-br from-slate-50 to-blue-50 hidden pt-24 pb-16">
+            <div class="max-w-6xl mx-auto px-6">
+
+                <!-- Header -->
+                <div class="flex items-center justify-between mb-8">
+                    <div>
+                        <h2 class="text-3xl font-serif font-bold text-blue-900 flex items-center gap-3">
+                            <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shrink-0">
+                                <i data-lucide="shield-check" class="w-5 h-5 text-white"></i>
+                            </div>
+                            Evidence Locker
+                        </h2>
+                        <p class="text-slate-500 text-sm mt-1 pl-13">Secure · Tamper-proof · Access Logged</p>
+                    </div>
+                    <div class="flex items-center gap-2 bg-green-50 border border-green-200 px-4 py-2 rounded-full">
+                        <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                        <span class="text-green-700 text-xs font-semibold">Encrypted Storage Active</span>
+                    </div>
+                </div>
+
+                <!-- Main Grid -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+
+                    <!-- LEFT: Upload Panel -->
+                    <div class="lg:col-span-1 space-y-4">
+
+                        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                            <div class="flex items-center gap-3 mb-5">
+                                <div class="w-9 h-9 bg-blue-100 rounded-xl flex items-center justify-center shrink-0">
+                                    <i data-lucide="upload-cloud" class="w-5 h-5 text-blue-600"></i>
+                                </div>
+                                <div>
+                                    <h3 class="font-bold text-slate-800">Secure Upload</h3>
+                                    <p class="text-xs text-slate-400">Link evidence to FIR case</p>
+                                </div>
+                            </div>
+
+                            <form onsubmit="return handleEvidenceUpload(event)" enctype="multipart/form-data"
+                                class="space-y-4">
+                                <div>
+                                    <label
+                                        class="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">FIR
+                                        Number *</label>
+                                    <input type="text" name="fir_no" placeholder="e.g. FIR001, DL/2024/001" required
+                                        class="w-full px-4 py-2.5 border-2 border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm transition">
+                                </div>
+
+                                <div class="border-2 border-dashed border-slate-200 rounded-xl p-5 text-center hover:border-blue-400 hover:bg-blue-50 transition cursor-pointer"
+                                    onclick="document.getElementById('evidenceFileInput').click()">
+                                    <i data-lucide="file-plus" class="w-8 h-8 text-slate-300 mx-auto mb-2"></i>
+                                    <p class="text-sm text-slate-500 font-medium">Click to choose file</p>
+                                    <p class="text-xs text-slate-400 mt-1">Images · PDFs · Videos · Audio</p>
+                                    <input type="file" name="file" id="evidenceFileInput" required class="hidden"
+                                        onchange="updateFileLabel(this)">
+                                </div>
+
+                                <div id="selectedFileLabel"
+                                    class="hidden bg-blue-50 border border-blue-200 rounded-xl px-3 py-2 flex items-center gap-2">
+                                    <i data-lucide="file-check" class="w-4 h-4 text-blue-600 shrink-0"></i>
+                                    <span id="selectedFileName"
+                                        class="text-sm text-blue-700 font-medium truncate"></span>
+                                </div>
+
+                                <button type="submit" id="evidenceUploadBtn"
+                                    class="w-full py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl font-bold shadow-md transition flex items-center justify-center gap-2 text-sm">
+                                    <i data-lucide="upload-cloud" class="w-4 h-4"></i>
+                                    Upload to Case File
+                                </button>
+                            </form>
+                        </div>
+
+                        <!-- Security Notice -->
+                        <div class="bg-amber-50 border border-amber-200 rounded-2xl p-4">
+                            <div class="flex items-start gap-2">
+                                <i data-lucide="info" class="w-4 h-4 text-amber-600 mt-0.5 shrink-0"></i>
+                                <div class="text-xs text-amber-700 leading-relaxed">
+                                    <p class="font-semibold mb-1">Access Security Notice</p>
+                                    All evidence access is logged with your officer ID, IP address, and timestamp in our
+                                    secure database.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- RIGHT: Evidence Viewer -->
+                    <div
+                        class="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col min-h-[500px]">
+
+                        <!-- Search Bar -->
+                        <div class="p-4 border-b border-slate-100 bg-slate-50 rounded-t-2xl">
+                            <div class="flex items-center gap-3">
+                                <div class="flex-1 relative">
+                                    <input type="text" id="evidenceSearch"
+                                        placeholder="Enter FIR number to search evidence…"
+                                        oninput="filterEvidence(this.value)"
+                                        class="w-full pl-10 pr-12 py-2.5 border-2 border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition bg-white">
+                                </div>
+                                <div class="relative">
+                                    <button id="filterToggleBtn" onclick="toggleFilterDropdown()"
+                                        class="flex items-center gap-1.5 px-3 py-2.5 bg-white border-2 border-slate-200 rounded-xl hover:border-blue-400 transition text-slate-600 text-sm font-medium">
+                                        <i data-lucide="filter" class="w-4 h-4"></i>
+                                        <span id="filterLabel">All</span>
+                                    </button>
+                                    <div id="filterDropdown"
+                                        class="hidden absolute right-0 mt-2 w-44 bg-white border border-slate-200 rounded-xl shadow-xl z-10 overflow-hidden">
+                                        <div class="p-1">
+                                            <button onclick="setEvidenceFilter('all')"
+                                                class="evidence-filter-btn w-full text-left px-3 py-2 text-sm hover:bg-blue-50 rounded-lg flex items-center gap-2 font-semibold text-blue-700">
+                                                <i data-lucide="layers" class="w-4 h-4"></i> All Types
+                                            </button>
+                                            <button onclick="setEvidenceFilter('image')"
+                                                class="evidence-filter-btn w-full text-left px-3 py-2 text-sm hover:bg-green-50 rounded-lg flex items-center gap-2 text-slate-700">
+                                                <i data-lucide="image" class="w-4 h-4 text-green-500"></i> Images
+                                            </button>
+                                            <button onclick="setEvidenceFilter('video')"
+                                                class="evidence-filter-btn w-full text-left px-3 py-2 text-sm hover:bg-purple-50 rounded-lg flex items-center gap-2 text-slate-700">
+                                                <i data-lucide="video" class="w-4 h-4 text-purple-500"></i> Videos
+                                            </button>
+                                            <button onclick="setEvidenceFilter('audio')"
+                                                class="evidence-filter-btn w-full text-left px-3 py-2 text-sm hover:bg-yellow-50 rounded-lg flex items-center gap-2 text-slate-700">
+                                                <i data-lucide="music" class="w-4 h-4 text-yellow-500"></i> Audio
+                                            </button>
+                                            <button onclick="setEvidenceFilter('pdf')"
+                                                class="evidence-filter-btn w-full text-left px-3 py-2 text-sm hover:bg-red-50 rounded-lg flex items-center gap-2 text-slate-700">
+                                                <i data-lucide="file-text" class="w-4 h-4 text-red-500"></i> PDFs
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Count Bar -->
+                        <div id="evidenceCountBar"
+                            class="hidden px-5 py-2 bg-blue-50 border-b border-blue-100 flex items-center justify-between">
+                            <span id="evidenceCountText" class="text-xs font-semibold text-blue-700"></span>
+                            <button onclick="clearEvidenceSearch()"
+                                class="text-xs text-blue-500 hover:text-blue-700 font-semibold">✕ Clear</button>
+                        </div>
+
+                        <!-- Content Area -->
+                        <div class="flex-1 p-5">
+                            <div id="evidenceEmptyState" class="flex flex-col items-center justify-center h-full py-16">
+                                <div class="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-4">
+                                </div>
+                                <p class="text-slate-500 font-semibold">Enter a FIR number to view evidence</p>
+                                <p class="text-slate-400 text-sm mt-1">e.g. FIR001, DL/2024/001</p>
+                            </div>
+                            <div id="evidenceGrid" class="grid grid-cols-2 md:grid-cols-3 gap-4"></div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <!-- Missing Persons Section -->
+        <section id="missing-persons" class="py-20 bg-slate-50 hidden pt-28">
+            <div class="max-w-7xl mx-auto px-6">
+                <div id="missing-persons-container">
+                    <!-- Missing persons content will be loaded here -->
+                </div>
+            </div>
+        </section>
+
+        <section id="citizen-complaints" class="py-20 bg-slate-50 hidden pt-28">
+            <div class="max-w-6xl mx-auto px-6">
+
+                <!-- Header -->
+                <div class="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+                    <div>
+                        <h2 class="text-3xl font-serif font-bold text-blue-900">Citizen Complaints</h2>
+                        <p class="text-slate-500 text-sm mt-1">Review and act on complaints filed by citizens</p>
+                    </div>
+                    <div class="flex gap-3 flex-wrap">
+                        <!-- Filter pills -->
+                        <button onclick="filterComplaints('all')" id="filter-all"
+                            class="filter-btn px-4 py-2 rounded-full text-sm font-semibold bg-blue-600 text-white transition">
+                            All
+                        </button>
+                        <button onclick="filterComplaints('Pending')" id="filter-Pending"
+                            class="filter-btn px-4 py-2 rounded-full text-sm font-semibold bg-yellow-100 text-yellow-800 hover:bg-yellow-200 transition">
+                            Pending
+                        </button>
+                        <button onclick="filterComplaints('Under Review')" id="filter-Under-Review"
+                            class="filter-btn px-4 py-2 rounded-full text-sm font-semibold bg-blue-100 text-blue-800 hover:bg-blue-200 transition">
+                            Under Review
+                        </button>
+                        <button onclick="filterComplaints('FIR Filed')" id="filter-FIR-Filed"
+                            class="filter-btn px-4 py-2 rounded-full text-sm font-semibold bg-green-100 text-green-800 hover:bg-green-200 transition">
+                            FIR Filed
+                        </button>
+                        <button onclick="filterComplaints('Closed')" id="filter-Closed"
+                            class="filter-btn px-4 py-2 rounded-full text-sm font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition">
+                            Closed
+                        </button>
+                        <button onclick="loadCitizenComplaints()"
+                            class="px-4 py-2 bg-blue-600 text-white rounded-full text-sm font-semibold hover:bg-blue-700 transition flex items-center gap-1.5">
+                            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Refresh
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Stats bar -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    <div class="bg-white rounded-xl p-4 border border-slate-100 shadow-sm">
+                        <p class="text-xs text-slate-400 font-semibold uppercase tracking-wide mb-1">Total</p>
+                        <p id="stat-total" class="text-2xl font-bold text-slate-800">—</p>
+                    </div>
+                    <div class="bg-yellow-50 rounded-xl p-4 border border-yellow-100 shadow-sm">
+                        <p class="text-xs text-yellow-600 font-semibold uppercase tracking-wide mb-1">Pending</p>
+                        <p id="stat-pending" class="text-2xl font-bold text-yellow-700">—</p>
+                    </div>
+                    <div class="bg-blue-50 rounded-xl p-4 border border-blue-100 shadow-sm">
+                        <p class="text-xs text-blue-600 font-semibold uppercase tracking-wide mb-1">Under Review</p>
+                        <p id="stat-review" class="text-2xl font-bold text-blue-700">—</p>
+                    </div>
+                    <div class="bg-green-50 rounded-xl p-4 border border-green-100 shadow-sm">
+                        <p class="text-xs text-green-600 font-semibold uppercase tracking-wide mb-1">FIR Filed</p>
+                        <p id="stat-fir" class="text-2xl font-bold text-green-700">—</p>
+                    </div>
+                </div>
+
+                <!-- Table -->
+                <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full text-sm text-left">
+                            <thead class="bg-blue-50 text-blue-900 border-b border-blue-100">
+                                <tr>
+                                    <th class="px-4 py-3 font-semibold">Tracking ID</th>
+                                    <th class="px-4 py-3 font-semibold">Citizen Name</th>
+                                    <th class="px-4 py-3 font-semibold">Phone</th>
+                                    <th class="px-4 py-3 font-semibold">Location</th>
+                                    <th class="px-4 py-3 font-semibold">Date Filed</th>
+                                    <th class="px-4 py-3 font-semibold">Incident Date</th>
+                                    <th class="px-4 py-3 font-semibold">Status</th>
+                                    <th class="px-4 py-3 font-semibold">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="complaintsTableBody" class="divide-y divide-slate-100">
+                                <tr>
+                                    <td colspan="8" class="px-4 py-8 text-center text-slate-400">
+                                        Loading complaints…
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+
+
+            <!-- ═══ COMPLAINT DETAIL MODAL ═══ -->
+            <div id="complaintModal"
+                class="fixed inset-0 hidden z-50 bg-black/40 backdrop-blur-sm items-center justify-center p-4">
+                <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+
+                    <!-- Modal Header -->
+                    <div class="flex items-start justify-between px-6 py-5 border-b border-slate-100">
+                        <div>
+                            <h3 class="text-xl font-bold text-blue-900">Complaint Details</h3>
+                            <p id="modal-tracking-id" class="font-mono text-blue-600 text-sm font-semibold mt-0.5"></p>
+                        </div>
+                        <button onclick="closeComplaintModal()"
+                            class="text-slate-400 hover:text-red-500 text-2xl font-bold leading-none mt-1">×</button>
+                    </div>
+
+                    <!-- Modal Body -->
+                    <div class="px-6 py-5 space-y-5">
+
+                        <!-- Citizen Info -->
+                        <div class="grid grid-cols-2 gap-4 text-sm">
+                            <div class="bg-slate-50 rounded-xl p-4">
+                                <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Citizen
+                                    Name
+                                </p>
+                                <p id="modal-name" class="font-semibold text-slate-800"></p>
+                            </div>
+                            <div class="bg-slate-50 rounded-xl p-4">
+                                <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Phone</p>
+                                <p id="modal-phone" class="font-semibold text-slate-800"></p>
+                            </div>
+                            <div class="bg-slate-50 rounded-xl p-4">
+                                <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Incident
+                                    Date
+                                </p>
+                                <p id="modal-incident-date" class="font-semibold text-slate-800"></p>
+                            </div>
+                            <div class="bg-slate-50 rounded-xl p-4">
+                                <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Location
+                                </p>
+                                <p id="modal-location" class="font-semibold text-slate-800"></p>
+                            </div>
+                            <div class="bg-slate-50 rounded-xl p-4 col-span-2">
+                                <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Filed On
+                                </p>
+                                <p id="modal-created" class="font-semibold text-slate-800"></p>
+                            </div>
+                        </div>
+
+                        <!-- Description -->
+                        <div>
+                            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Incident
+                                Description</p>
+                            <div id="modal-description"
+                                class="bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+                            </div>
+                        </div>
+
+                        <!-- Current Status -->
+                        <div class="flex items-center gap-3">
+                            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide">Current Status:</p>
+                            <div id="modal-status-pill"></div>
+                        </div>
+
+                        <!-- ── Police Action Form ── -->
+                        <div class="bg-blue-50 border border-blue-200 rounded-xl p-5 space-y-4">
+                            <h4 class="font-bold text-blue-900 flex items-center gap-2">
+                                <i data-lucide="shield" class="w-4 h-4"></i>
+                                Police Action
+                            </h4>
+
+                            <div>
+                                <label class="block text-sm font-semibold text-slate-700 mb-1">Update Status *</label>
+                                <select id="modal-new-status"
+                                    class="w-full border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 outline-none bg-white text-sm">
+                                    <option value="Pending">Pending</option>
+                                    <option value="Under Review">Under Review</option>
+                                    <option value="FIR Filed">FIR Filed</option>
+                                    <option value="Closed">Closed</option>
+                                </select>
+                            </div>
+
+                            <div id="fir-no-field" class="hidden">
+                                <label class="block text-sm font-semibold text-slate-700 mb-1">FIR Number (if filing
+                                    FIR)</label>
+                                <input type="text" id="modal-fir-no" placeholder="e.g. FIR/DL/2026/001"
+                                    class="w-full border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 outline-none text-sm">
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-semibold text-slate-700 mb-1">Officer Notes</label>
+                                <textarea id="modal-notes" rows="3" placeholder="Add notes visible to the citizen…"
+                                    class="w-full border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 outline-none text-sm resize-none"></textarea>
+                            </div>
+
+                            <button onclick="updateComplaintStatus()"
+                                class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition text-sm">
+                                Update Complaint Status
+                            </button>
+
+                            <div id="modal-update-msg" class="hidden text-center text-sm font-semibold py-2 rounded-lg">
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+
+        <!-- Settings Section -->
+        <section id="settings" class="py-20 bg-slate-50 hidden pt-28">
+            <div class="max-w-6xl mx-auto px-6">
+                <h2 class="text-3xl font-serif font-bold text-center mb-12 text-blue-900">System Settings</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div class="bg-white p-6 rounded-lg shadow">
+                        <h3 class="font-bold text-lg mb-4">AI Configuration</h3>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-1">AI Sensitivity Level</label>
+                                <select class="w-full px-3 py-2 border border-slate-300 rounded-lg">
+                                    <option>Low</option>
+                                    <option selected>Medium</option>
+                                    <option>High</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Auto-save Interval</label>
+                                <select class="w-full px-3 py-2 border border-slate-300 rounded-lg">
+                                    <option>30 seconds</option>
+                                    <option selected>1 minute</option>
+                                    <option>5 minutes</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow">
+                        <h3 class="font-bold text-lg mb-4">Database Management</h3>
+                        <div class="space-y-4">
+                            <button
+                                class="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">Clear
+                                All FIR Records</button>
+                            <button
+                                class="w-full px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition">Export
+                                Database</button>
+                            <button
+                                class="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">Backup
+                                Database</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <!-- Law Browser Modal -->
+        <div id="lawBrowserModal"
+            class="fixed inset-0 hidden z-50 bg-black/40 backdrop-blur-sm items-center justify-center p-4">
+            <div class="bg-white rounded-xl shadow-2xl w-full max-w-3xl flex flex-col" style="max-height: 85vh;">
+
+                <!-- Modal Header -->
+                <div class="flex items-center gap-3 px-6 py-4 border-b border-slate-200">
+                    <i data-lucide="book-open" class="w-5 h-5 text-blue-600"></i>
+                    <span id="lbTitle" class="text-lg font-bold text-blue-900"></span>
+                    <span id="lbBadge"
+                        class="ml-1 text-xs font-semibold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full"></span>
+                    <span id="lbTotal" class="ml-auto text-sm text-slate-500"></span>
+                    <button onclick="closeLawBrowser()"
+                        class="ml-3 text-slate-400 hover:text-red-500 text-xl font-bold leading-none"
+                        aria-label="Close">×</button>
+                </div>
+
+                <!-- Search Bar -->
+                <div class="px-6 py-3 border-b border-slate-100">
+                    <input id="lbSearch" type="text"
+                        placeholder="Search by section number or keyword… e.g. 420, theft, murder"
+                        class="w-full px-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        oninput="debouncedSearch()" />
+                </div>
+
+                <!-- Section List -->
+                <div id="lbList" class="flex-1 overflow-y-auto divide-y divide-slate-100 text-sm">
+                    <div class="px-6 py-8 text-center text-slate-400">Loading…</div>
+                </div>
+
+                <!-- Footer / Pagination -->
+                <div
+                    class="flex items-center justify-between px-6 py-3 border-t border-slate-100 text-sm text-slate-500">
+                    <span id="lbPageInfo"></span>
+                    <div class="flex gap-2">
+                        <button id="lbPrev" onclick="lbChangePage(-1)"
+                            class="px-3 py-1 rounded border border-slate-300 hover:bg-slate-50 disabled:opacity-40"
+                            disabled>← Prev</button>
+                        <span id="lbPageNums" class="flex gap-1"></span>
+                        <button id="lbNext" onclick="lbChangePage(1)"
+                            class="px-3 py-1 rounded border border-slate-300 hover:bg-slate-50 disabled:opacity-40">Next
+                            →</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer class="bg-blue-950 py-16 text-white text-center">
+            <div class="max-w-6xl mx-auto px-6">
+                <h2 class="text-3xl font-serif font-bold mb-6">NyayaAI</h2>
+                <p class="text-blue-300 mb-8 opacity-70">Empowering citizens with legal intelligence.</p>
+                <div class="border-t border-white/10 pt-8 text-sm opacity-50">
+                    &copy; 2026 Team NyayaAI. All Rights Reserved.
+                </div>
+            </div>
+        </footer>
+
+    </main>
+
+    <div id="pinModal" class="fixed inset-0 hidden items-center justify-center z-50 backdrop-blur-md bg-black/30">
+
+        <div class="relative bg-white p-6 rounded-xl shadow-2xl w-80 text-center animate-fadeIn">
+
+            <!-- ❌ CLOSE BUTTON -->
+            <button onclick="closeLockerModal()"
+                class="absolute top-2 right-2 text-gray-400 hover:text-red-500 text-xl font-bold">
+                ×
+            </button>
+
+            <h3 class="text-lg font-bold mb-2">🔐 Secure Access</h3>
+            <p class="text-sm text-gray-500 mb-4">Authorized Personnel Only</p>
+
+            <input id="pinInput" type="password" placeholder="Enter PIN"
+                class="w-full border border-gray-300 p-2 rounded mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500">
+
+            <button onclick="submitPin()"
+                class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded font-semibold transition">
+                Unlock
+            </button>
+        </div>
+    </div>
+
+    <!-- FIR Success Modal -->
+    <div id="firSuccessModal"
+        class="fixed inset-0 hidden z-50 bg-black/40 backdrop-blur-sm items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+
+            <!-- Header -->
+            <div class="flex items-start justify-between px-6 py-5 border-b border-slate-100">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center shrink-0">
+                        <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                                d="M5 13l4 4L19 7" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-bold text-slate-900">FIR Created Successfully</h3>
+                        <p class="text-sm text-green-600 font-medium mt-0.5">Saved to police records</p>
+                    </div>
+                </div>
+                <button onclick="closeFirSuccessModal()"
+                    class="text-slate-400 hover:text-red-500 text-2xl font-bold leading-none mt-1">×</button>
+            </div>
+
+            <!-- FIR Info Card -->
+            <div class="px-6 py-5">
+                <div class="bg-blue-50 border border-blue-100 rounded-xl p-4 space-y-2 text-sm">
+                    <div class="text-xs font-semibold text-blue-500 uppercase tracking-wide mb-1">First Information
+                        Report</div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-500">FIR Number</span>
+                        <span id="successFirNo" class="font-bold text-blue-800 font-mono"></span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-500">Complainant</span>
+                        <span id="successComplainant" class="font-semibold text-slate-800"></span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-500">Date</span>
+                        <span id="successDate" class="text-slate-700"></span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-500">Time</span>
+                        <span id="successTime" class="text-slate-700"></span>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="flex gap-3 mt-5">
+                    <button onclick="viewFirDocument()"
+                        class="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-sm transition flex items-center justify-center gap-2">
+                        <i data-lucide="eye" class="w-4 h-4"></i> View FIR
+                    </button>
+                    <button onclick="downloadFirDocument()"
+                        class="flex-1 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-xl font-semibold text-sm transition flex items-center justify-center gap-2">
+                        <i data-lucide="download" class="w-4 h-4"></i> Download FIR
+                    </button>
+                    <button onclick="closeFirSuccessModal()"
+                        class="px-4 py-2.5 border-2 border-slate-200 hover:bg-slate-50 text-slate-600 rounded-xl font-semibold text-sm transition">
+                        Close
+                    </button>
+                </div>
+
+                <!-- Error message area -->
+                <div id="firActionError"
+                    class="hidden mt-3 text-center text-sm text-red-600 bg-red-50 rounded-lg py-2 px-3"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+
+        lucide.createIcons();
+
+        function showSection(sectionId) {
+    document.querySelectorAll('main > section').forEach(section => {
+        section.classList.add('hidden');
+    });
+
+    const target = document.getElementById(sectionId);
+    if (target) {
+        target.classList.remove('hidden');
+        target.scrollTop = 0;
+    }
+
+    document.querySelectorAll('.sidebar-link').forEach(link => {
+        link.classList.remove('bg-blue-800');
+    });
+    document.querySelector(`[data-section="${sectionId}"]`)?.classList.add('bg-blue-800');
+
+    // ── Section-specific data loads now live in ONE place ──
+    if (sectionId === 'home') {
+        loadDashboardHome();
+    }
+    if (sectionId === 'create-fir') {
+        loadDistricts().catch(err => console.warn('Failed to refresh districts:', err));
+    }
+    if (sectionId === 'missing-persons') {
+        loadMissingPersonsTemplate();
+    }
+    if (sectionId === 'citizen-complaints') {
+        loadCitizenComplaints();
+    }
+    if (sectionId === 'evidence-locker') {
+        loadEvidenceGrid('');
+        fetch('/api/evidence/log-access', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fir_no: '', action: 'locker_opened' })
+        }).catch(() => { });
+    }
+}
+
+function initSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+    const sidebarLinks = document.querySelectorAll('.sidebar-link');
+
+    mobileMenuBtn.addEventListener('click', () => {
+        sidebar.classList.toggle('-translate-x-full');
+    });
+
+    document.addEventListener('click', (e) => {
+        if (
+            window.innerWidth < 768 &&
+            !sidebar.contains(e.target) &&
+            !mobileMenuBtn.contains(e.target)
+        ) {
+            sidebar.classList.add('-translate-x-full');
+        }
+    });
+
+    // Just delegate to showSection() — no more duplicated logic here
+    sidebarLinks.forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            showSection(link.getAttribute('data-section'));
+            if (window.innerWidth < 768) {
+                sidebar.classList.add('-translate-x-full');
+            }
+        });
+    });
+}
+
+        // Show home section by default
+
+
+        // Law Library functions
+        async function loadSections(act) {
+            try {
+                const response = await fetch(`/api/sections/${act}`);
+                const sections = await response.json();
+
+                let content = `<h4 class="font-bold mb-4">${act} Sections</h4>`;
+                content += '<div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-96 overflow-y-auto">';
+
+                sections.forEach(section => {
+                    content += `
+                        <div class="bg-white p-3 rounded border">
+                            <div class="font-bold">Section ${section.section}</div>
+                            <div class="text-sm text-slate-600">${section.title}</div>
+                        </div>
+                    `;
+                });
+
+                content += '</div>';
+
+                // Show in a modal or replace content
+                const lawLibrarySection = document.getElementById('law-library');
+                const existingContent = lawLibrarySection.querySelector('.grid');
+                existingContent.innerHTML = content;
+
+            } catch (error) {
+                console.error('Failed to load sections:', error);
+            }
+        }
+
+        function searchLaws() {
+            const query = document.getElementById('lawSearch').value;
+            if (query.length < 2) {
+                document.getElementById('searchResults').innerHTML = '';
+                return;
+            }
+
+            fetch(`/api/search-sections?q=${encodeURIComponent(query)}`)
+                .then(response => response.json())
+                .then(results => {
+                    let content = '';
+                    results.forEach(result => {
+                        content += `
+                            <div class="bg-white p-2 rounded border mb-1">
+                                <div class="font-bold text-sm">${result.act} Section ${result.section}</div>
+                                <div class="text-xs text-slate-600">${result.title}</div>
+                            </div>
+                        `;
+                    });
+                    document.getElementById('searchResults').innerHTML = content;
+                })
+                .catch(error => console.error('Search failed:', error));
+        }
+
+        // Document Analysis
+        function analyzeDocument() {
+            const file = document.getElementById('docUpload').files[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            // For now, just show file info (would need backend processing for real analysis)
+            const resultsDiv = document.getElementById('analysisResults');
+            const analysisText = document.getElementById('analysisText');
+
+            analysisText.textContent = `File: ${file.name} (${(file.size / 1024).toFixed(1)} KB)\n\nAI Analysis would process this document to extract legal information, identify relevant sections, and provide insights.`;
+
+            resultsDiv.classList.remove('hidden');
+        }
+
+        // Load missing persons template
+        async function loadMissingPersonsTemplate() {
+            try {
+                const container = document.getElementById('missing-persons-container');
+                container.innerHTML = '<p class="text-slate-400 text-center py-8">Loading…</p>';
+
+                const response = await fetch('/missing_persons_template');  // THIS LINE WAS MISSING
+
+                if (!response.ok) throw new Error('Failed to load template');
+
+                const html = await response.text();
+
+                const scriptMatch = html.match(/<script>([\s\S]*?)<\/script>/i);
+                const scriptContent = scriptMatch ? scriptMatch[1] : '';
+                const htmlOnly = html.replace(/<script>[\s\S]*?<\/script>/gi, '');
+
+                container.innerHTML = htmlOnly;
+
+                if (window.lucide) lucide.createIcons();
+
+                if (scriptContent) {
+                    const oldScript = document.getElementById('mp-injected-script');
+                    if (oldScript) oldScript.remove();
+
+                    const script = document.createElement('script');
+                    script.id = 'mp-injected-script';
+                    script.textContent = scriptContent;
+                    document.body.appendChild(script);
+                }
+
+            } catch (error) {
+                console.error('[MP] Load error:', error);
+                document.getElementById('missing-persons-container').innerHTML =
+                    '<p class="text-red-600 p-8 text-center">Error loading Missing Persons. Please refresh.</p>';
+            }
+        }
+
+        async function loadEvidenceGrid(firNo = '') {
+            const grid = document.getElementById('evidenceGrid');
+            const emptyState = document.getElementById('evidenceEmptyState');
+            const countText = document.getElementById('evidenceCountText');
+            const countBar = document.getElementById('evidenceCountBar');
+
+            if (!grid || !emptyState || !countText || !countBar) return;
+
+            if (!firNo) {
+                grid.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                countBar.classList.add('hidden');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/evidence?fir_no=${encodeURIComponent(firNo)}`);
+                const docs = await response.json();
+
+                if (!Array.isArray(docs) || docs.length === 0) {
+                    grid.innerHTML = '';
+                    emptyState.classList.remove('hidden');
+                    countBar.classList.add('hidden');
+                    return;
+                }
+
+                emptyState.classList.add('hidden');
+                countBar.classList.remove('hidden');
+                countText.textContent = `${docs.length} evidence item(s) found for ${firNo}`;
+
+                grid.innerHTML = docs.map(doc => `
+                    <div class="bg-slate-50 rounded-2xl p-4 border border-slate-200">
+                        <h4 class="font-semibold text-slate-800 text-sm">${doc.filename || 'Evidence file'}</h4>
+                        <p class="text-xs text-slate-500 mt-2">${doc.file_type || 'Unknown type'}</p>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Failed to load evidence grid:', error);
+                grid.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                countBar.classList.add('hidden');
+            }
+        }
+
+        function updateFileLabel(input) {
+            const label = document.getElementById('selectedFileLabel');
+            const filename = document.getElementById('selectedFileName');
+            if (!input.files || input.files.length === 0) {
+                label.classList.add('hidden');
+                filename.textContent = '';
+                return;
+            }
+            filename.textContent = input.files[0].name;
+            label.classList.remove('hidden');
+        }
+
+        async function handleEvidenceUpload(event) {
+            event.preventDefault();
+            const form = event.target;
+            const formData = new FormData(form);
+            const button = document.getElementById('evidenceUploadBtn');
+
+            if (!formData.get('fir_no') || !formData.get('file')) {
+                alert('Please enter a FIR number and select a file.');
+                return;
+            }
+
+            button.disabled = true;
+            button.textContent = 'Uploading...';
+
+            try {
+                const response = await fetch(`/upload_evidence/${encodeURIComponent(formData.get('fir_no'))}`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                if (!response.ok) {
+                    alert(data.error || 'Upload failed.');
+                    return;
+                }
+
+                alert(data.message || 'Evidence uploaded successfully.');
+                form.reset();
+                updateFileLabel({ files: [] });
+                loadEvidenceGrid(formData.get('fir_no'));
+            } catch (error) {
+                console.error('Evidence upload failed:', error);
+                alert('Failed to upload evidence. Please try again.');
+            } finally {
+                button.disabled = false;
+                button.textContent = 'Upload to Case File';
+            }
+        }
+
+        function filterEvidence(value) {
+            const current = (value || '').trim();
+            if (!current) {
+                loadEvidenceGrid('');
+                document.getElementById('filterLabel').textContent = 'All';
+                return;
+            }
+            loadEvidenceGrid(current);
+        }
+
+        function toggleFilterDropdown() {
+            const dropdown = document.getElementById('filterDropdown');
+            dropdown.classList.toggle('hidden');
+        }
+
+        function setEvidenceFilter(filter) {
+            document.getElementById('filterLabel').textContent = filter.charAt(0).toUpperCase() + filter.slice(1);
+            toggleFilterDropdown();
+            // Filtering is currently UI-only until backend supports types
+            const searchInput = document.getElementById('evidenceSearch');
+            if (searchInput) loadEvidenceGrid(searchInput.value.trim());
+        }
+
+        function clearEvidenceSearch() {
+            const searchInput = document.getElementById('evidenceSearch');
+            if (searchInput) searchInput.value = '';
+            loadEvidenceGrid('');
+        }
+
+        // ── Global state ──────────────────────────────────────────────
+        let allComplaints = [];
+        let currentComplaint = null;
+        let activeFilter = 'all';
+
+        // ── Status pill helper ─────────────────────────────────────────
+        function makeStatusPill(status) {
+            const map = {
+                'Pending': 'bg-yellow-100 text-yellow-800',
+                'Under Review': 'bg-blue-100   text-blue-800',
+                'FIR Filed': 'bg-green-100  text-green-800',
+                'Closed': 'bg-slate-100  text-slate-600',
+            };
+            const cls = map[status] || 'bg-slate-100 text-slate-600';
+            return `<span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${cls}">${status}</span>`;
+        }
+
+        // ── Load all citizen complaints from Flask ─────────────────────
+        async function loadCitizenComplaints() {
+            const tbody = document.getElementById('complaintsTableBody');
+            tbody.innerHTML = `<tr><td colspan="8" class="px-4 py-8 text-center text-slate-400">Loading…</td></tr>`;
+
+            try {
+                const res = await fetch('/api/complaints/all');
+                const data = await res.json();
+
+                if (!res.ok) throw new Error(data.error || 'Failed');
+
+                allComplaints = data;
+                updateStats(data);
+                renderComplaints(data);
+                updatePendingBadge(data);
+            } catch (e) {
+                tbody.innerHTML = `<tr><td colspan="8" class="px-4 py-8 text-center text-red-500">
+            Error loading complaints: ${e.message}</td></tr>`;
+            }
+        }
+
+        // ── Update stats bar ───────────────────────────────────────────
+        function updateStats(complaints) {
+            document.getElementById('stat-total').textContent = complaints.length;
+            document.getElementById('stat-pending').textContent = complaints.filter(c => c.status === 'Pending').length;
+            document.getElementById('stat-review').textContent = complaints.filter(c => c.status === 'Under Review').length;
+            document.getElementById('stat-fir').textContent = complaints.filter(c => c.status === 'FIR Filed').length;
+        }
+
+        // ── Update sidebar badge ───────────────────────────────────────
+        function updatePendingBadge(complaints) {
+            const badge = document.getElementById('pendingBadge');
+            const pending = complaints.filter(c => c.status === 'Pending').length;
+            if (pending > 0) {
+                badge.textContent = pending;
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+        }
+
+        // ── Filter complaints ──────────────────────────────────────────
+        function filterComplaints(filter) {
+            activeFilter = filter;
+            document.querySelectorAll('.filter-btn').forEach(b => {
+                b.classList.remove('bg-blue-600', 'text-white', 'ring-2', 'ring-blue-300');
+            });
+            const activeBtn = document.getElementById(`filter-${filter}`) || document.getElementById('filter-all');
+            if (activeBtn) activeBtn.classList.add('bg-blue-600', 'text-white');
+
+            const filtered = filter === 'all'
+                ? allComplaints
+                : allComplaints.filter(c => c.status === filter);
+            renderComplaints(filtered);
+        }
+
+        // ── Render table rows ──────────────────────────────────────────
+        function renderComplaints(complaints) {
+            const tbody = document.getElementById('complaintsTableBody');
+
+            if (!complaints.length) {
+                tbody.innerHTML = `<tr><td colspan="8" class="px-4 py-8 text-center text-slate-400">
+            No complaints found for this filter.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = complaints.map(c => {
+                const filed = new Date(c.created_at).toLocaleDateString('en-IN',
+                    { day: 'numeric', month: 'short', year: 'numeric' });
+                const shortDesc = (c.incident_description || '').slice(0, 60) +
+                    ((c.incident_description || '').length > 60 ? '…' : '');
+
+                return `
+        <tr class="hover:bg-blue-50 cursor-pointer transition-colors"
+            onclick="openComplaintModal('${c.tracking_id}')">
+            <td class="px-4 py-3">
+                <span class="font-mono text-blue-700 font-semibold text-xs">${escapeHtml(c.tracking_id)}</span>
+            </td>
+            <td class="px-4 py-3 font-semibold text-slate-800">${escapeHtml(c.full_name)}</td>
+            <td class="px-4 py-3 text-slate-600">${escapeHtml(c.phone || '—')}</td>
+            <td class="px-4 py-3 text-slate-600">${escapeHtml(c.location || '—')}</td>
+            <td class="px-4 py-3 text-slate-500 text-xs">${filed}</td>
+            <td class="px-4 py-3 text-slate-500 text-xs">${escapeHtml(c.incident_date || '—')}</td>
+            <td class="px-4 py-3">${makeStatusPill(c.status)}</td>
+            <td class="px-4 py-3">
+                <button class="px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg font-semibold hover:bg-blue-700 transition">
+                    Review
+                </button>
+            </td>
+        </tr>
+        <tr class="bg-slate-50 border-b border-slate-100">
+            <td colspan="8" class="px-4 pb-3 text-xs text-slate-500 italic">${escapeHtml(shortDesc)}</td>
+        </tr>`;
+            }).join('');
+        }
+
+        // ── Open modal with complaint detail ──────────────────────────
+        function openComplaintModal(trackingId) {
+            currentComplaint = allComplaints.find(c => c.tracking_id === trackingId);
+            if (!currentComplaint) return;
+
+            const c = currentComplaint;
+
+            document.getElementById('modal-tracking-id').textContent = c.tracking_id;
+            document.getElementById('modal-name').textContent = c.full_name;
+            document.getElementById('modal-phone').textContent = c.phone || 'Not provided';
+            document.getElementById('modal-location').textContent = c.location || 'Not specified';
+            document.getElementById('modal-incident-date').textContent = c.incident_date || 'Not specified';
+            document.getElementById('modal-description').textContent = c.incident_description;
+            document.getElementById('modal-status-pill').innerHTML = makeStatusPill(c.status);
+            document.getElementById('modal-new-status').value = c.status;
+            document.getElementById('modal-fir-no').value = c.fir_no || '';
+            document.getElementById('modal-notes').value = c.officer_notes || '';
+            document.getElementById('modal-update-msg').classList.add('hidden');
+
+            // Toggle FIR field visibility
+            toggleFirField();
+
+            document.getElementById('modal-created').textContent =
+                new Date(c.created_at).toLocaleString('en-IN', {
+                    day: 'numeric', month: 'long', year: 'numeric',
+                    hour: '2-digit', minute: '2-digit'
+                });
+
+            // Show modal
+            const modal = document.getElementById('complaintModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            if (window.lucide) lucide.createIcons();
+        }
+
+        // ── Toggle FIR number field based on status ────────────────────
+        function toggleFirField() {
+            const status = document.getElementById('modal-new-status').value;
+            const firField = document.getElementById('fir-no-field');
+            if (status === 'FIR Filed') {
+                firField.classList.remove('hidden');
+            } else {
+                firField.classList.add('hidden');
+            }
+        }
+
+        // ── Close modal ────────────────────────────────────────────────
+        function closeComplaintModal() {
+            const modal = document.getElementById('complaintModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            currentComplaint = null;
+        }
+
+        // ── Update complaint status via Flask API ──────────────────────
+        async function updateComplaintStatus() {
+            if (!currentComplaint) return;
+
+            const newStatus = document.getElementById('modal-new-status').value;
+            const firNo = document.getElementById('modal-fir-no').value.trim();
+            const notes = document.getElementById('modal-notes').value.trim();
+            const msgDiv = document.getElementById('modal-update-msg');
+
+            msgDiv.className = 'text-center text-sm font-semibold py-2 rounded-lg bg-blue-50 text-blue-700';
+            msgDiv.textContent = 'Updating…';
+            msgDiv.classList.remove('hidden');
+
+            try {
+                const res = await fetch(`/api/complaints/${currentComplaint.tracking_id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        status: newStatus,
+                        fir_no: firNo || null,
+                        officer_notes: notes || null
+                    })
+                });
+                const data = await res.json();
+
+                if (!res.ok) throw new Error(data.error || 'Update failed');
+
+                msgDiv.className = 'text-center text-sm font-semibold py-2 rounded-lg bg-green-100 text-green-700';
+                msgDiv.textContent = '✓ Complaint updated successfully!';
+
+                // Refresh local state
+                currentComplaint.status = newStatus;
+                currentComplaint.fir_no = firNo || null;
+                currentComplaint.officer_notes = notes || null;
+
+                // Update pill in modal
+                document.getElementById('modal-status-pill').innerHTML = makeStatusPill(newStatus);
+
+                // Reload table
+                await loadCitizenComplaints();
+                filterComplaints(activeFilter);
+
+            } catch (e) {
+                msgDiv.className = 'text-center text-sm font-semibold py-2 rounded-lg bg-red-100 text-red-700';
+                msgDiv.textContent = '✗ ' + e.message;
+            }
+        }
+
+        // ── Close modal on backdrop click ──────────────────────────────
+        document.getElementById('complaintModal').addEventListener('click', function (e) {
+            if (e.target === this) closeComplaintModal();
+        });
+
+        // ── Auto-toggle FIR field when status changes ─────────────────
+        document.getElementById('modal-new-status').addEventListener('change', toggleFirField);
+
+        // ── Auto-load when section is opened ──────────────────────────
+        // (handled in the initSidebar listener — see STEP 4)
+
+
+
+        // Load districts on page load
+        async function loadDistricts() {
+            const select = document.getElementById('dist');
+            if (!select) {
+                console.error('District select element not found');
+                return;
+            }
+
+            // Keep default option and clear old ones
+            select.innerHTML = '<option value="">Select District</option>';
+
+            try {
+                console.log('Loading districts...');
+                const response = await fetch(`${window.location.origin}/api/districts`);
+                if (!response.ok) {
+                    throw new Error(`Districts API error ${response.status}`);
+                }
+                const districts = await response.json();
+                console.log('Districts response status:', response.status, 'count:', districts.length);
+
+                if (!Array.isArray(districts) || districts.length === 0) {
+                    console.warn('No districts returned; adding fallback list.');
+                }
+
+                const finalDistricts = Array.isArray(districts) && districts.length > 0
+                    ? districts
+                    : [
+                        'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chandigarh',
+                        'Chhattisgarh', 'Delhi', 'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh',
+                        'Jharkhand', 'Karnataka', 'Kerala', 'Madhya Pradesh', 'Maharashtra',
+                        'Manipur', 'Meghalaya', 'Mizoram', 'Nagaland', 'Odisha', 'Puducherry',
+                        'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura',
+                        'Uttar Pradesh', 'Uttarakhand', 'West Bengal'
+                    ];
+
+                finalDistricts.forEach(d => {
+                    const option = document.createElement('option');
+                    option.value = d;
+                    option.textContent = d;
+                    select.appendChild(option);
+                });
+
+                console.log('Districts loaded into dropdown successfully');
+            } catch (error) {
+                console.error('Failed to load districts:', error);
+                // keep default and show warning
+            }
+        }
+
+        // Utility to show a top banner error to users
+        function showError(message) {
+            let errorBanner = document.getElementById('globalErrorBanner');
+            if (!errorBanner) {
+                errorBanner = document.createElement('div');
+                errorBanner.id = 'globalErrorBanner';
+                errorBanner.className = 'fixed top-0 left-0 right-0 bg-red-600 text-white text-center p-3 z-50';
+                errorBanner.style.boxShadow = '0 4px 12px rgba(0,0,0,0.25)';
+                document.body.appendChild(errorBanner);
+            }
+            errorBanner.textContent = message;
+            setTimeout(() => { if (errorBanner) errorBanner.remove(); }, 8000);
+        }
+
+        // Global JS error handlers
+        window.addEventListener('error', (event) => {
+            console.error('Global error caught:', event.error || event.message);
+            showError('An unexpected error occurred. Please refresh the page.');
+        });
+
+        window.addEventListener('unhandledrejection', (event) => {
+            console.error('Unhandled promise rejection:', event.reason);
+            showError('An unexpected error occurred in background logic. Please refresh the page.');
+        });
+
+        // Ensure districts are loaded once DOM + resources are fully loaded
+        window.addEventListener('load', () => {
+            loadDistricts().catch(error => {
+                console.error('Load event districts failed:', error);
+            });
+        });
+
+        // Update police stations when district changes
+        async function updatePoliceStations() {
+            const dist = document.getElementById('dist').value;
+            const psSelect = document.getElementById('ps');
+            psSelect.innerHTML = '<option value="">Select Police Station</option>';
+
+            if (!dist) return;
+
+            try {
+                const response = await fetch(`/api/police-stations/${encodeURIComponent(dist)}`);
+                if (!response.ok) throw new Error('Failed to load police stations');
+                const stations = await response.json();
+                if (!Array.isArray(stations)) {
+                    throw new Error('Police stations response is not a list');
+                }
+                stations.forEach(ps => {
+                    const option = document.createElement('option');
+                    option.value = ps;
+                    option.textContent = ps;
+                    psSelect.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Failed to load police stations:', error);
+                showError('Could not load police stations.');
+            }
+        }
+
+        // Load legal acts on page load
+        async function loadActs() {
+            try {
+                const response = await fetch('/api/acts');
+                const acts = await response.json();
+                return acts;
+            } catch (error) {
+                console.error('Failed to load acts:', error);
+                return ["IPC", "CRPC", "NIA", "IEA", "HMA", "CPC", "IDA", "MVA"];
+            }
+        }
+        let firHistoryData = {};
+
+        function escapeHtml(str) {
+            if (str == null) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function showFIRDetail(firNo) {
+            const record = firHistoryData[firNo];
+            if (!record) return;
+
+            const preview = document.getElementById('outputPreview');
+            const content = document.getElementById('previewContent');
+
+            content.innerHTML = `
+                <div class="p-6 bg-white rounded-lg border border-slate-300">
+                    <h3 class="text-xl font-bold text-blue-900 mb-4">FIR Details: ${escapeHtml(record.fir_no || '')}</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-slate-700">
+                        <div><strong>District:</strong> ${escapeHtml(record.dist || '')}</div>
+                        <div><strong>Police Station:</strong> ${escapeHtml(record.ps || '')}</div>
+                        <div><strong>Year:</strong> ${escapeHtml(record.year || '')}</div>
+                        <div><strong>FIR Date:</strong> ${escapeHtml(record.fir_date || '')}</div>
+                        <div><strong>Occurrence Day:</strong> ${escapeHtml(record.occurrence_day || '')}</div>
+                        <div><strong>Occurrence Date:</strong> ${escapeHtml(record.occurrence_date || '')}</div>
+                        <div><strong>Occurrence Time:</strong> ${escapeHtml(record.occurrence_time || '')}</div>
+                        <div><strong>Info Received Date:</strong> ${escapeHtml(record.info_received_date || '')}</div>
+                        <div><strong>Info Received Time:</strong> ${escapeHtml(record.info_received_time || '')}</div>
+                        <div><strong>GDR Entry No:</strong> ${escapeHtml(record.gdr_entry_no || '')}</div>
+                        <div><strong>Type of Information:</strong> ${escapeHtml(record.type_of_information || '')}</div>
+                        <div><strong>Place of Occurrence:</strong> ${escapeHtml(record.place_of_occurrence || '')}</div>
+                    </div>
+                    <div class="mt-4">
+                        <h4 class="font-bold">Complainant / Informant</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-slate-700 mt-2">
+                            <div><strong>Name:</strong> ${escapeHtml(record.complainant_name || '')}</div>
+                            <div><strong>Father/Husband Name:</strong> ${escapeHtml(record.father_husband_name || '')}</div>
+                            <div><strong>DOB:</strong> ${escapeHtml(record.dob || '')}</div>
+                            <div><strong>Nationality:</strong> ${escapeHtml(record.nationality || '')}</div>
+                            <div><strong>Passport No:</strong> ${escapeHtml(record.passport_no || '')}</div>
+                            <div><strong>Date of Issue:</strong> ${escapeHtml(record.date_of_issue || '')}</div>
+                            <div><strong>Place of Issue:</strong> ${escapeHtml(record.place_of_issue || '')}</div>
+                            <div><strong>Occupation:</strong> ${escapeHtml(record.occupation || '')}</div>
+                            <div class="md:col-span-2"><strong>Address:</strong> ${escapeHtml(record.address || '')}</div>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <h4 class="font-bold">Offender / Incident Info</h4>
+                        <div class="grid grid-cols-1 text-sm text-slate-700 mt-2 gap-2">
+                            <div><strong>Details of Accused:</strong> ${escapeHtml(record.details_of_accused || '')}</div>
+                            <div><strong>Reasons for Delay:</strong> ${escapeHtml(record.reasons_for_delay || '')}</div>
+                            <div><strong>Property Particulars:</strong> ${escapeHtml(record.property_particulars || '')}</div>
+                            <div><strong>Statement / Complaint:</strong> ${escapeHtml(record.statement || '')}</div>
+                            <div><strong>Act(s)/Section(s):</strong> ${escapeHtml(record.act_sections || '')}</div>
+                            <div><strong>Status:</strong> ${escapeHtml(record.status || '')}</div>
+                            <div><strong>Created At:</strong> ${escapeHtml(record.created_at || '')}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            preview.classList.remove('hidden');
+            window.scrollTo({ top: preview.offsetTop - 100, behavior: 'smooth' });
+        }
+
+        // Load first page of FIR history
+        async function loadFIRHistory() {
+            firHistoryData = {};
+            const historyBody = document.getElementById('firHistoryBody');
+            historyBody.innerHTML = '<tr><td class="px-3 py-2" colspan="8">Loading FIR history...</td></tr>';
+            try {
+                const response = await fetch('/api/fir-records');
+                if (!response.ok) throw new Error('Failed to load FIR history');
+                const firRecords = await response.json();
+
+                if (!firRecords.length) {
+                    historyBody.innerHTML = '<tr><td class="px-3 py-2" colspan="8">No FIR records found.</td></tr>';
+                    return;
+                }
+
+                firRecords.forEach(record => {
+                    firHistoryData[record.fir_no] = record;
+                });
+
+                historyBody.innerHTML = firRecords.map(record => {
+                    const fno = escapeHtml(record.fir_no || '');
+                    return `
+                    <tr class="border-t hover:bg-slate-50">
+                        <td class="px-3 py-2">${fno}</td>
+                        <td class="px-3 py-2">${escapeHtml(record.fir_date || '')}</td>
+                        <td class="px-3 py-2">${escapeHtml(record.occurrence_time || '')}</td>
+                        <td class="px-3 py-2">${escapeHtml(record.complainant_name || '')}</td>
+                        <td class="px-3 py-2 max-w-xs truncate">${escapeHtml(record.statement || '')}</td>
+                        <td class="px-3 py-2">${escapeHtml(record.status || '')}</td>
+                        <td class="px-3 py-2 text-center">
+                            <button onclick="viewFIR('${fno}')" title="View FIR"
+                                class="inline-flex items-center justify-center p-1.5 rounded hover:bg-blue-100 text-blue-600 transition"
+                                aria-label="View FIR ${fno}">
+                                <i data-lucide="eye" class="w-4 h-4"></i>
+                            </button>
+                        </td>
+                        <td class="px-3 py-2 text-center">
+                            <button onclick="downloadFIR('${fno}')" title="Download FIR"
+                                class="inline-flex items-center justify-center p-1.5 rounded hover:bg-green-100 text-green-600 transition"
+                                aria-label="Download FIR ${fno}">
+                                <i data-lucide="download" class="w-4 h-4"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    `;
+                }).join('');
+                lucide.createIcons();
+            } catch (error) {
+                console.error('Failed to load FIR history:', error);
+                historyBody.innerHTML = '<tr><td class="px-3 py-2 text-red-600" colspan="8">Unable to load FIR history. Please refresh or try again later.</td></tr>';
+            }
+        }
+
+        function viewFIR(firNo) {
+            if (!firNo) return;
+            window.open('/fir/view/' + encodeURIComponent(firNo), '_blank', 'noopener,noreferrer');
+        }
+
+        function downloadFIR(firNo) {
+            if (!firNo) return;
+            window.location.href = '/fir/download/' + encodeURIComponent(firNo);
+        }
+
+        // Load sections for a given act
+        async function loadSectionDatalist(actValue, inputElement) {
+            if (!actValue) {
+                inputElement.setAttribute('list', '');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/sections/${actValue}`);
+                const sections = await response.json();
+
+                let datalistId = 'sections-' + Date.now();
+                let datalist = document.getElementById(datalistId);
+
+                if (datalist) datalist.remove();
+
+                datalist = document.createElement('datalist');
+                datalist.id = datalistId;
+
+                sections.forEach(sec => {
+                    const option = document.createElement('option');
+                    option.value = sec.section;
+                    option.textContent = sec.title;
+                    datalist.appendChild(option);
+                });
+
+                document.body.appendChild(datalist);
+                inputElement.setAttribute('list', datalistId);
+            } catch (error) {
+                console.error('Failed to load sections:', error);
+            }
+        }
+
+        // Add Act/Section row dynamically
+        async function addActSection() {
+            const acts = await loadActs();
+
+            const row = document.createElement('div');
+            row.className = 'act-section-row grid grid-cols-2 gap-3 p-3 bg-slate-50 rounded-lg';
+
+            const actSelect = document.createElement('select');
+            actSelect.className = 'border-2 border-slate-200 rounded-lg p-2 focus:border-blue-500';
+            actSelect.innerHTML = '<option value="">Select Act</option>';
+            acts.forEach(act => {
+                const opt = document.createElement('option');
+                opt.value = act;
+                opt.textContent = act;
+                actSelect.appendChild(opt);
+            });
+            actSelect.onchange = () => loadSectionDatalist(actSelect.value, sectionInput);
+
+            const sectionInput = document.createElement('input');
+            sectionInput.type = 'text';
+            sectionInput.placeholder = 'Section Number';
+            sectionInput.className = 'border-2 border-slate-200 rounded-lg p-2 focus:border-blue-500';
+
+            row.appendChild(actSelect);
+            row.appendChild(sectionInput);
+
+            document.getElementById('actSections').appendChild(row);
+        }
+
+        // Main form generator function
+        async function generateFIR() {
+            const preview = document.getElementById('outputPreview');
+            const content = document.getElementById('previewContent');
+            const generateBtn = document.getElementById('generateBtn');
+
+            // Collect form data
+            const policeActSections = document.getElementById('policeActSections')?.value.trim() || '';
+            const autoActSections = Array.from(document.querySelectorAll('.act-section-row')).map(row => {
+                const act = row.querySelector('select').value;
+                const sec = row.querySelector('input').value;
+                return act && sec ? `${act} Section ${sec}` : '';
+            }).filter(x => x).join(', ');
+
+            const formData = {
+                dist: document.getElementById('dist').value,
+                ps: document.getElementById('ps').value,
+                year: document.getElementById('year').value,
+                fir_no: document.getElementById('fir_no').value,
+                fir_date: document.getElementById('fir_date').value,
+                act_sections: policeActSections || autoActSections,
+                occurrence_day: document.getElementById('occ_day').value,
+                occurrence_date: document.getElementById('occ_date').value,
+                occurrence_time: document.getElementById('occ_time').value,
+                info_received_date: document.getElementById('info_date').value,
+                info_received_time: document.getElementById('info_time').value,
+                gdr_entry_no: document.getElementById('gdr_entry').value,
+                type_of_information: document.querySelector('input[name="info_type"]:checked')?.value || '',
+                place_of_occurrence: `${document.getElementById('direction_distance').value} ${document.getElementById('place_address').value} ${document.getElementById('ps_outside').value}`.trim(),
+                complainant_name: document.getElementById('comp_name').value,
+                father_husband_name: document.getElementById('father_name').value,
+                dob: document.getElementById('dob').value,
+                nationality: document.getElementById('nationality').value,
+                passport_no: document.getElementById('passport').value,
+                date_of_issue: document.getElementById('passport_issue_date').value,
+                place_of_issue: document.getElementById('passport_place').value,
+                occupation: document.getElementById('occupation').value,
+                address: document.getElementById('comp_address').value,
+                details_of_accused: document.getElementById('accused_details').value,
+                reasons_for_delay: document.getElementById('delay_reasons').value,
+                property_particulars: document.getElementById('property_particulars').value,
+                statement: document.getElementById('narrative').value
+            };
+
+            // Validate required fields (act_sections is now optional - AI will generate it)
+            if (!formData.dist || !formData.ps || !formData.statement) {
+                alert("Please fill in District, Police Station, and Detailed Narrative fields. The legal sections will be auto-generated by AI.");
+                return;
+            }
+
+            generateBtn.disabled = true;
+            generateBtn.innerText = "Generating FIR...";
+
+            try {
+                const response = await fetch('/generate_fir', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status}`);
+                }
+
+                const data = await response.json();
+                showFirSuccessModal(data);
+            } catch (error) {
+                console.error('FIR generation failed:', error);
+                alert("Error: " + error.message);
+            } finally {
+                generateBtn.disabled = false;
+                generateBtn.innerText = "Generate Official FIR";
+            }
+        }
+
+        // Initialize on page load
+        //         function updateLanguageText(lang) {
+        //             const translations = {
+        //                 en: {
+        //                     heroTitle: 'AI-Powered FIR Generation System',
+        //                     heroSubtitle: 'Bridge the gap between incident and justice.',
+        //                     getStarted: 'Get Started Now'
+        //                 },
+        //                 hi: {
+        //                     heroTitle: 'एआई-पावर्ड FIR जेनरेशन सिस्टम',
+        //                     heroSubtitle: 'घटना और न्याय के बीच अंतर को पाटें।',
+        //                     getStarted: 'अभी शुरू करें'
+        //                 },
+        //                 mr: {
+        //                     heroTitle: 'एआय-सक्षम FIR निर्माण प्रणाली',
+        //                     heroSubtitle: 'घटने आणि न्यायामधील अंतर पाटा.',
+        //                     getStarted: 'आता सुरू करा'
+        //                 }
+        //             };
+        // 
+        //             const t = translations[lang] || translations.en;
+        //             document.getElementById('heroTitle').textContent = t.heroTitle;
+        //             document.getElementById('heroSubtitle').textContent = t.heroSubtitle;
+        //             document.getElementById('getStartedBtn').textContent = t.getStarted;
+        //         }
+
+        //        function applyLanguageSettings(lang, docLang) {
+        //            // Interface text update
+        //            updateLanguageText(lang);
+        //            // Document language is currently placeholder behavior; could toggle form templates
+        //            const docStatus = document.getElementById('documentLanguageStatus');
+        //            if (docStatus) {
+        //                docStatus.textContent = `Document language set to ${docLang.toUpperCase()}`;
+        //            }
+        //        }
+
+        //        function loadLanguageSetting() {
+        //            const saved = localStorage.getItem('nyaya_language') || 'en';
+        //            const savedDoc = localStorage.getItem('nyaya_document_language') || 'en';
+        //            const select = document.getElementById('interfaceLanguageSelect');
+        //            const docSelect = document.getElementById('documentLanguageSelect');
+        //
+        //            if (select) select.value = saved;
+        //            if (docSelect) docSelect.value = savedDoc;
+        //
+        //            applyLanguageSettings(saved, savedDoc);
+        //
+        //            select?.addEventListener('change', (e) => {
+        //                const selected = e.target.value;
+        //                localStorage.setItem('nyaya_language', selected);
+        //                applyLanguageSettings(selected, docSelect?.value || 'en');
+        //            });
+        //
+        //            docSelect?.addEventListener('change', (e) => {
+        //                const selectedDoc = e.target.value;
+        //                localStorage.setItem('nyaya_document_language', selectedDoc);
+        //                applyLanguageSettings(select?.value || 'en', selectedDoc);
+        //            });
+        //
+        //            const saveBtn = document.getElementById('saveLanguageSettingsBtn');
+        //            saveBtn?.addEventListener('click', () => {
+        //                const selectedLang = select?.value || 'en';
+        //                const selectedDocLang = docSelect?.value || 'en';
+        //                localStorage.setItem('nyaya_language', selectedLang);
+        //                localStorage.setItem('nyaya_document_language', selectedDocLang);
+        //                applyLanguageSettings(selectedLang, selectedDocLang);
+        //                alert('Language settings saved successfully.');
+        //            });
+        //        }
+
+        // ── FIR Success Modal ────────────────────────────────────────────
+        let _successFirNo = null;
+
+        function showFirSuccessModal(data) {
+            _successFirNo = data.fir_no || null;
+            document.getElementById('successFirNo').textContent = data.fir_no || '—';
+            document.getElementById('successComplainant').textContent = data.complainant_name || '—';
+            document.getElementById('successDate').textContent = data.fir_date || '—';
+            try {
+                const t = new Date(data.created_at);
+                document.getElementById('successTime').textContent =
+                    isNaN(t) ? (data.created_at || '—') : t.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+            } catch (_) {
+                document.getElementById('successTime').textContent = data.created_at || '—';
+            }
+            const errEl = document.getElementById('firActionError');
+            if (!data.fir_no) {
+                errEl.textContent = 'Unable to retrieve FIR number.';
+                errEl.classList.remove('hidden');
+            } else {
+                errEl.classList.add('hidden');
+            }
+            const modal = document.getElementById('firSuccessModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function closeFirSuccessModal() {
+            const modal = document.getElementById('firSuccessModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            _successFirNo = null;
+        }
+
+        function viewFirDocument() {
+            const errEl = document.getElementById('firActionError');
+            if (!_successFirNo) {
+                errEl.textContent = 'Unable to open FIR document.';
+                errEl.classList.remove('hidden');
+                return;
+            }
+            try {
+                window.open('/fir/view/' + encodeURIComponent(_successFirNo), '_blank');
+            } catch (_) {
+                errEl.textContent = 'Unable to open FIR document.';
+                errEl.classList.remove('hidden');
+            }
+        }
+
+        function downloadFirDocument() {
+            const errEl = document.getElementById('firActionError');
+            if (!_successFirNo) {
+                errEl.textContent = 'Unable to download FIR. Please try again.';
+                errEl.classList.remove('hidden');
+                return;
+            }
+            try {
+                window.location.href = '/fir/download/' + encodeURIComponent(_successFirNo);
+            } catch (_) {
+                errEl.textContent = 'Unable to download FIR. Please try again.';
+                errEl.classList.remove('hidden');
+            }
+        }
+
+        document.getElementById('firSuccessModal').addEventListener('click', function (e) {
+            if (e.target === this) closeFirSuccessModal();
+        });
+        // ── End FIR Success Modal ─────────────────────────────────────────
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const userRole = '{{ session.get("role", "") }}';  // Flask template tag
+            if (userRole === 'citizen') {
+                // Redirect citizens to their own dashboard
+                window.location.href = '/citizen-dashboard';
+                return;
+            }
+            // Hide sidebar items citizens shouldn't see (if for any reason they land here)
+            if (userRole === 'citizen') {
+                ['create-fir', 'fir-history', 'evidence-locker', 'settings'].forEach(id => {
+                    const link = document.querySelector(`[data-section="${id}"]`);
+                    if (link) link.closest('a').style.display = 'none';
+                });
+            }
+            try {
+                lucide.createIcons();
+
+                // Initialize navigation + default section
+                initSidebar();
+                showSection('home');
+
+                // Load language settings
+                //try {
+                //    loadLanguageSetting();
+                //} catch (error) {
+                //    console.error('Language loading error:', error);
+                //    showError('Could not apply saved language preferences.');
+                //}
+
+                // Load initial data (make each call independent)
+                try {
+                    await loadDistricts();
+                } catch (error) {
+                    console.error('Failed to load districts:', error);
+                    showError('Could not load district list (use refresh).');
+                }
+
+                try {
+                    await addActSection();
+                } catch (error) {
+                    console.error('Failed to load act sections:', error);
+                    showError('Could not load legal act list (use refresh).');
+                }
+
+                try {
+                    await loadFIRHistory();
+                } catch (error) {
+                    console.error('Failed to load FIR history:', error);
+                    showError('Could not load FIR history (use refresh).');
+                }
+
+                // Add act/section button
+                const addBtn = document.querySelector('button[onclick*="addActSection"]');
+                if (addBtn) {
+                    addBtn.addEventListener('click', addActSection);
+                }
+            } catch (error) {
+                console.error('DOM ready initialization failed:', error);
+                showError('Initialization error. Please reload the app.');
+            }
+        });
+
+
+        function secureLockerAccess() {
+            const modal = document.getElementById("pinModal");
+
+            modal.classList.remove("hidden");
+            modal.classList.add("flex"); // 🔥 REQUIRED FOR CENTERING
+        }
+
+        async function submitPin() {
+            const pin = document.getElementById("pinInput").value;
+
+            const response = await fetch("/verify-locker-access", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ pin })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                document.getElementById("pinModal").classList.add("hidden");
+                showSection('evidence-locker');
+            } else {
+                alert(result.message);
+            }
+        }
+
+        function closeLockerModal() {
+            const modal = document.getElementById("pinModal");
+
+            modal.classList.add("hidden");
+            modal.classList.remove("flex");
+
+            // 👉 Redirect to FIR History
+            showSection('fir-history');
+        }
+
+
+        function closePreview() {
+
+            document
+                .getElementById("outputPreview1")
+                .classList
+                .add("hidden");
+
+            currentFIRId = null;
+
+        }
+        async function askLawAI() {
+            const input = document.getElementById("lawSearch").value;
+            const resultDiv = document.getElementById("aiResult");
+
+            console.log("Clicked Ask AI"); // DEBUG
+
+            if (!input) {
+                resultDiv.innerHTML = "⚠️ Please enter a question";
+                resultDiv.classList.remove("hidden");
+                return;
+            }
+
+            resultDiv.innerHTML = "⏳ Thinking...";
+            resultDiv.classList.remove("hidden");
+
+            try {
+                const response = await fetch("/api/ask-law", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ question: input })
+                });
+
+                console.log("API called"); // DEBUG
+
+                const data = await response.json();
+
+                resultDiv.innerHTML = data.answer || "No response";
+
+            } catch (error) {
+                console.error("ERROR:", error);
+                resultDiv.innerHTML = "❌ Failed to connect";
+            }
+        }
+
+        // ── Dashboard Home widgets ──────────────────────────────────────
+async function loadDashboardHome() {
+    try {
+        const [firRes, complaintsRes] = await Promise.all([
+            fetch('/api/fir-records').catch(() => null),
+            fetch('/api/complaints/all').catch(() => null)
+        ]);
+
+        const firs = firRes && firRes.ok ? await firRes.json() : [];
+        const complaints = complaintsRes && complaintsRes.ok ? await complaintsRes.json() : [];
+
+        renderHomeStats(firs, complaints);
+        renderHomeRecentFirs(firs);
+        renderHomeComplaintBreakdown(complaints);
+        renderHomeRecentComplaints(complaints);
+        renderHomeCaseSummary(firs);
+        renderHomeAlert(complaints);
+    } catch (error) {
+        console.error('Failed to load dashboard home:', error);
+    }
+}
+
+function renderHomeStats(firs, complaints) {
+    const pending = complaints.filter(c => c.status === 'Pending').length;
+    const review = complaints.filter(c => c.status === 'Under Review').length;
+    const firFiled = complaints.filter(c => c.status === 'FIR Filed').length;
+
+    document.getElementById('home-stat-firs').textContent = firs.length;
+    document.getElementById('home-stat-pending').textContent = pending;
+    document.getElementById('home-stat-review').textContent = review;
+    document.getElementById('home-stat-fir-filed').textContent = firFiled;
+}
+
+function renderHomeRecentFirs(firs) {
+    const tbody = document.getElementById('home-recent-firs');
+    if (!firs.length) {
+        tbody.innerHTML = `<tr><td colspan="4" class="py-6 text-center text-slate-400">No FIR records yet.</td></tr>`;
+        return;
+    }
+    const recent = [...firs]
+        .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
+        .slice(0, 5);
+
+    tbody.innerHTML = recent.map(f => `
+        <tr class="hover:bg-slate-50 cursor-pointer" onclick="showSection('fir-history')">
+            <td class="py-2.5 pr-3 font-mono text-blue-700 font-semibold">${escapeHtml(f.fir_no || '')}</td>
+            <td class="py-2.5 pr-3 text-slate-700">${escapeHtml(f.complainant_name || '—')}</td>
+            <td class="py-2.5 pr-3 text-slate-500">${escapeHtml(f.fir_date || '—')}</td>
+            <td class="py-2.5 pr-3">${escapeHtml(f.status || 'Registered')}</td>
+        </tr>
+    `).join('');
+}
+
+function renderHomeComplaintBreakdown(complaints) {
+    const container = document.getElementById('home-complaint-breakdown');
+    if (!complaints.length) {
+        container.innerHTML = `<p class="text-sm text-slate-400">No complaints on record yet.</p>`;
+        return;
+    }
+    const statuses = [
+        { key: 'Pending', color: 'bg-yellow-500' },
+        { key: 'Under Review', color: 'bg-blue-500' },
+        { key: 'FIR Filed', color: 'bg-green-500' },
+        { key: 'Closed', color: 'bg-slate-400' }
+    ];
+    const total = complaints.length;
+
+    container.innerHTML = statuses.map(s => {
+        const count = complaints.filter(c => c.status === s.key).length;
+        const pct = total ? Math.round((count / total) * 100) : 0;
+        return `
+            <div>
+                <div class="flex justify-between text-xs font-semibold text-slate-600 mb-1">
+                    <span>${s.key}</span>
+                    <span>${count}</span>
+                </div>
+                <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                    <div class="${s.color} h-full rounded-full" style="width:${pct}%"></div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function renderHomeRecentComplaints(complaints) {
+    const container = document.getElementById('home-recent-complaints');
+    if (!complaints.length) {
+        container.innerHTML = `<p class="text-sm text-slate-400">No citizen activity yet.</p>`;
+        return;
+    }
+    const recent = [...complaints]
+        .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
+        .slice(0, 5);
+
+    container.innerHTML = recent.map(c => `
+        <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl cursor-pointer hover:bg-slate-100 transition"
+            onclick="showSection('citizen-complaints')">
+            <div class="min-w-0">
+                <p class="text-sm font-semibold text-slate-800 truncate">${escapeHtml(c.full_name || 'Citizen')}</p>
+                <p class="text-xs text-slate-500 truncate">${escapeHtml((c.incident_description || '').slice(0, 60))}</p>
+            </div>
+            ${makeStatusPill(c.status)}
+        </div>
+    `).join('');
+}
+
+function renderHomeCaseSummary(firs) {
+    const currentYear = new Date().getFullYear();
+    const thisYear = firs.filter(f => String(f.year) === String(currentYear) || (f.fir_date || '').startsWith(String(currentYear))).length;
+    const closed = firs.filter(f => (f.status || '').toLowerCase() === 'closed').length;
+    const open = firs.length - closed;
+
+    document.getElementById('home-summary-open').textContent = open;
+    document.getElementById('home-summary-closed').textContent = closed;
+    document.getElementById('home-summary-year').textContent = thisYear;
+}
+
+function renderHomeAlert(complaints) {
+    const banner = document.getElementById('homeAlertBanner');
+    const text = document.getElementById('homeAlertText');
+    const pending = complaints.filter(c => c.status === 'Pending').length;
+    if (pending > 0) {
+        text.textContent = `${pending} citizen complaint${pending > 1 ? 's' : ''} awaiting review.`;
+        banner.classList.remove('hidden');
+    } else {
+        banner.classList.add('hidden');
+    }
+}
+
+    </script>
+
+</body>
+
+</html>

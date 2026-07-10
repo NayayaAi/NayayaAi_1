@@ -1,0 +1,2498 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NyayaAI | Lawyer Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@700&display=swap"
+        rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            scroll-behavior: smooth;
+        }
+
+        .font-serif {
+            font-family: 'Playfair Display', serif;
+        }
+
+        #sidebar.open {
+            transform: translateX(0) !important;
+        }
+
+        #sidebar {
+            overflow-y: auto;
+            max-height: 100vh;
+            padding-bottom: 1rem;
+            transform: translateX(0) !important;
+            /* Always visible on desktop */
+        }
+
+        @media (max-width: 768px) {
+            #sidebar {
+                transform: translateX(-100%) !important;
+            }
+
+            #sidebar.mobile-open {
+                transform: translateX(0) !important;
+            }
+        }
+
+        .section-content {
+            display: none;
+        }
+
+        .section-content.active {
+            display: block;
+        }
+
+        /* Calendar styles */
+        .cal-day {
+            min-height: 80px;
+        }
+
+        .cal-day:hover {
+            background: #eff6ff;
+        }
+
+        .hearing-dot {
+            font-size: 10px;
+            line-height: 1.3;
+        }
+
+        /* Card hover */
+        .stat-card {
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+        }
+
+        /* Status badges */
+        .badge-active {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .badge-hearing {
+            background: #dbeafe;
+            color: #1d4ed8;
+        }
+
+        .badge-urgent {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .badge-closed {
+            background: #f1f5f9;
+            color: #475569;
+        }
+
+        .badge-pending {
+            background: #fef9c3;
+            color: #854d0e;
+        }
+
+        /* AI typing cursor */
+        @keyframes blink {
+
+            0%,
+            100% {
+                opacity: 1
+            }
+
+            50% {
+                opacity: 0
+            }
+        }
+
+        .cursor::after {
+            content: '|';
+            animation: blink 1s infinite;
+        }
+
+        /* Modal backdrop */
+        .modal-backdrop {
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(4px);
+        }
+
+        /* Table row hover */
+        tbody tr:hover {
+            background: #f8faff;
+        }
+
+        /* Sidebar active */
+        .sidebar-link.active {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        /* Scrollbar thin */
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 99px;
+        }
+
+        input,
+        select,
+        textarea {
+            outline: none;
+        }
+
+        input:focus,
+        select:focus,
+        textarea:focus {
+            border-color: #3b82f6 !important;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+        }
+
+        .hearing-urgent {
+            background: #fef2f2;
+            border-left: 3px solid #ef4444;
+        }
+
+        .hearing-soon {
+            background: #fefce8;
+            border-left: 3px solid #f59e0b;
+        }
+
+        .hearing-normal {
+            background: #f0f9ff;
+            border-left: 3px solid #3b82f6;
+        }
+
+        .tab-btn.active-tab {
+            background: #2563eb;
+            color: white;
+        }
+
+        .tab-btn {
+            transition: all 0.15s;
+        }
+    </style>
+</head>
+
+<body class="bg-slate-50 flex min-h-screen">
+
+    <!-- Sidebar hover trigger -->
+    <div id="sidebarHoverArea" class="fixed left-0 top-0 h-full w-4 z-30 bg-transparent"></div>
+
+    <!-- ═══════════ SIDEBAR ═══════════ -->
+    <aside id="sidebar"
+        class="w-64 bg-blue-900 text-white fixed h-full z-40 transition-transform duration-300 ease-in-out transform -translate-x-full">
+
+        <div class="p-6 border-b border-blue-800">
+            <div class="flex items-center space-x-2">
+                <div class="bg-blue-600 p-1.5 rounded-lg text-white">
+                    <i data-lucide="scale" class="w-5 h-5"></i>
+                </div>
+                <span class="text-2xl font-serif font-bold text-white">NyayaAI</span>
+            </div>
+            <div class="mt-3 flex items-center gap-2">
+                <div class="w-8 h-8 rounded-full bg-blue-700 flex items-center justify-center text-sm font-bold"
+                    id="lawyerAvatarSmall">A</div>
+                <div>
+                    <p class="text-sm font-semibold text-white" id="lawyerNameSidebar">Advocate</p>
+                    <p class="text-xs text-blue-300">Legal Professional</p>
+                </div>
+            </div>
+        </div>
+
+        <nav class="mt-6 px-4 space-y-1">
+            <a href="#"
+                class="sidebar-link flex items-center space-x-3 px-4 py-2.5 rounded-lg hover:bg-blue-800 transition-colors text-sm"
+                data-section="ld-overview">
+                <i data-lucide="layout-dashboard" class="w-4 h-4"></i><span>Overview</span>
+            </a>
+            <a href="#"
+                class="sidebar-link flex items-center space-x-3 px-4 py-2.5 rounded-lg hover:bg-blue-800 transition-colors text-sm"
+                data-section="ld-cases">
+                <i data-lucide="briefcase" class="w-4 h-4"></i><span>My Cases</span>
+                <span id="caseBadge"
+                    class="ml-auto bg-blue-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full hidden">0</span>
+            </a>
+            <a href="#"
+                class="sidebar-link flex items-center space-x-3 px-4 py-2.5 rounded-lg hover:bg-blue-800 transition-colors text-sm"
+                data-section="ld-calendar">
+                <i data-lucide="calendar" class="w-4 h-4"></i><span>Hearing Calendar</span>
+                <span id="urgentBadge"
+                    class="ml-auto bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full hidden">!</span>
+            </a>
+            <a href="#"
+                class="sidebar-link flex items-center space-x-3 px-4 py-2.5 rounded-lg hover:bg-blue-800 transition-colors text-sm"
+                data-section="ld-drafting">
+                <i data-lucide="file-pen" class="w-4 h-4"></i><span>Document Drafting</span>
+                <span class="ml-auto text-xs bg-green-400 text-green-900 px-1.5 py-0.5 rounded-full font-bold">AI</span>
+            </a>
+            <a href="#"
+                class="sidebar-link flex items-center space-x-3 px-4 py-2.5 rounded-lg hover:bg-blue-800 transition-colors text-sm"
+                data-section="ld-bail">
+                <i data-lucide="shield-check" class="w-4 h-4"></i><span>Bail Assistant</span>
+                <span class="ml-auto text-xs bg-green-400 text-green-900 px-1.5 py-0.5 rounded-full font-bold">AI</span>
+            </a>
+            <a href="#"
+                class="sidebar-link flex items-center space-x-3 px-4 py-2.5 rounded-lg hover:bg-blue-800 transition-colors text-sm"
+                data-section="ld-precedent">
+                <i data-lucide="search" class="w-4 h-4"></i><span>Precedent Finder</span>
+            </a>
+            <a href="#"
+                class="sidebar-link flex items-center space-x-3 px-4 py-2.5 rounded-lg hover:bg-blue-800 transition-colors text-sm"
+                data-section="ld-efiling">
+                <i data-lucide="upload-cloud" class="w-4 h-4"></i><span>e-Filing Manager</span>
+            </a>
+            <a href="#"
+                class="sidebar-link flex items-center space-x-3 px-4 py-2.5 rounded-lg hover:bg-blue-800 transition-colors text-sm"
+                data-section="ld-vault">
+                <i data-lucide="folder-lock" class="w-4 h-4"></i><span>Document Vault</span>
+            </a>
+            <a href="#"
+                class="sidebar-link flex items-center space-x-3 px-4 py-2.5 rounded-lg hover:bg-blue-800 transition-colors text-sm"
+                data-section="ld-orders">
+                <i data-lucide="scroll-text" class="w-4 h-4"></i><span>Order Repository</span>
+            </a>
+            <a href="#"
+                class="sidebar-link flex items-center space-x-3 px-4 py-2.5 rounded-lg hover:bg-blue-800 transition-colors text-sm"
+                data-section="ld-clients">
+                <i data-lucide="users" class="w-4 h-4"></i><span>Client Portal</span>
+            </a>
+            <a href="#"
+                class="sidebar-link flex items-center space-x-3 px-4 py-2.5 rounded-lg hover:bg-blue-800 transition-colors text-sm"
+                data-section="ld-fees">
+                <i data-lucide="indian-rupee" class="w-4 h-4"></i><span>Fee Tracker</span>
+            </a>
+            <a href="#"
+                class="sidebar-link flex items-center space-x-3 px-4 py-2.5 rounded-lg hover:bg-blue-800 transition-colors text-sm"
+                data-section="ld-timeline">
+                <i data-lucide="git-commit-horizontal" class="w-4 h-4"></i><span>Case Timeline</span>
+            </a>
+            <a href="#"
+                class="sidebar-link flex items-center space-x-3 px-4 py-2.5 rounded-lg hover:bg-blue-800 transition-colors text-sm"
+                data-section="ld-amendments">
+                <i data-lucide="refresh-cw" class="w-4 h-4"></i><span>Amendment Tracker</span>
+            </a>
+
+            <div class="border-t border-blue-800 mt-3 pt-3">
+                <a href="/logout"
+                    class="flex items-center space-x-3 px-4 py-2.5 rounded-lg hover:bg-red-800 transition-colors text-sm text-red-300">
+                    <i data-lucide="log-out" class="w-4 h-4"></i><span>Logout</span>
+                </a>
+            </div>
+        </nav>
+    </aside>
+
+    <!-- Mobile menu button -->
+    
+
+    <!-- ═══════════ MAIN CONTENT ═══════════ -->
+    <main class="flex-1 transition-all duration-300 ease-in-out ml-64">
+        <!-- Top Navbar -->
+        <nav
+            class="fixed w-full z-50 bg-white/90 backdrop-blur-md border-b border-slate-100 px-8 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <div class="bg-blue-600 p-1.5 rounded-lg text-white"><i data-lucide="scale" class="w-4 h-4"></i></div>
+                <span class="text-xl font-serif font-bold text-blue-950">NyayaAI</span>
+                <span class="ml-2 text-xs font-semibold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">Lawyer
+                    Portal</span>
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="text-right hidden md:block">
+                    <p class="text-sm font-semibold text-slate-800" id="lawyerNameNav">Advocate</p>
+                    <p class="text-xs text-slate-500" id="lawyerIdNav">ID: —</p>
+                </div>
+                <div class="w-9 h-9 rounded-full bg-blue-700 flex items-center justify-center text-white font-bold text-sm"
+                    id="lawyerAvatarNav">A</div>
+            </div>
+        </nav>
+
+        <!-- Page wrapper -->
+        <div class="pt-16 px-4 md:px-8 pb-12">
+
+            <!-- ═══ SECTION: Overview ═══ -->
+            <div id="ld-overview" class="section-content active py-8">
+                <div class="mb-8">
+                    <h1 class="text-3xl font-serif font-bold text-blue-950">Good morning, <span
+                            id="lawyerGreeting">Advocate</span> 👋</h1>
+                    <p class="text-slate-500 mt-1">Here's your practice at a glance today.</p>
+                </div>
+
+                <!-- Stats row -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                    <div class="stat-card bg-white rounded-xl p-5 border border-slate-100 shadow-sm">
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="text-xs font-semibold text-slate-400 uppercase tracking-wide">Active
+                                Cases</span>
+                            <div class="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center"><i
+                                    data-lucide="briefcase" class="w-4 h-4 text-blue-600"></i></div>
+                        </div>
+                        <p class="text-3xl font-bold text-slate-800" id="stat-active-cases">0</p>
+                        <p class="text-xs text-slate-400 mt-1">across all courts</p>
+                    </div>
+                    <div class="stat-card bg-white rounded-xl p-5 border border-slate-100 shadow-sm">
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="text-xs font-semibold text-red-400 uppercase tracking-wide">Upcoming
+                                Hearings</span>
+                            <div class="w-8 h-8 bg-red-50 rounded-lg flex items-center justify-center"><i
+                                    data-lucide="calendar-clock" class="w-4 h-4 text-red-500"></i></div>
+                        </div>
+                        <p class="text-3xl font-bold text-slate-800" id="stat-hearings">0</p>
+                        <p class="text-xs text-slate-400 mt-1">next 7 days</p>
+                    </div>
+                    <div class="stat-card bg-white rounded-xl p-5 border border-slate-100 shadow-sm">
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="text-xs font-semibold text-green-500 uppercase tracking-wide">Total
+                                Clients</span>
+                            <div class="w-8 h-8 bg-green-50 rounded-lg flex items-center justify-center"><i
+                                    data-lucide="users" class="w-4 h-4 text-green-600"></i></div>
+                        </div>
+                        <p class="text-3xl font-bold text-slate-800" id="stat-clients">0</p>
+                        <p class="text-xs text-slate-400 mt-1">active clients</p>
+                    </div>
+                    <div class="stat-card bg-white rounded-xl p-5 border border-slate-100 shadow-sm">
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="text-xs font-semibold text-amber-500 uppercase tracking-wide">Fees
+                                Pending</span>
+                            <div class="w-8 h-8 bg-amber-50 rounded-lg flex items-center justify-center"><i
+                                    data-lucide="indian-rupee" class="w-4 h-4 text-amber-600"></i></div>
+                        </div>
+                        <p class="text-3xl font-bold text-slate-800">₹<span id="stat-fees">0</span></p>
+                        <p class="text-xs text-slate-400 mt-1">awaiting payment</p>
+                    </div>
+                </div>
+
+                <!-- Upcoming Hearings Quick View -->
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div class="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="font-bold text-slate-800 flex items-center gap-2"><i data-lucide="calendar-check"
+                                    class="w-4 h-4 text-blue-600"></i> Upcoming Hearings</h3>
+                            <button onclick="showSection('ld-calendar')"
+                                class="text-xs text-blue-600 hover:underline">View all →</button>
+                        </div>
+                        <div id="overviewHearings" class="space-y-2">
+                            <p class="text-sm text-slate-400 text-center py-6">No hearings scheduled</p>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="font-bold text-slate-800 flex items-center gap-2"><i data-lucide="briefcase"
+                                    class="w-4 h-4 text-blue-600"></i> Recent Cases</h3>
+                            <button onclick="showSection('ld-cases')" class="text-xs text-blue-600 hover:underline">View
+                                all →</button>
+                        </div>
+                        <div id="overviewCases" class="space-y-2">
+                            <p class="text-sm text-slate-400 text-center py-6">No cases added yet</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ═══ SECTION: My Cases ═══ -->
+            <div id="ld-cases" class="section-content py-8">
+                <div class="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+                    <div>
+                        <h2 class="text-2xl font-serif font-bold text-blue-950">Case Docket</h2>
+                        <p class="text-slate-500 text-sm mt-0.5">All your active matters in one view</p>
+                    </div>
+                    <div class="flex gap-3 flex-wrap">
+                        <input type="text" id="caseSearch" placeholder="Search cases…" oninput="filterCases()"
+                            class="px-3 py-2 border border-slate-200 rounded-lg text-sm w-52">
+                        <select id="caseStatusFilter" onchange="filterCases()"
+                            class="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white">
+                            <option value="">All Status</option>
+                            <option>Active</option>
+                            <option>Adjourned</option>
+                            <option>Decided</option>
+                            <option>Urgent</option>
+                        </select>
+                        <button onclick="openCaseModal()"
+                            class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition flex items-center gap-1.5">
+                            <i data-lucide="plus" class="w-4 h-4"></i> Add Case
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                    <table class="min-w-full text-sm">
+                        <thead class="bg-blue-50 text-blue-900 border-b border-blue-100">
+                            <tr>
+                                <th class="px-4 py-3 text-left font-semibold">Case No.</th>
+                                <th class="px-4 py-3 text-left font-semibold">Client</th>
+                                <th class="px-4 py-3 text-left font-semibold">Court</th>
+                                <th class="px-4 py-3 text-left font-semibold">Case Type</th>
+                                <th class="px-4 py-3 text-left font-semibold">Next Hearing</th>
+                                <th class="px-4 py-3 text-left font-semibold">Status</th>
+                                <th class="px-4 py-3 text-left font-semibold">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="casesTableBody" class="divide-y divide-slate-100">
+                            <tr>
+                                <td colspan="7" class="px-4 py-10 text-center text-slate-400">No cases yet. Add your
+                                    first case →</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ═══ SECTION: Hearing Calendar ═══ -->
+            <div id="ld-calendar" class="section-content py-8">
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h2 class="text-2xl font-serif font-bold text-blue-950">Hearing Calendar</h2>
+                        <p class="text-slate-500 text-sm mt-0.5">Never miss a hearing date</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button onclick="calPrev()" class="p-2 border border-slate-200 rounded-lg hover:bg-slate-50"><i
+                                data-lucide="chevron-left" class="w-4 h-4"></i></button>
+                        <span id="calMonthLabel" class="font-bold text-slate-800 min-w-[140px] text-center"></span>
+                        <button onclick="calNext()" class="p-2 border border-slate-200 rounded-lg hover:bg-slate-50"><i
+                                data-lucide="chevron-right" class="w-4 h-4"></i></button>
+                    </div>
+                </div>
+
+                <div class="grid md:grid-cols-3 gap-6">
+                    <!-- Calendar Grid -->
+                    <div class="md:col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                        <div class="grid grid-cols-7 border-b border-slate-100">
+                            <div class="text-xs font-semibold text-slate-500 text-center py-2">Sun</div>
+                            <div class="text-xs font-semibold text-slate-500 text-center py-2">Mon</div>
+                            <div class="text-xs font-semibold text-slate-500 text-center py-2">Tue</div>
+                            <div class="text-xs font-semibold text-slate-500 text-center py-2">Wed</div>
+                            <div class="text-xs font-semibold text-slate-500 text-center py-2">Thu</div>
+                            <div class="text-xs font-semibold text-slate-500 text-center py-2">Fri</div>
+                            <div class="text-xs font-semibold text-slate-500 text-center py-2">Sat</div>
+                        </div>
+                        <div id="calGrid" class="grid grid-cols-7"></div>
+                    </div>
+
+                    <!-- Upcoming hearings sidebar -->
+                    <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+                        <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                            <i data-lucide="bell" class="w-4 h-4 text-amber-500"></i>
+                            Upcoming (7 days)
+                        </h3>
+                        <div id="upcomingHearingsList" class="space-y-3">
+                            <p class="text-sm text-slate-400 text-center py-6">No hearings this week</p>
+                        </div>
+
+                        <!-- Legend -->
+                        <div class="mt-6 pt-4 border-t border-slate-100 space-y-1.5">
+                            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Legend</p>
+                            <div class="flex items-center gap-2">
+                                <div class="w-3 h-3 rounded-full bg-red-400"></div><span
+                                    class="text-xs text-slate-600">Urgent (≤2 days)</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <div class="w-3 h-3 rounded-full bg-amber-400"></div><span
+                                    class="text-xs text-slate-600">Soon (3–5 days)</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <div class="w-3 h-3 rounded-full bg-blue-400"></div><span
+                                    class="text-xs text-slate-600">Scheduled</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ═══ SECTION: Document Drafting ═══ -->
+            <div id="ld-drafting" class="section-content py-8">
+                <div class="mb-6">
+                    <div class="flex items-center gap-3">
+                        <h2 class="text-2xl font-serif font-bold text-blue-950">AI Document Drafting</h2>
+                        <span class="text-xs font-bold bg-green-100 text-green-700 px-2 py-1 rounded-full">Powered by
+                            AI</span>
+                    </div>
+                    <p class="text-slate-500 text-sm mt-1">Generate bail applications, petitions, and legal submissions
+                        in seconds</p>
+                </div>
+
+                <div class="grid md:grid-cols-3 gap-6">
+                    <!-- Templates panel -->
+                    <div class="space-y-3">
+                        <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide">Document Type</p>
+                        <div id="draftTemplates" class="space-y-2">
+                            <button
+                                class="draft-template-btn w-full text-left px-4 py-3 rounded-xl border-2 border-blue-600 bg-blue-50 text-blue-900 font-semibold text-sm"
+                                data-type="bail">
+                                <i data-lucide="shield-check" class="w-4 h-4 inline mr-2"></i>Bail Application
+                            </button>
+                            <button
+                                class="draft-template-btn w-full text-left px-4 py-3 rounded-xl border-2 border-slate-200 bg-white text-slate-700 font-semibold text-sm hover:border-blue-400"
+                                data-type="petition">
+                                <i data-lucide="scroll" class="w-4 h-4 inline mr-2"></i>Writ Petition
+                            </button>
+                            <button
+                                class="draft-template-btn w-full text-left px-4 py-3 rounded-xl border-2 border-slate-200 bg-white text-slate-700 font-semibold text-sm hover:border-blue-400"
+                                data-type="submission">
+                                <i data-lucide="file-text" class="w-4 h-4 inline mr-2"></i>Written Submission
+                            </button>
+                            <button
+                                class="draft-template-btn w-full text-left px-4 py-3 rounded-xl border-2 border-slate-200 bg-white text-slate-700 font-semibold text-sm hover:border-blue-400"
+                                data-type="vakalat">
+                                <i data-lucide="pen" class="w-4 h-4 inline mr-2"></i>Vakalatnama
+                            </button>
+                            <button
+                                class="draft-template-btn w-full text-left px-4 py-3 rounded-xl border-2 border-slate-200 bg-white text-slate-700 font-semibold text-sm hover:border-blue-400"
+                                data-type="notice">
+                                <i data-lucide="mail" class="w-4 h-4 inline mr-2"></i>Legal Notice
+                            </button>
+                            <button
+                                class="draft-template-btn w-full text-left px-4 py-3 rounded-xl border-2 border-slate-200 bg-white text-slate-700 font-semibold text-sm hover:border-blue-400"
+                                data-type="affidavit">
+                                <i data-lucide="stamp" class="w-4 h-4 inline mr-2"></i>Affidavit
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Input + Output -->
+                    <div class="md:col-span-2 space-y-4">
+                        <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+                            <h3 class="font-bold text-slate-800 mb-4" id="draftFormTitle">Bail Application Details</h3>
+                            <div id="draftFormFields" class="space-y-3">
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="text-xs font-semibold text-slate-600 block mb-1">Accused Name
+                                            *</label>
+                                        <input type="text" id="draftAccusedName" placeholder="Full name"
+                                            class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
+                                    </div>
+                                    <div>
+                                        <label class="text-xs font-semibold text-slate-600 block mb-1">Case / FIR No.
+                                            *</label>
+                                        <input type="text" id="draftCaseNo" placeholder="e.g. FIR/2026/001"
+                                            class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="text-xs font-semibold text-slate-600 block mb-1">Court Name
+                                            *</label>
+                                        <input type="text" id="draftCourt" placeholder="e.g. Sessions Court, Delhi"
+                                            class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
+                                    </div>
+                                    <div>
+                                        <label class="text-xs font-semibold text-slate-600 block mb-1">Sections
+                                            Charged</label>
+                                        <input type="text" id="draftSections" placeholder="e.g. IPC 302, IPC 34"
+                                            class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="text-xs font-semibold text-slate-600 block mb-1">Key Facts & Arguments
+                                        *</label>
+                                    <textarea id="draftFacts" rows="4"
+                                        placeholder="Describe the key facts, grounds for bail, mitigating circumstances, antecedents, etc."
+                                        class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm resize-none"></textarea>
+                                </div>
+                                <div>
+                                    <label class="text-xs font-semibold text-slate-600 block mb-1">Client
+                                        Address</label>
+                                    <input type="text" id="draftClientAddr" placeholder="Applicant's permanent address"
+                                        class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
+                                </div>
+                                <button onclick="generateDraft()"
+                                    class="w-full py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl font-bold text-sm transition shadow-lg shadow-blue-200 flex items-center justify-center gap-2">
+                                    <i data-lucide="wand-2" class="w-4 h-4"></i> Generate Document with AI
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Generated output -->
+                        <div id="draftOutput" class="hidden bg-white rounded-xl border border-blue-200 shadow-sm">
+                            <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+                                <h4 class="font-bold text-blue-900 flex items-center gap-2"><i data-lucide="file-check"
+                                        class="w-4 h-4"></i> Generated Document</h4>
+                                <div class="flex gap-2">
+                                    <button onclick="copyDraft()"
+                                        class="px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold hover:bg-slate-50 flex items-center gap-1">
+                                        <i data-lucide="copy" class="w-3 h-3"></i> Copy
+                                    </button>
+                                    <button onclick="saveDraftToVault()"
+                                        class="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700 flex items-center gap-1">
+                                        <i data-lucide="folder-plus" class="w-3 h-3"></i> Save to Vault
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="draftOutputContent"
+                                class="p-5 text-sm text-slate-700 leading-relaxed whitespace-pre-wrap font-mono max-h-96 overflow-y-auto">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ═══ SECTION: Bail Assistant ═══ -->
+            <div id="ld-bail" class="section-content py-8">
+                <div class="mb-6">
+                    <div class="flex items-center gap-3">
+                        <h2 class="text-2xl font-serif font-bold text-blue-950">Bail Application Assistant</h2>
+                        <span class="text-xs font-bold bg-green-100 text-green-700 px-2 py-1 rounded-full">AI
+                            Powered</span>
+                    </div>
+                    <p class="text-slate-500 text-sm mt-1">Fastest way to draft a complete bail application — focused,
+                        precise, court-ready</p>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-4">
+                        <div class="p-3 bg-blue-50 rounded-lg border border-blue-100 text-sm text-blue-800">
+                            <i data-lucide="info" class="w-4 h-4 inline mr-1"></i>
+                            Fill in the case details. AI will generate a complete bail application with legal citations.
+                        </div>
+
+                        <div>
+                            <label class="text-xs font-semibold text-slate-600 block mb-1">Bail Type *</label>
+                            <select id="bailType"
+                                class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white">
+                                <option value="regular">Regular Bail (Section 437 CrPC / BNSS)</option>
+                                <option value="anticipatory">Anticipatory Bail (Section 438 CrPC)</option>
+                                <option value="default">Default Bail (Section 167(2) CrPC)</option>
+                                <option value="interim">Interim Bail</option>
+                                <option value="surety">Surety / Personal Bond</option>
+                            </select>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="text-xs font-semibold text-slate-600 block mb-1">Accused Name *</label>
+                                <input type="text" id="bailAccused" placeholder="Full name of accused"
+                                    class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
+                            </div>
+                            <div>
+                                <label class="text-xs font-semibold text-slate-600 block mb-1">Age / Occupation</label>
+                                <input type="text" id="bailAgeOcc" placeholder="e.g. 34, Farmer"
+                                    class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="text-xs font-semibold text-slate-600 block mb-1">FIR / Case No. *</label>
+                                <input type="text" id="bailFirNo" placeholder="FIR/2026/001"
+                                    class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
+                            </div>
+                            <div>
+                                <label class="text-xs font-semibold text-slate-600 block mb-1">Police Station</label>
+                                <input type="text" id="bailPS" placeholder="PS Name, District"
+                                    class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="text-xs font-semibold text-slate-600 block mb-1">Sections Charged *</label>
+                            <input type="text" id="bailSections" placeholder="e.g. IPC 302, IPC 34, NDPS 20"
+                                class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
+                        </div>
+
+                        <div>
+                            <label class="text-xs font-semibold text-slate-600 block mb-1">Grounds for Bail *</label>
+                            <textarea id="bailGrounds" rows="4"
+                                placeholder="E.g. Accused is a first offender, has deep roots in community, is sole breadwinner, investigation is complete, no risk of tampering evidence, no criminal antecedents..."
+                                class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm resize-none"></textarea>
+                        </div>
+
+                        <div>
+                            <label class="text-xs font-semibold text-slate-600 block mb-1">Court Filing In *</label>
+                            <input type="text" id="bailCourt" placeholder="e.g. Additional Sessions Court, Mumbai"
+                                class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
+                        </div>
+
+                        <div>
+                            <label class="text-xs font-semibold text-slate-600 block mb-1">Duration in Custody</label>
+                            <input type="text" id="bailCustody" placeholder="e.g. 14 days since 15/04/2026"
+                                class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
+                        </div>
+
+                        <button onclick="generateBailApplication()"
+                            class="w-full py-3 bg-gradient-to-r from-blue-600 to-blue-800 text-white rounded-xl font-bold text-sm transition hover:opacity-90 flex items-center justify-center gap-2 shadow-lg shadow-blue-200">
+                            <i data-lucide="shield-check" class="w-4 h-4"></i> Draft Bail Application
+                        </button>
+                    </div>
+
+                    <!-- Bail output -->
+                    <div class="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col">
+                        <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                            <h4 class="font-bold text-slate-800">Generated Application</h4>
+                            <div class="flex gap-2">
+                                <button onclick="copyBail()"
+                                    class="px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold hover:bg-slate-50 flex items-center gap-1">
+                                    <i data-lucide="copy" class="w-3 h-3"></i> Copy
+                                </button>
+                                <button onclick="saveBailToVault()"
+                                    class="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700 flex items-center gap-1">
+                                    <i data-lucide="folder-plus" class="w-3 h-3"></i> Save
+                                </button>
+                            </div>
+                        </div>
+                        <div id="bailOutputContent"
+                            class="flex-1 p-5 text-sm text-slate-700 leading-relaxed overflow-y-auto max-h-[520px] whitespace-pre-wrap"
+                            style="font-family: 'Times New Roman', serif; line-height: 1.8; word-wrap: break-word; overflow-wrap: break-word;">
+                            <div class="flex flex-col items-center justify-center h-64 text-slate-300">
+                                <i data-lucide="shield" class="w-16 h-16 mb-3"></i>
+                                <p class="text-sm">Fill the form and click <strong>Draft Bail Application</strong></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ═══ SECTION: Precedent Finder ═══ -->
+            <div id="ld-precedent" class="section-content py-8">
+                <div class="mb-6">
+                    <h2 class="text-2xl font-serif font-bold text-blue-950">Precedent Finder</h2>
+                    <p class="text-slate-500 text-sm mt-0.5">Search relevant case law and legal provisions instantly</p>
+                </div>
+
+                <div class="grid md:grid-cols-3 gap-6">
+                    <div
+                        class="md:col-span-1 bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-4 h-fit">
+                        <div>
+                            <label class="text-xs font-semibold text-slate-600 block mb-1">Search Query *</label>
+                            <textarea id="precedentQuery" rows="4"
+                                placeholder="Describe your legal issue… e.g. 'bail granted in murder case where accused is sole breadwinner'"
+                                class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm resize-none"></textarea>
+                        </div>
+                        <div>
+                            <label class="text-xs font-semibold text-slate-600 block mb-1">Search Type</label>
+                            <select id="precedentSearchType"
+                                class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white">
+                                <option value="laws">Relevant Law Sections</option>
+                                <option value="outcome">Similar Case Outcomes</option>
+                            </select>
+                        </div>
+                        <button onclick="searchPrecedents()"
+                            class="w-full py-2.5 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 transition flex items-center justify-center gap-2">
+                            <i data-lucide="search" class="w-4 h-4"></i> Find Precedents
+                        </button>
+                        <div class="pt-3 border-t border-slate-100">
+                            <p class="text-xs font-semibold text-slate-400 mb-2">Quick Lookups</p>
+                            <div class="flex flex-wrap gap-1.5">
+                                <button onclick="quickPrecedent('bail murder')"
+                                    class="text-xs px-2 py-1 bg-slate-100 rounded-md hover:bg-blue-50 hover:text-blue-700">Bail
+                                    in murder</button>
+                                <button onclick="quickPrecedent('anticipatory bail')"
+                                    class="text-xs px-2 py-1 bg-slate-100 rounded-md hover:bg-blue-50 hover:text-blue-700">Anticipatory
+                                    bail</button>
+                                <button onclick="quickPrecedent('domestic violence')"
+                                    class="text-xs px-2 py-1 bg-slate-100 rounded-md hover:bg-blue-50 hover:text-blue-700">Domestic
+                                    violence</button>
+                                <button onclick="quickPrecedent('cheating 420')"
+                                    class="text-xs px-2 py-1 bg-slate-100 rounded-md hover:bg-blue-50 hover:text-blue-700">IPC
+                                    420 cheating</button>
+                                <button onclick="quickPrecedent('NDPS bail')"
+                                    class="text-xs px-2 py-1 bg-slate-100 rounded-md hover:bg-blue-50 hover:text-blue-700">NDPS
+                                    bail</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="md:col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm">
+                        <div class="px-5 py-4 border-b border-slate-100">
+                            <h4 class="font-bold text-slate-800">Search Results</h4>
+                        </div>
+                        <div id="precedentResults" class="p-5 max-h-[560px] overflow-y-auto">
+                            <div class="flex flex-col items-center justify-center h-48 text-slate-300">
+                                <i data-lucide="book-open" class="w-12 h-12 mb-3"></i>
+                                <p class="text-sm">Search to find relevant laws and precedents</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ═══ SECTION: e-Filing Manager ═══ -->
+            <div id="ld-efiling" class="section-content py-8">
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h2 class="text-2xl font-serif font-bold text-blue-950">e-Filing Manager</h2>
+                        <p class="text-slate-500 text-sm mt-0.5">Track filings, deadlines, and acknowledgements</p>
+                    </div>
+                    <button onclick="openFilingModal()"
+                        class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 flex items-center gap-1.5">
+                        <i data-lucide="plus" class="w-4 h-4"></i> Add Filing
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-3 gap-4 mb-6">
+                    <div class="bg-green-50 border border-green-100 rounded-xl p-4 text-center">
+                        <p class="text-2xl font-bold text-green-700" id="filed-count">0</p>
+                        <p class="text-xs font-semibold text-green-600 mt-1">Filed & Acknowledged</p>
+                    </div>
+                    <div class="bg-amber-50 border border-amber-100 rounded-xl p-4 text-center">
+                        <p class="text-2xl font-bold text-amber-700" id="pending-filed-count">0</p>
+                        <p class="text-xs font-semibold text-amber-600 mt-1">Pending Filing</p>
+                    </div>
+                    <div class="bg-red-50 border border-red-100 rounded-xl p-4 text-center">
+                        <p class="text-2xl font-bold text-red-700" id="overdue-count">0</p>
+                        <p class="text-xs font-semibold text-red-600 mt-1">Overdue</p>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                    <table class="min-w-full text-sm">
+                        <thead class="bg-blue-50 text-blue-900 border-b border-blue-100">
+                            <tr>
+                                <th class="px-4 py-3 text-left font-semibold">Document</th>
+                                <th class="px-4 py-3 text-left font-semibold">Case No.</th>
+                                <th class="px-4 py-3 text-left font-semibold">Deadline</th>
+                                <th class="px-4 py-3 text-left font-semibold">Filed On</th>
+                                <th class="px-4 py-3 text-left font-semibold">Acknowledgement</th>
+                                <th class="px-4 py-3 text-left font-semibold">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="efilingTableBody" class="divide-y divide-slate-100">
+                            <tr>
+                                <td colspan="6" class="px-4 py-10 text-center text-slate-400">No filings tracked yet
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ═══ SECTION: Document Vault ═══ -->
+            <div id="ld-vault" class="section-content py-8">
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h2 class="text-2xl font-serif font-bold text-blue-950">Document Vault</h2>
+                        <p class="text-slate-500 text-sm mt-0.5">All case documents organised and searchable</p>
+                    </div>
+                    <button onclick="openVaultUpload()"
+                        class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 flex items-center gap-1.5">
+                        <i data-lucide="upload-cloud" class="w-4 h-4"></i> Upload Document
+                    </button>
+                </div>
+
+                <div class="mb-4 flex gap-3">
+                    <input type="text" id="vaultSearch" placeholder="Search documents…" oninput="filterVault()"
+                        class="px-3 py-2 border border-slate-200 rounded-lg text-sm w-64">
+                    <select id="vaultCaseFilter" onchange="filterVault()"
+                        class="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white">
+                        <option value="">All Cases</option>
+                    </select>
+                    <select id="vaultTypeFilter" onchange="filterVault()"
+                        class="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white">
+                        <option value="">All Types</option>
+                        <option>FIR</option>
+                        <option>Chargesheet</option>
+                        <option>Court Order</option>
+                        <option>Bail Application</option>
+                        <option>Evidence</option>
+                        <option>Petition</option>
+                        <option>Other</option>
+                    </select>
+                </div>
+
+                <div id="vaultGrid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    <div class="col-span-full py-16 text-center text-slate-300">
+                        <i data-lucide="folder-open" class="w-16 h-16 mx-auto mb-3"></i>
+                        <p class="text-sm">No documents uploaded yet</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ═══ SECTION: Order Repository ═══ -->
+            <div id="ld-orders" class="section-content py-8">
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h2 class="text-2xl font-serif font-bold text-blue-950">Order Repository</h2>
+                        <p class="text-slate-500 text-sm mt-0.5">All court orders stored and instantly searchable</p>
+                    </div>
+                    <button onclick="openOrderModal()"
+                        class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 flex items-center gap-1.5">
+                        <i data-lucide="plus" class="w-4 h-4"></i> Add Order
+                    </button>
+                </div>
+
+                <div class="mb-4 flex gap-3 flex-wrap">
+                    <input type="text" id="orderSearch" placeholder="Search orders…" oninput="filterOrders()"
+                        class="px-3 py-2 border border-slate-200 rounded-lg text-sm w-64">
+                    <select id="orderTypeFilter" onchange="filterOrders()"
+                        class="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white">
+                        <option value="">All Order Types</option>
+                        <option>Bail Granted</option>
+                        <option>Bail Rejected</option>
+                        <option>Adjournment</option>
+                        <option>Final Judgment</option>
+                        <option>Interim Order</option>
+                        <option>Stay Order</option>
+                        <option>Other</option>
+                    </select>
+                </div>
+
+                <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                    <table class="min-w-full text-sm">
+                        <thead class="bg-blue-50 text-blue-900 border-b border-blue-100">
+                            <tr>
+                                <th class="px-4 py-3 text-left font-semibold">Order Title</th>
+                                <th class="px-4 py-3 text-left font-semibold">Case No.</th>
+                                <th class="px-4 py-3 text-left font-semibold">Court</th>
+                                <th class="px-4 py-3 text-left font-semibold">Date</th>
+                                <th class="px-4 py-3 text-left font-semibold">Type</th>
+                                <th class="px-4 py-3 text-left font-semibold">Summary</th>
+                                <th class="px-4 py-3 text-left font-semibold">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ordersTableBody" class="divide-y divide-slate-100">
+                            <tr>
+                                <td colspan="7" class="px-4 py-10 text-center text-slate-400">No orders recorded yet
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ═══ SECTION: Client Portal ═══ -->
+            <div id="ld-clients" class="section-content py-8">
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h2 class="text-2xl font-serif font-bold text-blue-950">Client Portal</h2>
+                        <p class="text-slate-500 text-sm mt-0.5">Each client's case status and hearing schedule</p>
+                    </div>
+                    <button onclick="openClientModal()"
+                        class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 flex items-center gap-1.5">
+                        <i data-lucide="user-plus" class="w-4 h-4"></i> Add Client
+                    </button>
+                </div>
+
+                <div id="clientsGrid" class="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+                    <div class="col-span-full py-16 text-center text-slate-300">
+                        <i data-lucide="users" class="w-16 h-16 mx-auto mb-3"></i>
+                        <p class="text-sm">No clients added yet</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ═══ SECTION: Fee Tracker ═══ -->
+            <div id="ld-fees" class="section-content py-8">
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h2 class="text-2xl font-serif font-bold text-blue-950">Fee & Invoice Tracker</h2>
+                        <p class="text-slate-500 text-sm mt-0.5">Track retainers, hearings fees, and outstanding
+                            payments</p>
+                    </div>
+                    <button onclick="openFeeModal()"
+                        class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 flex items-center gap-1.5">
+                        <i data-lucide="plus" class="w-4 h-4"></i> Add Invoice
+                    </button>
+                </div>
+
+                <!-- Fee summary -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    <div class="bg-white rounded-xl p-4 border border-slate-100 shadow-sm">
+                        <p class="text-xs font-semibold text-slate-400 uppercase mb-1">Total Invoiced</p>
+                        <p class="text-2xl font-bold text-slate-800">₹<span id="fee-total">0</span></p>
+                    </div>
+                    <div class="bg-green-50 rounded-xl p-4 border border-green-100 shadow-sm">
+                        <p class="text-xs font-semibold text-green-500 uppercase mb-1">Paid</p>
+                        <p class="text-2xl font-bold text-green-700">₹<span id="fee-paid">0</span></p>
+                    </div>
+                    <div class="bg-amber-50 rounded-xl p-4 border border-amber-100 shadow-sm">
+                        <p class="text-xs font-semibold text-amber-500 uppercase mb-1">Pending</p>
+                        <p class="text-2xl font-bold text-amber-700">₹<span id="fee-pending">0</span></p>
+                    </div>
+                    <div class="bg-red-50 rounded-xl p-4 border border-red-100 shadow-sm">
+                        <p class="text-xs font-semibold text-red-500 uppercase mb-1">Overdue</p>
+                        <p class="text-2xl font-bold text-red-700">₹<span id="fee-overdue">0</span></p>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                    <table class="min-w-full text-sm">
+                        <thead class="bg-blue-50 text-blue-900 border-b border-blue-100">
+                            <tr>
+                                <th class="px-4 py-3 text-left font-semibold">Invoice #</th>
+                                <th class="px-4 py-3 text-left font-semibold">Client</th>
+                                <th class="px-4 py-3 text-left font-semibold">Case</th>
+                                <th class="px-4 py-3 text-left font-semibold">Description</th>
+                                <th class="px-4 py-3 text-left font-semibold">Amount</th>
+                                <th class="px-4 py-3 text-left font-semibold">Due Date</th>
+                                <th class="px-4 py-3 text-left font-semibold">Status</th>
+                                <th class="px-4 py-3 text-left font-semibold">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="feesTableBody" class="divide-y divide-slate-100">
+                            <tr>
+                                <td colspan="8" class="px-4 py-10 text-center text-slate-400">No invoices yet</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ═══ SECTION: Case Timeline ═══ -->
+            <div id="ld-timeline" class="section-content py-8">
+                <div class="mb-6">
+                    <h2 class="text-2xl font-serif font-bold text-blue-950">Case Timeline</h2>
+                    <p class="text-slate-500 text-sm mt-0.5">Chronological history of any case</p>
+                </div>
+
+                <div class="flex gap-3 mb-6">
+                    <select id="timelineCaseSelect" onchange="loadTimeline()"
+                        class="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white min-w-[250px]">
+                        <option value="">Select a case…</option>
+                    </select>
+                    <button onclick="openTimelineEventModal()"
+                        class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 flex items-center gap-1.5">
+                        <i data-lucide="plus" class="w-4 h-4"></i> Add Event
+                    </button>
+                </div>
+
+                <div id="timelineContainer" class="relative pl-8 border-l-2 border-blue-100 space-y-6">
+                    <div class="text-slate-300 text-center py-16">
+                        <i data-lucide="git-commit-horizontal" class="w-12 h-12 mx-auto mb-3"></i>
+                        <p class="text-sm">Select a case to view its timeline</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ═══ SECTION: Amendment Tracker ═══ -->
+            <div id="ld-amendments" class="section-content py-8">
+                <div class="mb-6">
+                    <h2 class="text-2xl font-serif font-bold text-blue-950">IPC → BNS Amendment Tracker</h2>
+                    <p class="text-slate-500 text-sm mt-0.5">New criminal laws effective July 1, 2024 — find the new
+                        section numbers instantly</p>
+                </div>
+
+                <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6 flex items-start gap-3">
+                    <i data-lucide="alert-circle" class="w-5 h-5 text-blue-600 mt-0.5 shrink-0"></i>
+                    <div class="text-sm text-blue-800">
+                        <strong>Three new laws replaced IPC, CrPC, and Evidence Act from 1 July 2024:</strong>
+                        IPC → BNS (Bharatiya Nyaya Sanhita) &nbsp;|&nbsp; CrPC → BNSS (Bharatiya Nagarik Suraksha
+                        Sanhita) &nbsp;|&nbsp; Evidence Act → BSA (Bharatiya Sakshya Adhiniyam)
+                    </div>
+                </div>
+
+                <div class="flex gap-3 mb-6">
+                    <input type="text" id="amendSearchLawyer"
+                        placeholder="Search old section… e.g. IPC 302, CrPC 154, Evidence 65B"
+                        oninput="searchAmendmentsLawyer()"
+                        class="flex-1 px-4 py-3 border border-slate-200 rounded-xl text-sm focus:border-blue-500">
+                </div>
+
+                <div id="amendResultsLawyer" class="grid md:grid-cols-2 gap-3">
+                    <!-- Pre-populate key amendments -->
+                </div>
+            </div>
+
+        </div><!-- end page wrapper -->
+    </main>
+
+    <!-- ═══════════ MODALS ═══════════ -->
+
+    <!-- Case Modal -->
+    <div id="caseModal" class="fixed inset-0 hidden z-50 modal-backdrop items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between px-6 py-5 border-b border-slate-100">
+                <h3 class="text-lg font-bold text-blue-900">Add New Case</h3>
+                <button onclick="closeCaseModal()"
+                    class="text-slate-400 hover:text-red-500 text-2xl font-bold">×</button>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600 block mb-1">Case Number *</label>
+                        <input type="text" id="newCaseNo" placeholder="e.g. SC/2026/001"
+                            class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600 block mb-1">Client Name *</label>
+                        <input type="text" id="newCaseClient" placeholder="Client's full name"
+                            class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600 block mb-1">Court *</label>
+                        <input type="text" id="newCaseCourt" placeholder="e.g. Delhi High Court"
+                            class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600 block mb-1">Case Type</label>
+                        <select id="newCaseType"
+                            class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white">
+                            <option>Criminal</option>
+                            <option>Civil</option>
+                            <option>Bail</option>
+                            <option>Writ</option>
+                            <option>Appeal</option>
+                            <option>Matrimonial</option>
+                            <option>NDPS</option>
+                            <option>Consumer</option>
+                            <option>Other</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600 block mb-1">Next Hearing Date</label>
+                        <input type="date" id="newCaseHearing"
+                            class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600 block mb-1">Status</label>
+                        <select id="newCaseStatus"
+                            class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white">
+                            <option>Active</option>
+                            <option>Urgent</option>
+                            <option>Adjourned</option>
+                            <option>Decided</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-slate-600 block mb-1">Sections / Acts</label>
+                    <input type="text" id="newCaseSections" placeholder="e.g. IPC 302, IPC 34"
+                        class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-slate-600 block mb-1">Notes</label>
+                    <textarea id="newCaseNotes" rows="2"
+                        class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm resize-none"
+                        placeholder="Any case notes…"></textarea>
+                </div>
+                <button onclick="saveCase()"
+                    class="w-full py-3 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 transition">Save
+                    Case</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fee Modal -->
+    <div id="feeModal" class="fixed inset-0 hidden z-50 modal-backdrop items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
+            <div class="flex items-center justify-between px-6 py-5 border-b border-slate-100">
+                <h3 class="text-lg font-bold text-blue-900">Add Invoice</h3>
+                <button onclick="closeFeeModal()"
+                    class="text-slate-400 hover:text-red-500 text-2xl font-bold">×</button>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600 block mb-1">Client Name *</label>
+                        <input type="text" id="feeClient" placeholder="Client name"
+                            class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600 block mb-1">Case No.</label>
+                        <input type="text" id="feeCaseNo" placeholder="Case reference"
+                            class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
+                    </div>
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-slate-600 block mb-1">Description *</label>
+                    <input type="text" id="feeDescription" placeholder="e.g. Retainer fee, Hearing fee 15/04/2026"
+                        class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600 block mb-1">Amount (₹) *</label>
+                        <input type="number" id="feeAmount" placeholder="0"
+                            class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600 block mb-1">Due Date</label>
+                        <input type="date" id="feeDueDate"
+                            class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
+                    </div>
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-slate-600 block mb-1">Status</label>
+                    <select id="feeStatus" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white">
+                        <option>Pending</option>
+                        <option>Paid</option>
+                        <option>Overdue</option>
+                    </select>
+                </div>
+                <button onclick="saveFee()"
+                    class="w-full py-3 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 transition">Save
+                    Invoice</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filing Modal -->
+    <div id="filingModal" class="fixed inset-0 hidden z-50 modal-backdrop items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
+            <div class="flex items-center justify-between px-6 py-5 border-b border-slate-100">
+                <h3 class="text-lg font-bold text-blue-900">Add Filing Record</h3>
+                <button onclick="closeFilingModal()"
+                    class="text-slate-400 hover:text-red-500 text-2xl font-bold">×</button>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600 block mb-1">Document Name *</label>
+                        <input type="text" id="filingDoc" placeholder="e.g. Bail Application"
+                            class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600 block mb-1">Case No.</label>
+                        <input type="text" id="filingCase" placeholder="Case reference"
+                            class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600 block mb-1">Filing Deadline *</label>
+                        <input type="date" id="filingDeadline"
+                            class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600 block mb-1">Filed On</label>
+                        <input type="date" id="filingDate"
+                            class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
+                    </div>
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-slate-600 block mb-1">Acknowledgement No.</label>
+                    <input type="text" id="filingAck" placeholder="e.g. ACK/2026/001"
+                        class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-slate-600 block mb-1">Status</label>
+                    <select id="filingStatus"
+                        class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white">
+                        <option>Pending</option>
+                        <option>Filed</option>
+                        <option>Overdue</option>
+                    </select>
+                </div>
+                <button onclick="saveFiling()"
+                    class="w-full py-3 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 transition">Save
+                    Filing</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Order Modal -->
+    <div id="orderModal" class="fixed inset-0 hidden z-50 modal-backdrop items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
+            <div class="flex items-center justify-between px-6 py-5 border-b border-slate-100">
+                <h3 class="text-lg font-bold text-blue-900">Add Court Order</h3>
+                <button onclick="closeOrderModal()"
+                    class="text-slate-400 hover:text-red-500 text-2xl font-bold">×</button>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <div>
+                    <label class="text-xs font-semibold text-slate-600 block mb-1">Order Title *</label>
+                    <input type="text" id="orderTitle" placeholder="e.g. Bail Granted"
+                        class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600 block mb-1">Case No. *</label>
+                        <input type="text" id="orderCaseNo" placeholder="Case reference"
+                            class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600 block mb-1">Court</label>
+                        <input type="text" id="orderCourt" placeholder="Court name"
+                            class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600 block mb-1">Date of Order *</label>
+                        <input type="date" id="orderDate"
+                            class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600 block mb-1">Order Type</label>
+                        <select id="orderType"
+                            class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white">
+                            <option>Bail Granted</option>
+                            <option>Bail Rejected</option>
+                            <option>Adjournment</option>
+                            <option>Final Judgment</option>
+                            <option>Interim Order</option>
+                            <option>Stay Order</option>
+                            <option>Other</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-slate-600 block mb-1">Order Summary *</label>
+                    <textarea id="orderSummary" rows="3"
+                        class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm resize-none"
+                        placeholder="Brief summary of what the order says…"></textarea>
+                </div>
+                <button onclick="saveOrder()"
+                    class="w-full py-3 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 transition">Save
+                    Order</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Client Modal -->
+    <div id="clientModal" class="fixed inset-0 hidden z-50 modal-backdrop items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
+            <div class="flex items-center justify-between px-6 py-5 border-b border-slate-100">
+                <h3 class="text-lg font-bold text-blue-900">Add Client</h3>
+                <button onclick="closeClientModal()"
+                    class="text-slate-400 hover:text-red-500 text-2xl font-bold">×</button>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600 block mb-1">Full Name *</label>
+                        <input type="text" id="clientName" placeholder="Client's full name"
+                            class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600 block mb-1">Phone *</label>
+                        <input type="text" id="clientPhone" placeholder="Contact number"
+                            class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
+                    </div>
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-slate-600 block mb-1">Linked Case No.</label>
+                    <input type="text" id="clientCase" placeholder="e.g. SC/2026/001"
+                        class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-slate-600 block mb-1">Email</label>
+                    <input type="email" id="clientEmail" placeholder="Client email"
+                        class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-slate-600 block mb-1">Notes</label>
+                    <textarea id="clientNotes" rows="2"
+                        class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm resize-none"
+                        placeholder="Any special instructions…"></textarea>
+                </div>
+                <button onclick="saveClient()"
+                    class="w-full py-3 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 transition">Save
+                    Client</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Vault Upload Modal -->
+    <div id="vaultModal" class="fixed inset-0 hidden z-50 modal-backdrop items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
+            <div class="flex items-center justify-between px-6 py-5 border-b border-slate-100">
+                <h3 class="text-lg font-bold text-blue-900">Upload to Document Vault</h3>
+                <button onclick="closeVaultModal()"
+                    class="text-slate-400 hover:text-red-500 text-2xl font-bold">×</button>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600 block mb-1">Document Name *</label>
+                        <input type="text" id="vaultDocName" placeholder="Document title"
+                            class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600 block mb-1">Case No.</label>
+                        <input type="text" id="vaultCaseRef" placeholder="Case reference"
+                            class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
+                    </div>
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-slate-600 block mb-1">Document Type</label>
+                    <select id="vaultDocType"
+                        class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white">
+                        <option>FIR</option>
+                        <option>Chargesheet</option>
+                        <option>Court Order</option>
+                        <option>Bail Application</option>
+                        <option>Evidence</option>
+                        <option>Petition</option>
+                        <option>Other</option>
+                    </select>
+                </div>
+                <div
+                    class="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center hover:border-blue-400 transition">
+                    <input type="file" id="vaultFile"
+                        class="block w-full text-sm text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                    <p class="text-xs text-slate-400 mt-2">PDF, DOC, DOCX, JPG, PNG supported</p>
+                </div>
+                <button onclick="saveVaultDoc()"
+                    class="w-full py-3 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 transition">Add
+                    to Vault</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Timeline Event Modal -->
+    <div id="timelineEventModal" class="fixed inset-0 hidden z-50 modal-backdrop items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
+            <div class="flex items-center justify-between px-6 py-5 border-b border-slate-100">
+                <h3 class="text-lg font-bold text-blue-900">Add Case Event</h3>
+                <button onclick="closeTimelineEventModal()"
+                    class="text-slate-400 hover:text-red-500 text-2xl font-bold">×</button>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <div>
+                    <label class="text-xs font-semibold text-slate-600 block mb-1">Case *</label>
+                    <select id="timelineEventCase"
+                        class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white">
+                        <option value="">Select case…</option>
+                    </select>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600 block mb-1">Event Date *</label>
+                        <input type="date" id="timelineEventDate"
+                            class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600 block mb-1">Event Type</label>
+                        <select id="timelineEventType"
+                            class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white">
+                            <option>Hearing</option>
+                            <option>Filing</option>
+                            <option>Order Received</option>
+                            <option>Arrest</option>
+                            <option>Bail Application</option>
+                            <option>Investigation</option>
+                            <option>Judgment</option>
+                            <option>Other</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-slate-600 block mb-1">Event Title *</label>
+                    <input type="text" id="timelineEventTitle" placeholder="e.g. Bail granted by Sessions Court"
+                        class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-slate-600 block mb-1">Notes</label>
+                    <textarea id="timelineEventNotes" rows="2"
+                        class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm resize-none"
+                        placeholder="Additional details…"></textarea>
+                </div>
+                <button onclick="saveTimelineEvent()"
+                    class="w-full py-3 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 transition">Add
+                    Event</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ═══════════════════════════════════════════════
+        // GLOBAL STATE — localStorage-backed
+        // ═══════════════════════════════════════════════
+        let state = {
+            cases: [],
+            fees: [],
+            filings: [],
+            orders: [],
+            clients: [],
+            vault: [],
+            timeline: [],
+            lawyerName: 'Advocate',
+            lawyerId: 'LAW001'
+        };
+
+        function saveState() {
+            try { localStorage.setItem('nyaya_lawyer_state', JSON.stringify(state)); } catch (e) { }
+        }
+
+        function loadState() {
+            try {
+                const s = localStorage.getItem('nyaya_lawyer_state');
+                if (s) state = { ...state, ...JSON.parse(s) };
+            } catch (e) { }
+        }
+
+        // ═══════════════════════════════════════════════
+        // INIT
+        // ═══════════════════════════════════════════════
+        document.addEventListener('DOMContentLoaded', () => {
+            loadState();
+            lucide.createIcons();
+            initSidebar();
+            populateLawyerInfo();
+            showSection('ld-overview');
+            renderOverview();
+            renderCalendar();
+            preloadAmendments();
+
+            // Draft template selector
+            document.querySelectorAll('.draft-template-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.draft-template-btn').forEach(b => {
+                        b.classList.remove('border-blue-600', 'bg-blue-50', 'text-blue-900');
+                        b.classList.add('border-slate-200', 'bg-white', 'text-slate-700');
+                    });
+                    btn.classList.add('border-blue-600', 'bg-blue-50', 'text-blue-900');
+                    btn.classList.remove('border-slate-200', 'bg-white', 'text-slate-700');
+                    updateDraftForm(btn.dataset.type);
+                });
+            });
+        });
+
+        function populateLawyerInfo() {
+            // Try to pull from session (Flask sets this via template), fallback to state
+            const name = '{{ session.get("fullname", "") }}' || state.lawyerName;
+            const uid = '{{ session.get("unique_id", "") }}' || state.lawyerId;
+            if (name && name !== '') state.lawyerName = name;
+            if (uid && uid !== '') state.lawyerId = uid;
+
+            const initial = state.lawyerName.charAt(0).toUpperCase();
+            ['lawyerAvatarSmall', 'lawyerAvatarNav'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = initial;
+            });
+            ['lawyerNameSidebar', 'lawyerNameNav', 'lawyerGreeting'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = state.lawyerName;
+            });
+            const idEl = document.getElementById('lawyerIdNav');
+            if (idEl) idEl.textContent = 'ID: ' + state.lawyerId;
+        }
+
+        // ═══════════════════════════════════════════════
+        // SIDEBAR
+        // ═══════════════════════════════════════════════
+        function initSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const mobileBtn = document.getElementById('mobileMenuBtn');
+
+            mobileBtn?.addEventListener('click', () => sidebar.classList.toggle('-translate-x-full'));
+            mobileBtn?.addEventListener('click', () => sidebar.classList.toggle('mobile-open'));
+
+            document.addEventListener('click', e => {
+                if (window.innerWidth < 768 && !sidebar.contains(e.target) && !mobileBtn.contains(e.target)) {
+                    sidebar.classList.remove('mobile-open');
+                }
+            });
+
+            document.querySelectorAll('.sidebar-link').forEach(link => {
+                link.addEventListener('click', e => {
+                    e.preventDefault();
+                    const section = link.dataset.section;
+                    if (section) showSection(section);
+                    if (window.innerWidth < 768) sidebar.classList.add('-translate-x-full');
+                });
+            });
+        }
+
+        function showSection(id) {
+            document.querySelectorAll('.section-content').forEach(s => s.classList.remove('active'));
+            const target = document.getElementById(id);
+            if (target) target.classList.add('active');
+
+            document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active', 'bg-blue-800'));
+            document.querySelector(`[data-section="${id}"]`)?.classList.add('active', 'bg-blue-800');
+
+            // Section-specific loads
+            if (id === 'ld-cases') renderCases();
+            if (id === 'ld-calendar') renderCalendar();
+            if (id === 'ld-fees') renderFees();
+            if (id === 'ld-efiling') renderFilings();
+            if (id === 'ld-orders') renderOrders();
+            if (id === 'ld-clients') renderClients();
+            if (id === 'ld-vault') renderVault();
+            if (id === 'ld-timeline') renderTimelineSelect();
+            if (id === 'ld-overview') renderOverview();
+        }
+
+        // ═══════════════════════════════════════════════
+        // OVERVIEW
+        // ═══════════════════════════════════════════════
+        function renderOverview() {
+            const active = state.cases.filter(c => c.status !== 'Decided').length;
+            document.getElementById('stat-active-cases').textContent = active;
+            document.getElementById('stat-clients').textContent = state.clients.length;
+
+            const today = new Date();
+            const in7 = new Date(); in7.setDate(today.getDate() + 7);
+            const hearings = state.cases.filter(c => c.hearing && new Date(c.hearing) >= today && new Date(c.hearing) <= in7);
+            document.getElementById('stat-hearings').textContent = hearings.length;
+
+            const pending = state.fees.filter(f => f.status !== 'Paid').reduce((s, f) => s + parseInt(f.amount || 0), 0);
+            document.getElementById('stat-fees').textContent = pending.toLocaleString('en-IN');
+
+            // Overview hearings
+            const ohContainer = document.getElementById('overviewHearings');
+            const upcomingAll = state.cases.filter(c => c.hearing && new Date(c.hearing) >= today)
+                .sort((a, b) => new Date(a.hearing) - new Date(b.hearing)).slice(0, 5);
+            if (upcomingAll.length) {
+                ohContainer.innerHTML = upcomingAll.map(c => {
+                    const days = Math.ceil((new Date(c.hearing) - today) / 86400000);
+                    const color = days <= 2 ? 'red' : days <= 5 ? 'amber' : 'blue';
+                    return `<div class="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
+                <div>
+                    <p class="font-semibold text-sm text-slate-800">${esc(c.client)}</p>
+                    <p class="text-xs text-slate-400">${esc(c.caseNo)} · ${esc(c.court)}</p>
+                </div>
+                <span class="text-xs font-bold text-${color}-600 bg-${color}-50 px-2 py-1 rounded-full">${days === 0 ? 'Today' : days === 1 ? 'Tomorrow' : `${days}d`}</span>
+            </div>`;
+                }).join('');
+            }
+
+            // Overview recent cases
+            const ocContainer = document.getElementById('overviewCases');
+            if (state.cases.length) {
+                ocContainer.innerHTML = state.cases.slice(-5).reverse().map(c => `
+            <div class="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
+                <div>
+                    <p class="font-semibold text-sm text-slate-800">${esc(c.client)}</p>
+                    <p class="text-xs text-slate-400">${esc(c.caseNo)} · ${esc(c.type)}</p>
+                </div>
+                ${statusBadge(c.status)}
+            </div>`).join('');
+            }
+
+            // Badge updates
+            const urgentCount = state.cases.filter(c => {
+                const days = c.hearing ? Math.ceil((new Date(c.hearing) - today) / 86400000) : 999;
+                return days <= 2 && days >= 0;
+            }).length;
+            const ub = document.getElementById('urgentBadge');
+            if (urgentCount > 0) { ub.textContent = urgentCount; ub.classList.remove('hidden'); }
+            else ub.classList.add('hidden');
+
+            const cb = document.getElementById('caseBadge');
+            if (state.cases.length > 0) { cb.textContent = state.cases.length; cb.classList.remove('hidden'); }
+            else cb.classList.add('hidden');
+        }
+
+        // ═══════════════════════════════════════════════
+        // CASES
+        // ═══════════════════════════════════════════════
+        function renderCases(data) {
+            const cases = data || state.cases;
+            const tbody = document.getElementById('casesTableBody');
+            if (!cases.length) {
+                tbody.innerHTML = '<tr><td colspan="7" class="px-4 py-10 text-center text-slate-400">No cases yet. Click "Add Case" to get started.</td></tr>';
+                return;
+            }
+            const today = new Date();
+            tbody.innerHTML = cases.map((c, i) => {
+                const days = c.hearing ? Math.ceil((new Date(c.hearing) - today) / 86400000) : null;
+                const hearingStr = c.hearing ? `<span class="font-medium">${c.hearing}</span>${days !== null ? `<br><span class="text-xs ${days <= 2 ? 'text-red-500 font-bold' : days <= 5 ? 'text-amber-600' : 'text-slate-400'}">${days < 0 ? 'Past' : days === 0 ? 'Today!' : `In ${days}d`}</span>` : ''}` : '<span class="text-slate-300">Not set</span>';
+                return `<tr>
+            <td class="px-4 py-3 font-mono text-blue-700 font-semibold text-xs">${esc(c.caseNo)}</td>
+            <td class="px-4 py-3 font-semibold text-slate-800">${esc(c.client)}</td>
+            <td class="px-4 py-3 text-slate-600 text-xs">${esc(c.court)}</td>
+            <td class="px-4 py-3 text-slate-600 text-xs">${esc(c.type)}</td>
+            <td class="px-4 py-3 text-xs">${hearingStr}</td>
+            <td class="px-4 py-3">${statusBadge(c.status)}</td>
+            <td class="px-4 py-3">
+                <button onclick="deleteCase(${i})" class="text-xs text-red-400 hover:text-red-600 px-2 py-1 rounded hover:bg-red-50">Delete</button>
+            </td>
+        </tr>`;
+            }).join('');
+        }
+
+        function filterCases() {
+            const q = document.getElementById('caseSearch').value.toLowerCase();
+            const s = document.getElementById('caseStatusFilter').value;
+            const filtered = state.cases.filter(c =>
+                (!q || c.client.toLowerCase().includes(q) || c.caseNo.toLowerCase().includes(q) || c.court.toLowerCase().includes(q)) &&
+                (!s || c.status === s)
+            );
+            renderCases(filtered);
+        }
+
+        function openCaseModal() {
+            showModal('caseModal');
+            lucide.createIcons();
+        }
+        function closeCaseModal() { hideModal('caseModal'); }
+
+        function saveCase() {
+            const c = {
+                caseNo: val('newCaseNo'), client: val('newCaseClient'), court: val('newCaseCourt'),
+                type: val('newCaseType'), hearing: val('newCaseHearing'), status: val('newCaseStatus'),
+                sections: val('newCaseSections'), notes: val('newCaseNotes'), addedAt: new Date().toISOString()
+            };
+            if (!c.caseNo || !c.client || !c.court) { alert('Please fill in Case No., Client, and Court.'); return; }
+            state.cases.push(c);
+            saveState();
+            closeCaseModal();
+            renderCases();
+            renderOverview();
+            populateCaseDropdowns();
+            clearInputs(['newCaseNo', 'newCaseClient', 'newCaseCourt', 'newCaseSections', 'newCaseNotes']);
+            lucide.createIcons();
+        }
+
+        function deleteCase(i) {
+            if (!confirm('Delete this case?')) return;
+            state.cases.splice(i, 1);
+            saveState();
+            renderCases();
+            renderOverview();
+        }
+
+        // ═══════════════════════════════════════════════
+        // CALENDAR
+        // ═══════════════════════════════════════════════
+        let calDate = new Date();
+
+        function renderCalendar() {
+            const year = calDate.getFullYear();
+            const month = calDate.getMonth();
+            document.getElementById('calMonthLabel').textContent =
+                calDate.toLocaleString('en-IN', { month: 'long', year: 'numeric' });
+
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const today = new Date();
+
+            // Build hearing map
+            const hearingMap = {};
+            state.cases.forEach(c => {
+                if (!c.hearing) return;
+                const d = new Date(c.hearing);
+                if (d.getFullYear() === year && d.getMonth() === month) {
+                    const key = d.getDate();
+                    if (!hearingMap[key]) hearingMap[key] = [];
+                    hearingMap[key].push(c);
+                }
+            });
+
+            let html = '';
+            // Empty cells before first day
+            for (let i = 0; i < firstDay; i++) html += `<div class="cal-day border border-slate-50 p-1.5"></div>`;
+            // Day cells
+            for (let d = 1; d <= daysInMonth; d++) {
+                const isToday = today.getDate() === d && today.getMonth() === month && today.getFullYear() === year;
+                const hearings = hearingMap[d] || [];
+                const hasUrgent = hearings.some(c => {
+                    const days = Math.ceil((new Date(c.hearing) - today) / 86400000);
+                    return days <= 2;
+                });
+                html += `<div class="cal-day border border-slate-50 p-1.5 ${isToday ? 'bg-blue-50' : ''}">
+            <span class="text-xs font-semibold ${isToday ? 'text-blue-700 bg-blue-600 text-white w-5 h-5 rounded-full flex items-center justify-center' : 'text-slate-600'}">${d}</span>
+            <div class="mt-0.5 space-y-0.5">
+                ${hearings.slice(0, 2).map(c => {
+                    const days = Math.ceil((new Date(c.hearing) - today) / 86400000);
+                    const color = days <= 2 ? 'bg-red-400' : days <= 5 ? 'bg-amber-400' : 'bg-blue-400';
+                    return `<div class="hearing-dot text-white ${color} px-1 rounded truncate" title="${esc(c.client)}">${esc(c.client.split(' ')[0])}</div>`;
+                }).join('')}
+                ${hearings.length > 2 ? `<div class="text-xs text-slate-400">+${hearings.length - 2}</div>` : ''}
+            </div>
+        </div>`;
+            }
+
+            document.getElementById('calGrid').innerHTML = html;
+
+            // Upcoming hearings list
+            const today2 = new Date(); today2.setHours(0, 0, 0, 0);
+            const in7 = new Date(); in7.setDate(today2.getDate() + 7);
+            const upcoming = state.cases.filter(c => c.hearing && new Date(c.hearing) >= today2 && new Date(c.hearing) <= in7)
+                .sort((a, b) => new Date(a.hearing) - new Date(b.hearing));
+
+            const ul = document.getElementById('upcomingHearingsList');
+            if (!upcoming.length) {
+                ul.innerHTML = '<p class="text-sm text-slate-400 text-center py-6">No hearings this week</p>';
+            } else {
+                ul.innerHTML = upcoming.map(c => {
+                    const days = Math.ceil((new Date(c.hearing) - today2) / 86400000);
+                    const cls = days <= 2 ? 'hearing-urgent' : days <= 5 ? 'hearing-soon' : 'hearing-normal';
+                    return `<div class="${cls} rounded-lg p-3 text-xs">
+                <p class="font-bold text-slate-800">${esc(c.client)}</p>
+                <p class="text-slate-500">${esc(c.caseNo)} · ${esc(c.court)}</p>
+                <p class="font-semibold mt-1">${esc(c.hearing)} <span class="text-slate-400">(${days === 0 ? 'Today' : days === 1 ? 'Tomorrow' : `${days} days`})</span></p>
+            </div>`;
+                }).join('');
+            }
+        }
+
+        function calPrev() { calDate.setMonth(calDate.getMonth() - 1); renderCalendar(); }
+        function calNext() { calDate.setMonth(calDate.getMonth() + 1); renderCalendar(); }
+
+        // ═══════════════════════════════════════════════
+        // AI DOCUMENT DRAFTING
+        // ═══════════════════════════════════════════════
+        const DRAFT_TEMPLATES = {
+            bail: {
+                title: 'Bail Application Details',
+                prompt: (d) => `Draft a formal bail application for Indian court with these details:
+Accused: ${d.accused}, Case No: ${d.caseNo}, Court: ${d.court}, Sections: ${d.sections}
+Client Address: ${d.address}
+Key Facts & Grounds: ${d.facts}
+
+Write a complete, court-ready bail application with:
+1. Heading (Court name, Case title)
+2. Introduction paragraph
+3. Facts of the case (brief)
+4. Grounds for bail (at least 5 grounds referencing Section 437 CrPC / BNSS)
+5. Prayer clause
+6. Advocate signature block
+Use formal legal language. Include relevant Supreme Court precedents where applicable.`
+            },
+            petition: {
+                title: 'Writ Petition Details',
+                prompt: (d) => `Draft a formal writ petition for Indian High Court with these details:
+Petitioner: ${d.accused}, Case No: ${d.caseNo}, Court: ${d.court}
+Facts: ${d.facts}
+Write a complete writ petition with constitutional provisions, grounds, and prayer.`
+            },
+            submission: {
+                title: 'Written Submission Details',
+                prompt: (d) => `Draft written submissions for Indian court:
+Case: ${d.caseNo}, Court: ${d.court}, Sections: ${d.sections}
+Arguments: ${d.facts}
+Write structured written submissions with heading, brief facts, legal propositions, and prayer.`
+            },
+            vakalat: {
+                title: 'Vakalatnama Details',
+                prompt: (d) => `Draft a Vakalatnama (Power of Attorney) for Indian courts:
+Client: ${d.accused}, Case: ${d.caseNo}, Court: ${d.court}
+Write a complete vakalatnama authorising the advocate to appear, act, and plead on behalf of the client.`
+            },
+            notice: {
+                title: 'Legal Notice Details',
+                prompt: (d) => `Draft a formal legal notice for India:
+Sender/Client: ${d.accused}, Reference: ${d.caseNo}
+Subject/Facts: ${d.facts}
+Draft address: ${d.address}
+Write a complete legal notice with proper heading, facts, demand, and consequence of non-compliance.`
+            },
+            affidavit: {
+                title: 'Affidavit Details',
+                prompt: (d) => `Draft a formal affidavit for Indian courts:
+Deponent: ${d.accused}, Court: ${d.court}, Case: ${d.caseNo}
+Facts to depose: ${d.facts}
+Write a complete affidavit with proper format, verification clause, and deponent declaration.`
+            }
+        };
+
+        let currentDraftType = 'bail';
+
+        function updateDraftForm(type) {
+            currentDraftType = type;
+            const t = DRAFT_TEMPLATES[type];
+            if (t) document.getElementById('draftFormTitle').textContent = t.title;
+            document.getElementById('draftOutput').classList.add('hidden');
+        }
+
+        async function generateDraft() {
+            const accused = val('draftAccusedName'), caseNo = val('draftCaseNo'),
+                court = val('draftCourt'), sections = val('draftSections'),
+                facts = val('draftFacts'), address = val('draftClientAddr');
+
+            if (!accused || !facts) { alert('Please fill in Accused Name and Key Facts.'); return; }
+
+            const output = document.getElementById('draftOutput');
+            const content = document.getElementById('draftOutputContent');
+            output.classList.remove('hidden');
+            content.textContent = 'Generating document...';
+            content.classList.add('cursor');
+
+            const template = DRAFT_TEMPLATES[currentDraftType];
+            const prompt = template.prompt({ accused, caseNo, court, sections, facts, address });
+
+            try {
+                const res = await fetch('/api/lawyer/draft-document', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt })
+                });
+                const data = await res.json();
+                const text = data.text || 'Failed to generate. Please try again.';
+                content.textContent = text;
+            } catch (e) {
+                content.textContent = generateFallbackDraft(currentDraftType, { accused, caseNo, court, sections, facts, address });
+            }
+            content.classList.remove('cursor');
+            lucide.createIcons();
+        }
+
+        function generateFallbackDraft(type, d) {
+            const today = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+            if (type === 'bail') {
+                return `IN THE COURT OF ${(d.court || 'SESSIONS COURT').toUpperCase()}
+
+APPLICATION FOR BAIL
+UNDER SECTION 437 / 439 OF THE CODE OF CRIMINAL PROCEDURE, 1973
+(BNSS SECTION 480 / 483)
+
+IN THE MATTER OF:
+Case No.: ${d.caseNo || '___________'}
+STATE vs. ${(d.accused || '___________').toUpperCase()}
+
+MOST RESPECTFULLY SHOWETH:
+
+1. That the applicant/accused ${d.accused} has been arrested in connection with the above case registered at ____________ Police Station.
+
+2. That the applicant is charged under Section(s) ${d.sections || '___________'}.
+
+GROUNDS FOR BAIL:
+
+I.    That the applicant is a first-time offender with no previous criminal antecedents.
+
+II.   That the investigation in the present case is complete and the applicant's continued detention is not necessary.
+
+III.  That the applicant is a permanent resident of ${d.address || 'the jurisdiction'} and there is no risk of fleeing justice.
+
+IV.   That the applicant is the sole bread-winner of the family and their continued detention is causing irreparable hardship.
+
+V.    That granting bail will not prejudice the prosecution's case and the applicant undertakes to cooperate with the investigation.
+
+VI.   That the Hon'ble Supreme Court in Arnesh Kumar v. State of Bihar (2014) has cautioned against unnecessary arrests.
+
+KEY FACTS:
+${d.facts}
+
+PRAYER:
+It is, therefore, most respectfully prayed that this Hon'ble Court may be pleased to:
+(a) Release the applicant on bail on such terms and conditions as this Hon'ble Court deems fit;
+(b) Pass such other order(s) as this Hon'ble Court may deem fit and proper.
+
+AND FOR THIS ACT OF KINDNESS, THE APPLICANT SHALL AS IN DUTY BOUND EVER PRAY.
+
+Place: _____________
+Date: ${today}
+
+                                                    ADVOCATE FOR APPLICANT
+                                                    Enrolment No.: _____________`;
+            }
+            return `[Document draft for ${type} - ${d.accused} - ${today}]\n\n${d.facts}`;
+        }
+
+        function copyDraft() {
+            const text = document.getElementById('draftOutputContent').textContent;
+            navigator.clipboard.writeText(text).then(() => alert('Copied to clipboard!'));
+        }
+
+        function saveDraftToVault() {
+            const text = document.getElementById('draftOutputContent').textContent;
+            if (!text || text === 'Generating document...') return;
+            state.vault.push({
+                name: `${currentDraftType} draft - ${val('draftAccusedName') || 'Unknown'}`,
+                caseRef: val('draftCaseNo'),
+                type: 'Bail Application',
+                content: text,
+                uploadedAt: new Date().toISOString(),
+                isGenerated: true
+            });
+            saveState();
+            alert('Saved to Document Vault!');
+        }
+
+        // ═══════════════════════════════════════════════
+        // BAIL ASSISTANT
+        // ═══════════════════════════════════════════════
+        async function generateBailApplication() {
+            const bailType = val('bailType'), accused = val('bailAccused'), ageOcc = val('bailAgeOcc'),
+                firNo = val('bailFirNo'), ps = val('bailPS'), sections = val('bailSections'),
+                grounds = val('bailGrounds'), court = val('bailCourt'), custody = val('bailCustody');
+
+            if (!accused || !sections || !grounds || !court) {
+                alert('Please fill in Accused Name, Sections, Grounds, and Court.'); return;
+            }
+
+            const output = document.getElementById('bailOutputContent');
+            output.textContent = 'Drafting bail application…';
+
+            // ADD THIS: use fallback directly, no server needed
+            const fallbackText = generateFallbackDraft('bail', {
+                accused, caseNo: firNo, court, sections,
+                facts: grounds, address: ps
+            });
+
+            try {
+                const res = await fetch('/api/lawyer/bail-draft', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt: `Accused: ${accused}\nFIR: ${firNo}\nSections: ${sections}\nCourt: ${court}\nGrounds: ${grounds}` })
+                });
+
+                if (!res.ok) throw new Error('Server error');  // ADD THIS CHECK
+
+                const data = await res.json();
+                const text = data.text || fallbackText;
+                output.textContent = text;
+            } catch (e) {
+                output.textContent = fallbackText;  // Always shows something
+            }
+        
+        }
+
+        function copyBail() {
+            navigator.clipboard.writeText(document.getElementById('bailOutputContent').textContent).then(() => alert('Copied!'));
+        }
+
+        function saveBailToVault() {
+            const text = document.getElementById('bailOutputContent').textContent;
+            if (!text || text.includes('Fill the form')) return;
+            state.vault.push({
+                name: `Bail Application - ${val('bailAccused') || 'Unknown'}`,
+                caseRef: val('bailFirNo'),
+                type: 'Bail Application',
+                content: text,
+                uploadedAt: new Date().toISOString(),
+                isGenerated: true
+            });
+            saveState();
+            alert('Saved to Document Vault!');
+        }
+
+        // ═══════════════════════════════════════════════
+        // PRECEDENT FINDER
+        // ═══════════════════════════════════════════════
+        async function searchPrecedents() {
+            const query = document.getElementById('precedentQuery').value.trim();
+            const type = document.getElementById('precedentSearchType').value;
+            if (!query) { alert('Please enter a search query.'); return; }
+
+            const results = document.getElementById('precedentResults');
+            results.innerHTML = '<div class="text-center py-8 text-slate-400"><i data-lucide="loader" class="w-6 h-6 animate-spin mx-auto mb-2"></i>Searching…</div>';
+            lucide.createIcons();
+
+            try {
+                const endpoint = type === 'outcome' ? '/api/predict-outcome' : '/api/ask-law';
+                const body = type === 'outcome' ? { situation: query } : { question: query };
+                const res = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+                const data = await res.json();
+                const answer = data.prediction || data.answer || 'No results found.';
+                results.innerHTML = `<div class="prose prose-sm max-w-none p-2"><pre class="whitespace-pre-wrap text-sm text-slate-700 font-sans leading-relaxed">${esc(answer)}</pre></div>`;
+            } catch (e) {
+                results.innerHTML = '<p class="text-red-500 text-sm p-4">Failed to connect to server. Make sure the NyayaAI server is running.</p>';
+            }
+        }
+
+        function quickPrecedent(q) {
+            document.getElementById('precedentQuery').value = q;
+            searchPrecedents();
+        }
+
+        // ═══════════════════════════════════════════════
+        // e-FILING
+        // ═══════════════════════════════════════════════
+        function renderFilings() {
+            const tbody = document.getElementById('efilingTableBody');
+            const today = new Date();
+            const filed = state.filings.filter(f => f.status === 'Filed').length;
+            const pending = state.filings.filter(f => f.status === 'Pending').length;
+            const overdue = state.filings.filter(f => f.status === 'Overdue' || (f.status === 'Pending' && f.deadline && new Date(f.deadline) < today)).length;
+            document.getElementById('filed-count').textContent = filed;
+            document.getElementById('pending-filed-count').textContent = pending;
+            document.getElementById('overdue-count').textContent = overdue;
+
+            if (!state.filings.length) {
+                tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-10 text-center text-slate-400">No filings tracked yet</td></tr>'; return;
+            }
+            tbody.innerHTML = state.filings.map((f, i) => {
+                const isOverdue = f.status === 'Pending' && f.deadline && new Date(f.deadline) < today;
+                const status = isOverdue ? 'Overdue' : f.status;
+                return `<tr>
+            <td class="px-4 py-3 font-semibold text-sm">${esc(f.doc)}</td>
+            <td class="px-4 py-3 text-sm text-slate-600">${esc(f.caseNo)}</td>
+            <td class="px-4 py-3 text-sm ${isOverdue ? 'text-red-600 font-semibold' : 'text-slate-600'}">${esc(f.deadline)}</td>
+            <td class="px-4 py-3 text-sm text-slate-600">${esc(f.filedDate) || '—'}</td>
+            <td class="px-4 py-3 text-sm text-slate-600">${esc(f.ack) || '—'}</td>
+            <td class="px-4 py-3">${statusBadge(status)}</td>
+        </tr>`;
+            }).join('');
+        }
+
+        function openFilingModal() { showModal('filingModal'); }
+        function closeFilingModal() { hideModal('filingModal'); }
+
+        function saveFiling() {
+            const f = { doc: val('filingDoc'), caseNo: val('filingCase'), deadline: val('filingDeadline'), filedDate: val('filingDate'), ack: val('filingAck'), status: val('filingStatus') };
+            if (!f.doc || !f.deadline) { alert('Document name and deadline are required.'); return; }
+            state.filings.push(f);
+            saveState();
+            closeFilingModal();
+            renderFilings();
+            clearInputs(['filingDoc', 'filingCase', 'filingDeadline', 'filingDate', 'filingAck']);
+        }
+
+        // ═══════════════════════════════════════════════
+        // DOCUMENT VAULT
+        // ═══════════════════════════════════════════════
+        function renderVault(data) {
+            const docs = data || state.vault;
+            const grid = document.getElementById('vaultGrid');
+            if (!docs.length) {
+                grid.innerHTML = '<div class="col-span-full py-16 text-center text-slate-300"><i data-lucide="folder-open" class="w-16 h-16 mx-auto mb-3"></i><p class="text-sm">No documents uploaded yet</p></div>';
+                lucide.createIcons(); return;
+            }
+            const icons = { 'FIR': 'file-text', 'Chargesheet': 'file-warning', 'Court Order': 'gavel', 'Bail Application': 'shield-check', 'Evidence': 'camera', 'Petition': 'scroll', 'Other': 'file' };
+            grid.innerHTML = docs.map((d, i) => `
+        <div class="bg-white border border-slate-200 rounded-xl p-4 hover:border-blue-300 transition shadow-sm">
+            <div class="flex items-start justify-between mb-3">
+                <div class="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center">
+                    <i data-lucide="${icons[d.type] || 'file'}" class="w-5 h-5 text-blue-600"></i>
+                </div>
+                <button onclick="deleteVaultDoc(${i})" class="text-slate-300 hover:text-red-400 text-lg font-bold">×</button>
+            </div>
+            <p class="font-semibold text-sm text-slate-800 truncate">${esc(d.name)}</p>
+            <p class="text-xs text-slate-400 mt-1">${esc(d.type)} · ${esc(d.caseRef) || 'No case'}</p>
+            <p class="text-xs text-slate-300 mt-1">${new Date(d.uploadedAt).toLocaleDateString('en-IN')}</p>
+        </div>`).join('');
+            lucide.createIcons();
+
+            // Populate vault case filter
+            const cases = [...new Set(state.vault.map(d => d.caseRef).filter(Boolean))];
+            const cf = document.getElementById('vaultCaseFilter');
+            cf.innerHTML = '<option value="">All Cases</option>' + cases.map(c => `<option>${esc(c)}</option>`).join('');
+        }
+
+        function filterVault() {
+            const q = document.getElementById('vaultSearch').value.toLowerCase();
+            const c = document.getElementById('vaultCaseFilter').value;
+            const t = document.getElementById('vaultTypeFilter').value;
+            const filtered = state.vault.filter(d =>
+                (!q || d.name.toLowerCase().includes(q)) &&
+                (!c || d.caseRef === c) &&
+                (!t || d.type === t)
+            );
+            renderVault(filtered);
+        }
+
+        function openVaultUpload() { showModal('vaultModal'); }
+        function closeVaultModal() { hideModal('vaultModal'); }
+
+        function saveVaultDoc() {
+            const doc = { name: val('vaultDocName'), caseRef: val('vaultCaseRef'), type: val('vaultDocType'), uploadedAt: new Date().toISOString(), isGenerated: false };
+            if (!doc.name) { alert('Document name is required.'); return; }
+            state.vault.push(doc);
+            saveState();
+            closeVaultModal();
+            renderVault();
+            clearInputs(['vaultDocName', 'vaultCaseRef']);
+        }
+
+        function deleteVaultDoc(i) {
+            if (!confirm('Remove this document from vault?')) return;
+            state.vault.splice(i, 1); saveState(); renderVault();
+        }
+
+        // ═══════════════════════════════════════════════
+        // ORDER REPOSITORY
+        // ═══════════════════════════════════════════════
+        function renderOrders(data) {
+            const orders = data || state.orders;
+            const tbody = document.getElementById('ordersTableBody');
+            if (!orders.length) {
+                tbody.innerHTML = '<tr><td colspan="7" class="px-4 py-10 text-center text-slate-400">No orders recorded yet</td></tr>'; return;
+            }
+            const typeColors = { 'Bail Granted': 'green', 'Bail Rejected': 'red', 'Adjournment': 'blue', 'Final Judgment': 'purple', 'Interim Order': 'amber', 'Stay Order': 'teal', 'Other': 'slate' };
+            tbody.innerHTML = orders.map((o, i) => {
+                const c = typeColors[o.type] || 'slate';
+                return `<tr>
+            <td class="px-4 py-3 font-semibold text-sm">${esc(o.title)}</td>
+            <td class="px-4 py-3 text-sm text-blue-700 font-mono">${esc(o.caseNo)}</td>
+            <td class="px-4 py-3 text-xs text-slate-600">${esc(o.court)}</td>
+            <td class="px-4 py-3 text-sm text-slate-600">${esc(o.date)}</td>
+            <td class="px-4 py-3"><span class="text-xs font-semibold bg-${c}-100 text-${c}-700 px-2 py-1 rounded-full">${esc(o.type)}</span></td>
+            <td class="px-4 py-3 text-xs text-slate-600 max-w-xs truncate">${esc(o.summary)}</td>
+            <td class="px-4 py-3"><button onclick="deleteOrder(${i})" class="text-xs text-red-400 hover:text-red-600">Delete</button></td>
+        </tr>`;
+            }).join('');
+        }
+
+        function filterOrders() {
+            const q = document.getElementById('orderSearch').value.toLowerCase();
+            const t = document.getElementById('orderTypeFilter').value;
+            const filtered = state.orders.filter(o =>
+                (!q || o.title.toLowerCase().includes(q) || o.caseNo.toLowerCase().includes(q) || o.summary.toLowerCase().includes(q)) &&
+                (!t || o.type === t)
+            );
+            renderOrders(filtered);
+        }
+
+        function openOrderModal() { showModal('orderModal'); }
+        function closeOrderModal() { hideModal('orderModal'); }
+
+        function saveOrder() {
+            const o = { title: val('orderTitle'), caseNo: val('orderCaseNo'), court: val('orderCourt'), date: val('orderDate'), type: val('orderType'), summary: val('orderSummary') };
+            if (!o.title || !o.caseNo || !o.summary) { alert('Title, Case No., and Summary are required.'); return; }
+            state.orders.push(o);
+            saveState();
+            closeOrderModal();
+            renderOrders();
+            clearInputs(['orderTitle', 'orderCaseNo', 'orderCourt', 'orderDate', 'orderSummary']);
+        }
+
+        function deleteOrder(i) {
+            if (!confirm('Delete this order?')) return;
+            state.orders.splice(i, 1); saveState(); renderOrders();
+        }
+
+        // ═══════════════════════════════════════════════
+        // CLIENT PORTAL
+        // ═══════════════════════════════════════════════
+        function renderClients() {
+            const grid = document.getElementById('clientsGrid');
+            if (!state.clients.length) {
+                grid.innerHTML = '<div class="col-span-full py-16 text-center text-slate-300"><i data-lucide="users" class="w-16 h-16 mx-auto mb-3"></i><p class="text-sm">No clients added yet</p></div>';
+                lucide.createIcons(); return;
+            }
+            grid.innerHTML = state.clients.map((c, i) => {
+                const linkedCase = state.cases.find(cs => cs.caseNo === c.caseNo);
+                const today = new Date();
+                const nextHearing = linkedCase?.hearing ? linkedCase.hearing : null;
+                const days = nextHearing ? Math.ceil((new Date(nextHearing) - today) / 86400000) : null;
+                return `<div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+            <div class="flex items-start justify-between mb-3">
+                <div class="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold">${c.name.charAt(0).toUpperCase()}</div>
+                <button onclick="deleteClient(${i})" class="text-slate-300 hover:text-red-400 text-lg font-bold">×</button>
+            </div>
+            <p class="font-bold text-slate-800">${esc(c.name)}</p>
+            <p class="text-xs text-slate-400 mt-0.5">${esc(c.phone)}</p>
+            ${c.caseNo ? `<p class="text-xs text-blue-600 font-semibold mt-2">Case: ${esc(c.caseNo)}</p>` : ''}
+            ${linkedCase ? `<p class="text-xs text-slate-500">${esc(linkedCase.court)}</p>
+                <p class="text-xs font-semibold mt-1 ${days !== null && days <= 2 ? 'text-red-600' : 'text-slate-600'}">${nextHearing ? `Next: ${nextHearing}${days !== null ? ` (${days === 0 ? 'Today!' : days < 0 ? 'Past' : `${days}d`})` : ''}` : 'No hearing set'}</p>
+                <div class="mt-2">${statusBadge(linkedCase.status)}</div>` : ''}
+            ${c.notes ? `<p class="text-xs text-slate-400 mt-2 italic">${esc(c.notes)}</p>` : ''}
+        </div>`;
+            }).join('');
+            lucide.createIcons();
+        }
+
+        function openClientModal() { showModal('clientModal'); }
+        function closeClientModal() { hideModal('clientModal'); }
+
+        function saveClient() {
+            const c = { name: val('clientName'), phone: val('clientPhone'), caseNo: val('clientCase'), email: val('clientEmail'), notes: val('clientNotes') };
+            if (!c.name || !c.phone) { alert('Name and phone are required.'); return; }
+            state.clients.push(c);
+            saveState();
+            closeClientModal();
+            renderClients();
+            renderOverview();
+            clearInputs(['clientName', 'clientPhone', 'clientCase', 'clientEmail', 'clientNotes']);
+        }
+
+        function deleteClient(i) {
+            if (!confirm('Delete this client?')) return;
+            state.clients.splice(i, 1); saveState(); renderClients(); renderOverview();
+        }
+
+        // ═══════════════════════════════════════════════
+        // FEE TRACKER
+        // ═══════════════════════════════════════════════
+        function renderFees() {
+            const tbody = document.getElementById('feesTableBody');
+            const today = new Date();
+            let total = 0, paid = 0, pending = 0, overdue = 0;
+            state.fees.forEach(f => {
+                const amt = parseInt(f.amount || 0);
+                total += amt;
+                const isOverdue = f.status === 'Pending' && f.dueDate && new Date(f.dueDate) < today;
+                if (f.status === 'Paid') paid += amt;
+                else if (isOverdue || f.status === 'Overdue') overdue += amt;
+                else pending += amt;
+            });
+            document.getElementById('fee-total').textContent = total.toLocaleString('en-IN');
+            document.getElementById('fee-paid').textContent = paid.toLocaleString('en-IN');
+            document.getElementById('fee-pending').textContent = pending.toLocaleString('en-IN');
+            document.getElementById('fee-overdue').textContent = overdue.toLocaleString('en-IN');
+
+            if (!state.fees.length) {
+                tbody.innerHTML = '<tr><td colspan="8" class="px-4 py-10 text-center text-slate-400">No invoices yet</td></tr>'; return;
+            }
+            tbody.innerHTML = state.fees.map((f, i) => {
+                const isOverdue = f.status === 'Pending' && f.dueDate && new Date(f.dueDate) < today;
+                const displayStatus = isOverdue ? 'Overdue' : f.status;
+                return `<tr>
+            <td class="px-4 py-3 font-mono text-xs text-blue-700">INV-${String(i + 1).padStart(3, '0')}</td>
+            <td class="px-4 py-3 font-semibold text-sm">${esc(f.client)}</td>
+            <td class="px-4 py-3 text-xs text-slate-500">${esc(f.caseNo) || '—'}</td>
+            <td class="px-4 py-3 text-sm text-slate-600">${esc(f.description)}</td>
+            <td class="px-4 py-3 font-semibold">₹${parseInt(f.amount).toLocaleString('en-IN')}</td>
+            <td class="px-4 py-3 text-sm ${isOverdue ? 'text-red-600 font-semibold' : 'text-slate-600'}">${esc(f.dueDate) || '—'}</td>
+            <td class="px-4 py-3">${statusBadge(displayStatus)}</td>
+            <td class="px-4 py-3">
+                ${f.status !== 'Paid' ? `<button onclick="markFeePaid(${i})" class="text-xs text-green-600 hover:underline">Mark Paid</button>` : ''}
+                <button onclick="deleteFee(${i})" class="text-xs text-red-400 hover:text-red-600 ml-2">Del</button>
+            </td>
+        </tr>`;
+            }).join('');
+        }
+
+        function openFeeModal() { showModal('feeModal'); }
+        function closeFeeModal() { hideModal('feeModal'); }
+
+        function saveFee() {
+            const f = { client: val('feeClient'), caseNo: val('feeCaseNo'), description: val('feeDescription'), amount: val('feeAmount'), dueDate: val('feeDueDate'), status: val('feeStatus') };
+            if (!f.client || !f.description || !f.amount) { alert('Client, description, and amount are required.'); return; }
+            state.fees.push(f);
+            saveState();
+            closeFeeModal();
+            renderFees();
+            renderOverview();
+            clearInputs(['feeClient', 'feeCaseNo', 'feeDescription', 'feeAmount', 'feeDueDate']);
+        }
+
+        function markFeePaid(i) { state.fees[i].status = 'Paid'; saveState(); renderFees(); renderOverview(); }
+        function deleteFee(i) { if (!confirm('Delete?')) return; state.fees.splice(i, 1); saveState(); renderFees(); renderOverview(); }
+
+        // ═══════════════════════════════════════════════
+        // TIMELINE
+        // ═══════════════════════════════════════════════
+        function renderTimelineSelect() {
+            const selects = [document.getElementById('timelineCaseSelect'), document.getElementById('timelineEventCase')];
+            selects.forEach(sel => {
+                if (!sel) return;
+                sel.innerHTML = '<option value="">Select a case…</option>' + state.cases.map(c => `<option value="${esc(c.caseNo)}">${esc(c.caseNo)} — ${esc(c.client)}</option>`).join('');
+            });
+        }
+
+        function loadTimeline() {
+            const caseNo = val('timelineCaseSelect');
+            const container = document.getElementById('timelineContainer');
+            if (!caseNo) { container.innerHTML = '<div class="text-slate-300 text-center py-16"><i data-lucide="git-commit-horizontal" class="w-12 h-12 mx-auto mb-3"></i><p class="text-sm">Select a case to view its timeline</p></div>'; lucide.createIcons(); return; }
+            const events = state.timeline.filter(e => e.caseNo === caseNo).sort((a, b) => new Date(a.date) - new Date(b.date));
+            if (!events.length) {
+                container.innerHTML = '<div class="text-slate-400 text-sm py-8">No events for this case yet. Add the first event.</div>'; return;
+            }
+            const typeColors = { 'Hearing': 'blue', 'Filing': 'green', 'Order Received': 'purple', 'Arrest': 'red', 'Bail Application': 'teal', 'Investigation': 'amber', 'Judgment': 'orange', 'Other': 'slate' };
+            container.innerHTML = events.map(e => {
+                const color = typeColors[e.type] || 'slate';
+                return `<div class="relative">
+            <div class="absolute -left-10 w-5 h-5 rounded-full bg-${color}-500 border-4 border-white shadow"></div>
+            <div class="bg-white rounded-xl border border-slate-100 shadow-sm p-4">
+                <div class="flex items-start justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-${color}-600 bg-${color}-50 px-2 py-0.5 rounded-full inline-block mb-1">${esc(e.type)}</p>
+                        <p class="font-bold text-slate-800">${esc(e.title)}</p>
+                        ${e.notes ? `<p class="text-sm text-slate-500 mt-1">${esc(e.notes)}</p>` : ''}
+                    </div>
+                    <p class="text-xs text-slate-400 whitespace-nowrap ml-4">${esc(e.date)}</p>
+                </div>
+            </div>
+        </div>`;
+            }).join('');
+        }
+
+        function openTimelineEventModal() { showModal('timelineEventModal'); renderTimelineSelect(); lucide.createIcons(); }
+        function closeTimelineEventModal() { hideModal('timelineEventModal'); }
+
+        function saveTimelineEvent() {
+            const e = { caseNo: val('timelineEventCase'), date: val('timelineEventDate'), type: val('timelineEventType'), title: val('timelineEventTitle'), notes: val('timelineEventNotes') };
+            if (!e.caseNo || !e.date || !e.title) { alert('Case, date, and title are required.'); return; }
+            state.timeline.push(e);
+            saveState();
+            closeTimelineEventModal();
+            document.getElementById('timelineCaseSelect').value = e.caseNo;
+            loadTimeline();
+        }
+
+        // ═══════════════════════════════════════════════
+        // AMENDMENT TRACKER (same data as index.html)
+        // ═══════════════════════════════════════════════
+        const AMENDMENTS_DATA = [
+            { old: 'IPC 302', newAct: 'BNS', newSec: '101', title: 'Murder', change: 'Retained with same punishment (death/life imprisonment).' },
+            { old: 'IPC 376', newAct: 'BNS', newSec: '63', title: 'Rape', change: 'Definition expanded; new provisions for gang rape and repeat offenders.' },
+            { old: 'IPC 420', newAct: 'BNS', newSec: '318', title: 'Cheating', change: 'Retained; now includes digital/online cheating explicitly.' },
+            { old: 'IPC 124A', newAct: 'BNS', newSec: '152', title: 'Sedition', change: 'Replaced with "Acts endangering sovereignty" — broader scope.' },
+            { old: 'IPC 499', newAct: 'BNS', newSec: '356', title: 'Defamation', change: 'Retained; digital defamation now covered explicitly.' },
+            { old: 'IPC 300', newAct: 'BNS', newSec: '100', title: 'Culpable homicide', change: 'Retained with reorganised exceptions.' },
+            { old: 'IPC 378', newAct: 'BNS', newSec: '303', title: 'Theft', change: 'Retained; includes data/digital property.' },
+            { old: 'IPC 383', newAct: 'BNS', newSec: '308', title: 'Extortion', change: 'Retained; cyber extortion included.' },
+            { old: 'IPC 34', newAct: 'BNS', newSec: '3(5)', title: 'Common intention', change: 'Retained; slightly cleaner language.' },
+            { old: 'IPC 307', newAct: 'BNS', newSec: '109', title: 'Attempt to murder', change: 'Retained with same punishment.' },
+            { old: 'IPC 304B', newAct: 'BNS', newSec: '80', title: 'Dowry death', change: 'Retained; definition unchanged.' },
+            { old: 'IPC 498A', newAct: 'BNS', newSec: '85', title: 'Cruelty by husband', change: 'Retained with same punishment.' },
+            { old: 'CrPC 154', newAct: 'BNSS', newSec: '173', title: 'FIR', change: 'FIR must be provided to informant within 7 days; e-FIR introduced.' },
+            { old: 'CrPC 41', newAct: 'BNSS', newSec: '35', title: 'Arrest without warrant', change: 'Written reasons for arrest now mandatory; recorded in arrest memo.' },
+            { old: 'CrPC 167', newAct: 'BNSS', newSec: '187', title: 'Remand', change: '15-day remand now split — first 15 days need not be continuous.' },
+            { old: 'CrPC 438', newAct: 'BNSS', newSec: '482', title: 'Anticipatory bail', change: 'Retained; no automatic expiry at trial start.' },
+            { old: 'CrPC 320', newAct: 'BNSS', newSec: '359', title: 'Compounding offences', change: 'More offences compoundable; victim compensation emphasised.' },
+            { old: 'CrPC 173', newAct: 'BNSS', newSec: '193', title: 'Police report', change: 'Mandatory 90-day timeline for chargesheet filing.' },
+            { old: 'Evidence 3', newAct: 'BSA', newSec: '2', title: 'Definitions', change: 'Electronic records explicitly defined; includes cloud storage, emails.' },
+            { old: 'Evidence 65B', newAct: 'BSA', newSec: '63', title: 'Electronic evidence', change: 'Certificate requirements simplified; easier admission of digital evidence.' },
+            { old: 'Evidence 27', newAct: 'BSA', newSec: '23', title: 'Discovery from accused', change: 'Retained; same scope for confessions leading to discovery.' },
+        ];
+
+        function preloadAmendments() {
+            renderAmendmentResults(AMENDMENTS_DATA.slice(0, 8));
+        }
+
+        function searchAmendmentsLawyer() {
+            const q = document.getElementById('amendSearchLawyer').value.trim().toLowerCase();
+            if (!q) { renderAmendmentResults(AMENDMENTS_DATA.slice(0, 8)); return; }
+            const matches = AMENDMENTS_DATA.filter(a =>
+                a.old.toLowerCase().includes(q) || a.title.toLowerCase().includes(q) ||
+                a.newSec.toLowerCase().includes(q) || a.newAct.toLowerCase().includes(q)
+            );
+            renderAmendmentResults(matches);
+        }
+
+        function renderAmendmentResults(items) {
+            const container = document.getElementById('amendResultsLawyer');
+            const colors = { BNS: 'green', BNSS: 'blue', BSA: 'purple' };
+            if (!items.length) { container.innerHTML = '<p class="col-span-2 text-slate-400 text-sm">No matching amendments found.</p>'; return; }
+            container.innerHTML = items.map(a => {
+                const c = colors[a.newAct] || 'slate';
+                return `<div class="bg-white border border-slate-200 rounded-xl px-4 py-3 shadow-sm">
+            <div class="flex items-center gap-2 mb-1 flex-wrap">
+                <span class="font-bold text-slate-700 text-sm">${a.old}</span>
+                <span class="text-slate-400 text-xs">→</span>
+                <span class="text-xs font-bold bg-${c}-100 text-${c}-700 px-2 py-0.5 rounded-full">${a.newAct} § ${a.newSec}</span>
+                <span class="text-xs text-slate-500">${a.title}</span>
+            </div>
+            <p class="text-xs text-slate-600 leading-relaxed">${a.change}</p>
+        </div>`;
+            }).join('');
+        }
+
+        // ═══════════════════════════════════════════════
+        // HELPERS
+        // ═══════════════════════════════════════════════
+        function val(id) { const el = document.getElementById(id); return el ? el.value.trim() : ''; }
+        function esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+        function clearInputs(ids) { ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; }); }
+
+        function showModal(id) {
+            const m = document.getElementById(id);
+            m.classList.remove('hidden');
+            m.classList.add('flex');
+        }
+        function hideModal(id) {
+            const m = document.getElementById(id);
+            m.classList.add('hidden');
+            m.classList.remove('flex');
+        }
+
+        // Close modals on backdrop click
+        document.querySelectorAll('.modal-backdrop').forEach(m => {
+            m.addEventListener('click', e => { if (e.target === m) { m.classList.add('hidden'); m.classList.remove('flex'); } });
+        });
+
+        function statusBadge(status) {
+            const map = {
+                'Active': 'badge-active', 'Hearing': 'badge-hearing', 'Urgent': 'badge-urgent',
+                'Decided': 'badge-closed', 'Adjourned': 'badge-pending', 'Closed': 'badge-closed',
+                'Filed': 'badge-active', 'Pending': 'badge-pending', 'Overdue': 'badge-urgent',
+                'Paid': 'badge-active'
+            };
+            return `<span class="inline-flex text-xs font-bold px-2 py-1 rounded-full ${map[status] || 'badge-pending'}">${esc(status)}</span>`;
+        }
+
+        function populateCaseDropdowns() {
+            // Keep vault and timeline select updated with new cases
+            ['vaultCaseFilter'].forEach(id => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                const existing = [...el.options].map(o => o.value).filter(Boolean);
+                state.cases.forEach(c => {
+                    if (!existing.includes(c.caseNo)) el.innerHTML += `<option value="${esc(c.caseNo)}">${esc(c.caseNo)}</option>`;
+                });
+            });
+        }
+    </script>
+</body>
+
+</html>

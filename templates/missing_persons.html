@@ -1,0 +1,638 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="p-6 bg-gradient-to-br from-slate-50 to-blue-50 min-h-screen">
+  <div class="max-w-7xl mx-auto" id="mp-root">
+
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h2 class="text-3xl font-serif font-bold text-blue-900">Missing Persons</h2>
+        <p class="text-slate-500 mt-1 text-sm">Community sightings + AI-powered face recognition</p>
+      </div>
+      <div class="flex items-center gap-2 bg-blue-50 border border-blue-200 px-4 py-2 rounded-lg">
+        <i data-lucide="scan-face" class="w-5 h-5 text-blue-600"></i>
+        <span class="text-sm font-semibold text-blue-700" id="mp-role-badge">Loading…</span>
+      </div>
+    </div>
+
+    <!-- Not logged in banner -->
+    <div id="mp-not-logged-in" class="hidden bg-yellow-50 border border-yellow-200 rounded-xl p-10 text-center">
+      <i data-lucide="lock" class="w-14 h-14 text-yellow-300 mx-auto mb-4"></i>
+      <h3 class="text-xl font-bold text-yellow-800 mb-2">Login Required</h3>
+      <p class="text-slate-500 mb-6">Please sign in to access the Missing Persons feature.</p>
+      <a href="/login" class="px-6 py-2.5 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition">Sign
+        In</a>
+    </div>
+
+    <!-- Main UI (hidden until role is resolved) -->
+    <div id="mp-main" class="hidden">
+
+      <!-- Tabs -->
+      <div class="flex gap-1 mb-8 bg-slate-100 p-1 rounded-xl w-fit">
+        <button onclick="mpShowTab('police')" id="mp-tab-police"
+          class="mp-tab hidden px-5 py-2.5 rounded-lg font-semibold text-sm text-slate-600 hover:bg-white/70 transition">
+          <i data-lucide="shield" class="w-4 h-4 inline mr-1"></i>Police Dashboard
+        </button>
+        <button onclick="mpShowTab('citizen')" id="mp-tab-citizen"
+          class="mp-tab px-5 py-2.5 rounded-lg font-semibold text-sm bg-white text-blue-700 shadow transition">
+          <i data-lucide="users" class="w-4 h-4 inline mr-1"></i>Citizen Reports
+        </button>
+        <button onclick="mpShowTab('matches')" id="mp-tab-matches"
+          class="mp-tab hidden px-5 py-2.5 rounded-lg font-semibold text-sm text-slate-600 hover:bg-white/70 transition">
+          <i data-lucide="check-circle" class="w-4 h-4 inline mr-1"></i>Confirmed Matches
+        </button>
+      </div>
+
+      <!-- ══ POLICE TAB ══ -->
+      <div id="mp-section-police" class="mp-section hidden">
+        <div class="grid lg:grid-cols-2 gap-8">
+
+          <!-- Upload form -->
+          <div class="bg-white p-6 rounded-xl shadow-lg border border-slate-100">
+            <div class="flex items-center mb-5">
+              <i data-lucide="plus-circle" class="w-6 h-6 text-blue-600 mr-3"></i>
+              <h3 class="text-xl font-bold text-slate-800">Report Missing Person</h3>
+            </div>
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Full Name *</label>
+                <input type="text" id="mp-name" placeholder="e.g. Ramesh Kumar"
+                  class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+              </div>
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-sm font-medium text-slate-700 mb-1">Age</label>
+                  <input type="number" id="mp-age" min="0" max="120" placeholder="Age"
+                    class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-slate-700 mb-1">Gender</label>
+                  <select id="mp-gender"
+                    class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+                    <option value="">Select</option>
+                    <option>Male</option>
+                    <option>Female</option>
+                    <option>Other</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Description</label>
+                <textarea id="mp-description" rows="2"
+                  class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-none text-sm"
+                  placeholder="Physical features, identifying marks, last clothing…"></textarea>
+              </div>
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-sm font-medium text-slate-700 mb-1">Last Seen Location</label>
+                  <input type="text" id="mp-last-location" placeholder="Area / address"
+                    class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-slate-700 mb-1">Last Seen Date</label>
+                  <input type="date" id="mp-last-date"
+                    class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+                </div>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Photo *</label>
+                <div
+                  class="border-2 border-dashed border-blue-200 rounded-xl p-6 text-center hover:border-blue-500 hover:bg-blue-50 transition cursor-pointer bg-slate-50 group"
+                  onclick="document.getElementById('mp-police-photo').click()">
+                  <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" id="mp-police-photo"
+                    class="hidden" onchange="mpPreviewPhoto(this,'mp-police-preview','mp-police-photo-label')">
+                  <div
+                    class="w-14 h-14 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-3 group-hover:bg-blue-200 transition">
+                    <i data-lucide="upload-cloud" class="w-7 h-7 text-blue-500"></i>
+                  </div>
+                  <p class="text-sm font-semibold text-slate-600" id="mp-police-photo-label">Click to upload a clear
+                    frontal photo</p>
+                  <p class="text-xs text-slate-400 mt-1">JPG, PNG, WEBP — max 10MB</p>
+                </div>
+                <div id="mp-police-preview-wrapper" class="mt-3 hidden">
+                  <div class="relative rounded-xl overflow-hidden border-2 border-blue-200 bg-slate-100">
+                    <img id="mp-police-preview" class="w-full object-contain" style="max-height: 320px; height: auto;"
+                      alt="Preview">
+                    <div class="absolute top-2 right-2">
+                      <span class="bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full">✓ Photo
+                        ready</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <button type="button" id="mp-submit-btn" onclick="mpSubmitReport()"
+                class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold flex items-center justify-center gap-2 shadow transition text-sm">
+                <i data-lucide="upload-cloud" class="w-5 h-5"></i>Submit Report
+              </button>
+            </div>
+            <div id="mp-upload-status" class="mt-4 hidden p-3 rounded-lg text-sm"></div>
+          </div>
+
+          <!-- Active list -->
+          <div class="bg-white p-6 rounded-xl shadow-lg border border-slate-100">
+            <div class="flex justify-between items-center mb-5">
+              <h3 class="text-xl font-bold text-slate-800">Active Missing Persons</h3>
+              <button onclick="mpLoadPoliceList()"
+                class="px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 transition font-semibold">
+                Refresh
+              </button>
+            </div>
+            <div id="mp-police-list" class="space-y-3 max-h-[520px] overflow-y-auto pr-1">
+              <p class="text-slate-400 text-center py-8">Loading…</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ CITIZEN TAB ══ -->
+      <div id="mp-section-citizen" class="mp-section hidden">
+        <div class="bg-white p-6 rounded-xl shadow-lg border border-slate-100">
+          <h3 class="text-xl font-bold text-slate-800 mb-1">Report a Sighting</h3>
+          <p class="text-slate-500 text-sm mb-6">
+            Seen one of these people? Click <strong>Report Sighting</strong> and upload a photo —
+            our AI compares faces instantly.
+          </p>
+          <div id="mp-citizen-list" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            <p class="text-slate-400 col-span-full text-center py-8">Loading…</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ MATCHES TAB ══ -->
+      <div id="mp-section-matches" class="mp-section hidden">
+        <div class="bg-white p-6 rounded-xl shadow-lg border border-slate-100">
+          <div class="flex justify-between items-center mb-5">
+            <h3 class="text-xl font-bold text-slate-800">Confirmed Matches</h3>
+            <button onclick="mpLoadMatches()"
+              class="px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 transition font-semibold">
+              Refresh
+            </button>
+          </div>
+          <div id="mp-matches-list" class="space-y-5">
+            <p class="text-slate-400 text-center py-8">Loading…</p>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /mp-main -->
+  </div><!-- /mp-root -->
+</div>
+
+<!-- ══ SIGHTING MODAL ══ -->
+<div id="mp-sighting-modal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+  <div class="bg-white rounded-xl p-7 max-w-lg w-full shadow-2xl">
+    <div class="flex items-start justify-between mb-5">
+      <div>
+        <h3 class="text-xl font-bold text-slate-900">Report Sighting</h3>
+        <p class="text-sm text-slate-400 mt-0.5" id="mp-sighting-person-name"></p>
+      </div>
+      <button onclick="mpCloseSightingModal()"
+        class="text-slate-400 hover:text-red-500 text-3xl leading-none">&times;</button>
+    </div>
+    <input type="hidden" id="mp-sighting-person-id">
+    <div class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1">Location *</label>
+        <input type="text" id="mp-sighting-location" placeholder="Where did you see this person?"
+          class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1">Date *</label>
+        <input type="date" id="mp-sighting-date"
+          class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1">Photo *</label>
+        <div
+          class="border-2 border-dashed border-slate-200 rounded-lg p-5 text-center hover:border-blue-400 hover:bg-blue-50 transition cursor-pointer"
+          onclick="document.getElementById('mp-sighting-photo').click()">
+          <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" id="mp-sighting-photo" class="hidden"
+            onchange="mpPreviewPhoto(this,'mp-sighting-preview','mp-sighting-photo-label')">
+          <i data-lucide="camera" class="w-9 h-9 text-slate-300 mx-auto mb-1"></i>
+          <p class="text-sm text-slate-500" id="mp-sighting-photo-label">Click to upload photo</p>
+        </div>
+        <img id="mp-sighting-preview" class="mt-3 rounded-lg w-full object-contain max-h-72 hidden" style="height:auto;"
+          alt="Preview">
+      </div>
+      <div id="mp-sighting-result" class="hidden p-4 rounded-lg border-l-4 text-sm"></div>
+    </div>
+    <div class="flex gap-3 mt-5">
+      <button onclick="mpCloseSightingModal()"
+        class="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold py-2.5 rounded-lg transition text-sm">
+        Cancel
+      </button>
+      <button id="mp-sighting-submit" onclick="mpSubmitSighting()"
+        class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-lg transition text-sm">
+        Submit Sighting
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SIGHTINGS LIST MODAL (Police) ══ -->
+<div id="mp-sightings-list-modal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+  <div class="bg-white rounded-xl p-7 max-w-2xl w-full shadow-2xl max-h-[88vh] overflow-y-auto">
+    <div class="flex items-center justify-between mb-5">
+      <h3 class="text-xl font-bold text-slate-900">All Sightings</h3>
+      <button onclick="document.getElementById('mp-sightings-list-modal').classList.add('hidden')"
+        class="text-slate-400 hover:text-red-500 text-3xl leading-none">&times;</button>
+    </div>
+    <div id="mp-sightings-list-content" class="space-y-3"></div>
+  </div>
+</div>
+
+<script>
+  // ============================================================
+  //  MISSING PERSONS — all functions prefixed mp_ to avoid
+  //  conflicts with other scripts on the page
+  // ============================================================
+
+  var MP_ROLE = null;
+
+  // ── Boot ──────────────────────────────────────────────────────
+  function mpBoot() {
+    fetch('/api/me')
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data.logged_in) {
+          document.getElementById('mp-not-logged-in').classList.remove('hidden');
+          document.getElementById('mp-role-badge').textContent = 'Not logged in';
+          return;
+        }
+        _mpInit(data.role);
+      })
+      .catch(function (err) {
+        console.warn('[MP] /api/me failed, falling back to citizen view:', err);
+        _mpInit('citizen');
+      });
+  }
+
+  function _mpInit(role) {
+    MP_ROLE = role || 'citizen';
+    var labels = { police: 'Police Officer', citizen: 'Citizen', lawyer: 'Lawyer', judge: 'Judge' };
+    document.getElementById('mp-role-badge').textContent = labels[MP_ROLE] || MP_ROLE;
+    document.getElementById('mp-main').classList.remove('hidden');
+
+    if (MP_ROLE === 'police' || MP_ROLE === 'admin' || MP_ROLE === 'officer') {
+      document.getElementById('mp-tab-police').classList.remove('hidden');
+      document.getElementById('mp-tab-matches').classList.remove('hidden');
+      mpShowTab('police');
+    } else {
+      mpShowTab('citizen');
+    }
+    if (window.lucide) lucide.createIcons();
+  }
+
+  document.addEventListener('DOMContentLoaded', mpBoot);
+
+  // ── Tab switching ────────────────────────────────────────────
+  function mpShowTab(tab) {
+    var isPolice = (MP_ROLE === 'police' || MP_ROLE === 'admin' || MP_ROLE === 'officer');
+    if ((tab === 'police' || tab === 'matches') && !isPolice) {
+      alert('This section is for Police Officers only.');
+      return;
+    }
+
+    document.querySelectorAll('.mp-section').forEach(function (el) { el.classList.add('hidden'); });
+    document.querySelectorAll('.mp-tab').forEach(function (btn) {
+      btn.classList.remove('bg-white', 'text-blue-700', 'shadow');
+      btn.classList.add('text-slate-600');
+    });
+
+    document.getElementById('mp-section-' + tab).classList.remove('hidden');
+    var activeBtn = document.getElementById('mp-tab-' + tab);
+    if (activeBtn) {
+      activeBtn.classList.add('bg-white', 'text-blue-700', 'shadow');
+      activeBtn.classList.remove('text-slate-600');
+    }
+
+    if (tab === 'police') mpLoadPoliceList();
+    if (tab === 'citizen') mpLoadCitizenList();
+    if (tab === 'matches') mpLoadMatches();
+  }
+
+  // ── Photo preview ────────────────────────────────────────────
+  function mpPreviewPhoto(input, previewId, labelId) {
+    var f = input.files[0];
+    if (!f) return;
+    document.getElementById(labelId).textContent = f.name;
+    var reader = new FileReader();
+    reader.onload = function (ev) {
+      var img = document.getElementById(previewId);
+      img.src = ev.target.result;
+      img.classList.remove('hidden');
+    };
+    reader.readAsDataURL(f);
+  }
+
+  // ── Police: submit report ────────────────────────────────────
+  function mpSubmitReport() {
+    var name = (document.getElementById('mp-name').value || '').trim();
+    var photo = document.getElementById('mp-police-photo').files[0];
+    if (!name) { mpShowUploadStatus('error', 'Full name is required.'); return; }
+    if (!photo) { mpShowUploadStatus('error', 'Please select a photo.'); return; }
+
+    var btn = document.getElementById('mp-submit-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Uploading…';
+    if (window.lucide) lucide.createIcons();
+
+    var fd = new FormData();
+    fd.append('name', name);
+    fd.append('age', document.getElementById('mp-age').value || '');
+    fd.append('gender', document.getElementById('mp-gender').value || '');
+    fd.append('description', document.getElementById('mp-description').value || '');
+    fd.append('last_seen_location', document.getElementById('mp-last-location').value || '');
+    fd.append('last_seen_date', document.getElementById('mp-last-date').value || '');
+    fd.append('photo', photo, photo.name);
+
+    fetch('/upload_missing_person', { method: 'POST', body: fd })
+      .then(function (r) {
+        if (!r.ok) return r.json().then(function (e) { throw new Error(e.error || 'Upload failed'); });
+        return r.json();
+      })
+      .then(function (data) {
+        if (data.success) {
+          mpShowUploadStatus('success', data.message);
+          ['mp-name', 'mp-age', 'mp-description', 'mp-last-location', 'mp-last-date'].forEach(function (id) {
+            document.getElementById(id).value = '';
+          });
+          document.getElementById('mp-gender').value = '';
+          document.getElementById('mp-police-photo').value = '';
+          document.getElementById('mp-police-preview').classList.add('hidden');
+          document.getElementById('mp-police-photo-label').textContent = 'Click to upload a clear frontal photo (JPG / PNG)';
+          setTimeout(mpLoadPoliceList, 700);
+        } else {
+          mpShowUploadStatus('error', data.error || 'Upload failed.');
+        }
+      })
+      .catch(function (e) {
+        mpShowUploadStatus('error', e.message || 'Network error — please try again.');
+      })
+      .finally(function () {
+        btn.disabled = false;
+        btn.innerHTML = '<i data-lucide="upload-cloud" class="w-5 h-5"></i> Submit Report';
+        if (window.lucide) lucide.createIcons();
+      });
+  }
+
+  function mpShowUploadStatus(type, msg) {
+    var div = document.getElementById('mp-upload-status');
+    div.className = type === 'success'
+      ? 'mt-4 p-3 rounded-lg text-sm bg-green-100 text-green-800 border border-green-300'
+      : 'mt-4 p-3 rounded-lg text-sm bg-red-100 text-red-800 border border-red-300';
+    div.textContent = (type === 'success' ? '✓ ' : '✗ ') + msg;
+    div.classList.remove('hidden');
+  }
+
+  // ── Police: list ─────────────────────────────────────────────
+  function mpLoadPoliceList() {
+    var list = document.getElementById('mp-police-list');
+    list.innerHTML = '<p class="text-slate-400 text-center py-8">Loading…</p>';
+    fetch('/get_missing_persons')
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data.success || !data.missing_persons || !data.missing_persons.length) {
+          list.innerHTML = '<p class="text-slate-400 text-center py-8">No active missing persons.</p>';
+          return;
+        }
+        list.innerHTML = data.missing_persons.map(function (p) {
+          return '<div class="flex gap-3 p-4 bg-blue-50 border border-blue-100 rounded-xl hover:shadow-md transition">' +
+            '<img src="' + mpEsc(p.photo_url) + '" class="w-16 h-16 rounded-lg object-cover flex-shrink-0 border border-blue-200" onerror="this.src=\'https://placehold.co/64x64?text=No+Photo\'">' +
+            '<div class="flex-1 min-w-0">' +
+            '<p class="font-bold text-blue-900 truncate">' + mpEsc(p.name) + '</p>' +
+            '<p class="text-xs text-slate-500">' + (p.age ? 'Age: ' + p.age : '') + (p.gender ? ' | ' + p.gender : '') + '</p>' +
+            (p.last_seen_location ? '<p class="text-xs text-slate-400 mt-0.5">📍 ' + mpEsc(p.last_seen_location) + '</p>' : '') +
+            (p.last_seen_date ? '<p class="text-xs text-slate-400">📅 ' + p.last_seen_date + '</p>' : '') +
+            '<div class="flex gap-2 mt-2">' +
+            '<button onclick="mpViewSightings(\'' + p.person_id + '\')" class="flex-1 bg-green-600 hover:bg-green-700 text-white text-xs font-bold py-1.5 rounded-lg transition">View Sightings</button>' +
+            '<button onclick="mpMarkFound(\'' + p.person_id + '\',\'' + mpEscAttr(p.name) + '\')" class="flex-1 bg-slate-600 hover:bg-slate-700 text-white text-xs font-bold py-1.5 rounded-lg transition">Mark Found</button>' +
+            '</div>' +
+            '</div>' +
+            '</div>';
+        }).join('');
+        if (window.lucide) lucide.createIcons();
+      })
+      .catch(function (err) {
+        console.error('[MP police list]', err);
+        list.innerHTML = '<p class="text-red-500 text-center py-4">Error loading list.</p>';
+      });
+  }
+
+  // ── Citizen: cards ───────────────────────────────────────────
+  function mpLoadCitizenList() {
+    var list = document.getElementById('mp-citizen-list');
+    list.innerHTML = '<p class="text-slate-400 col-span-full text-center py-8">Loading…</p>';
+    fetch('/get_missing_persons')
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data.success || !data.missing_persons || !data.missing_persons.length) {
+          list.innerHTML = '<p class="text-slate-400 col-span-full text-center py-8">No missing persons at this time. Thank you for checking.</p>';
+          return;
+        }
+        list.innerHTML = data.missing_persons.map(function (p) {
+          return '<div class="bg-white border border-slate-200 rounded-xl overflow-hidden hover:shadow-lg transition">' +
+            '<div class="relative">' +
+            '<img src="' + mpEsc(p.photo_url) + '" class="w-full h-44 object-cover" onerror="this.src=\'https://placehold.co/300x176?text=No+Photo\'">' +
+            '<div class="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">MISSING</div>' +
+            '</div>' +
+            '<div class="p-4">' +
+            '<p class="font-bold text-slate-900">' + mpEsc(p.name) + '</p>' +
+            '<p class="text-xs text-slate-500">' + (p.age ? 'Age: ' + p.age : '') + (p.gender ? ' | ' + p.gender : '') + '</p>' +
+            (p.last_seen_location ? '<p class="text-xs text-slate-400 mt-1">📍 ' + mpEsc(p.last_seen_location) + '</p>' : '') +
+            (p.description ? '<p class="text-xs text-slate-500 mt-1 line-clamp-2">' + mpEsc(p.description) + '</p>' : '') +
+            '<button onclick="mpOpenSightingModal(\'' + p.person_id + '\',\'' + mpEscAttr(p.name) + '\')" ' +
+            'class="w-full mt-3 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold py-2 rounded-lg transition">' +
+            'Report Sighting' +
+            '</button>' +
+            '</div>' +
+            '</div>';
+        }).join('');
+        if (window.lucide) lucide.createIcons();
+      })
+      .catch(function (err) {
+        console.error('[MP citizen list]', err);
+        list.innerHTML = '<p class="text-red-500 col-span-full text-center py-4">Error loading data.</p>';
+      });
+  }
+
+  // ── Police: confirmed matches ────────────────────────────────
+  function mpLoadMatches() {
+    var list = document.getElementById('mp-matches-list');
+    list.innerHTML = '<p class="text-slate-400 text-center py-8">Loading…</p>';
+    fetch('/get_confirmed_matches')
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data.success || !data.confirmed_matches || !data.confirmed_matches.length) {
+          list.innerHTML = '<p class="text-slate-400 text-center py-8">No confirmed matches yet. Matches appear here when face recognition confirms a sighting.</p>';
+          return;
+        }
+        list.innerHTML = data.confirmed_matches.map(function (m) {
+          return '<div class="border border-green-200 bg-green-50 p-6 rounded-xl">' +
+            '<div class="flex gap-6 flex-wrap">' +
+            '<div class="flex-1 min-w-0">' +
+            '<div class="flex items-center gap-2 mb-3">' +
+            '<span class="bg-green-500 text-white text-xs font-bold px-2.5 py-1 rounded-full">MATCH FOUND</span>' +
+            '<p class="text-lg font-bold text-slate-900">' + mpEsc(m.name) + '</p>' +
+            '</div>' +
+            '<div class="grid grid-cols-2 gap-3">' +
+            '<div><p class="text-xs text-slate-400 mb-1 font-semibold">Official Photo</p>' +
+            '<img src="' + mpEsc(m.missing_person_photo) + '" class="w-full h-28 rounded-lg object-cover border border-slate-200"></div>' +
+            '<div><p class="text-xs text-slate-400 mb-1 font-semibold">Sighting Photo</p>' +
+            '<img src="' + mpEsc(m.sighting_photo) + '" class="w-full h-28 rounded-lg object-cover border border-green-200"></div>' +
+            '</div>' +
+            '</div>' +
+            '<div class="flex flex-col items-center justify-center bg-green-100 rounded-xl px-6 py-4 min-w-[100px] text-center">' +
+            '<p class="text-4xl font-black text-green-600">' + m.confidence + '%</p>' +
+            '<p class="text-xs text-slate-500 mt-1">Face Match</p>' +
+            '</div>' +
+            '</div>' +
+            '<div class="mt-4 grid grid-cols-3 gap-3 p-3 bg-white rounded-lg border border-green-100 text-sm">' +
+            '<div><p class="text-xs text-slate-400">Location</p><p class="font-semibold text-slate-700">' + (mpEsc(m.location) || '—') + '</p></div>' +
+            '<div><p class="text-xs text-slate-400">Sighting Date</p><p class="font-semibold text-slate-700">' + (m.sighting_date || '—') + '</p></div>' +
+            '<div><p class="text-xs text-slate-400">Reported At</p><p class="font-semibold text-slate-700">' + m.uploaded_at + '</p></div>' +
+            '</div>' +
+            '</div>';
+        }).join('');
+      })
+      .catch(function (err) {
+        console.error('[MP matches]', err);
+        list.innerHTML = '<p class="text-red-500 text-center py-4">Error loading matches.</p>';
+      });
+  }
+
+  // ── Sighting modal ───────────────────────────────────────────
+  function mpOpenSightingModal(personId, personName) {
+    document.getElementById('mp-sighting-person-id').value = personId;
+    document.getElementById('mp-sighting-person-name').textContent = 'For: ' + (personName || '');
+    document.getElementById('mp-sighting-location').value = '';
+    document.getElementById('mp-sighting-date').value = new Date().toISOString().split('T')[0];
+    document.getElementById('mp-sighting-photo').value = '';
+    document.getElementById('mp-sighting-preview').classList.add('hidden');
+    document.getElementById('mp-sighting-photo-label').textContent = 'Click to upload photo';
+    document.getElementById('mp-sighting-result').classList.add('hidden');
+    var btn = document.getElementById('mp-sighting-submit');
+    btn.disabled = false;
+    btn.textContent = 'Submit Sighting';
+    document.getElementById('mp-sighting-modal').classList.remove('hidden');
+    if (window.lucide) lucide.createIcons();
+  }
+
+  function mpCloseSightingModal() {
+    document.getElementById('mp-sighting-modal').classList.add('hidden');
+  }
+
+  function mpSubmitSighting() {
+    var personId = document.getElementById('mp-sighting-person-id').value;
+    var location = (document.getElementById('mp-sighting-location').value || '').trim();
+    var date = document.getElementById('mp-sighting-date').value;
+    var photoFile = document.getElementById('mp-sighting-photo').files[0];
+    var resultDiv = document.getElementById('mp-sighting-result');
+
+    if (!location) { alert('Please enter a location.'); return; }
+    if (!date) { alert('Please select a date.'); return; }
+    if (!photoFile) { alert('Please upload a photo.'); return; }
+
+    var btn = document.getElementById('mp-sighting-submit');
+    btn.disabled = true;
+    btn.textContent = 'Analysing face…';
+
+    var fd = new FormData();
+    fd.append('location', location);
+    fd.append('sighting_date', date);
+    fd.append('photo', photoFile, photoFile.name);
+
+    fetch('/report_sighting/' + personId, { method: 'POST', body: fd })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.success) {
+          var pct = Math.round((data.face_match_score || 0) * 100);
+          resultDiv.className = data.is_match
+            ? 'p-4 rounded-lg border-l-4 bg-green-50 border-green-500 text-green-800 text-sm'
+            : 'p-4 rounded-lg border-l-4 bg-yellow-50 border-yellow-500 text-yellow-800 text-sm';
+          resultDiv.innerHTML =
+            '<p class="font-bold">' + (data.is_match ? '✓ Match Confirmed!' : 'Sighting Recorded') + '</p>' +
+            '<p class="mt-1">Confidence: <strong>' + pct + '%</strong></p>' +
+            '<p class="mt-0.5 text-xs">' + mpEsc(data.details || '') + '</p>' +
+            (data.is_match ? '<p class="mt-2 font-semibold">This sighting is now in Confirmed Matches.</p>' : '<p class="mt-2 text-xs">Thank you for reporting. Every sighting helps.</p>');
+        } else {
+          resultDiv.className = 'p-4 rounded-lg border-l-4 bg-red-50 border-red-500 text-red-800 text-sm';
+          resultDiv.textContent = data.error || 'An error occurred.';
+        }
+        resultDiv.classList.remove('hidden');
+      })
+      .catch(function () {
+        resultDiv.className = 'p-4 rounded-lg border-l-4 bg-red-50 border-red-500 text-red-800 text-sm';
+        resultDiv.textContent = 'Network error — please try again.';
+        resultDiv.classList.remove('hidden');
+      })
+      .finally(function () {
+        btn.disabled = false;
+        btn.textContent = 'Submit Sighting';
+      });
+  }
+
+  // ── Police: view sightings modal ─────────────────────────────
+  function mpViewSightings(personId) {
+    var modal = document.getElementById('mp-sightings-list-modal');
+    var content = document.getElementById('mp-sightings-list-content');
+    content.innerHTML = '<p class="text-slate-400 text-center py-8">Loading…</p>';
+    modal.classList.remove('hidden');
+
+    fetch('/get_sightings/' + personId)
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data.success || !data.sightings || !data.sightings.length) {
+          content.innerHTML = '<p class="text-slate-400 text-center py-8">No sightings reported yet.</p>';
+          return;
+        }
+        content.innerHTML = data.sightings.map(function (s) {
+          var pct = Math.round((s.face_match_score || 0) * 100);
+          return '<div class="flex gap-4 p-4 rounded-xl border ' + (s.is_confirmed ? 'border-green-200 bg-green-50' : 'border-slate-200 bg-slate-50') + '">' +
+            '<img src="' + mpEsc(s.photo_url) + '" class="w-20 h-20 rounded-lg object-cover flex-shrink-0" onerror="this.src=\'https://placehold.co/80x80?text=No+Photo\'">' +
+            '<div>' +
+            '<p class="font-semibold ' + (s.is_confirmed ? 'text-green-700' : 'text-slate-700') + '">' +
+            (s.is_confirmed ? '✓ Match Confirmed' : 'Unconfirmed') + ' — ' + pct + '% confidence' +
+            '</p>' +
+            '<p class="text-sm text-slate-600 mt-1">📍 ' + (mpEsc(s.location) || 'N/A') + '</p>' +
+            '<p class="text-sm text-slate-500">📅 ' + (s.sighting_date || 'N/A') + '</p>' +
+            '<p class="text-xs text-slate-400">Reported: ' + s.uploaded_at + '</p>' +
+            '</div>' +
+            '</div>';
+        }).join('');
+      })
+      .catch(function () {
+        content.innerHTML = '<p class="text-red-500 text-center">Error loading sightings.</p>';
+      });
+  }
+
+  // ── Police: mark found ───────────────────────────────────────
+  function mpMarkFound(personId, name) {
+    if (!confirm('Mark "' + name + '" as Found? They will be removed from the active list.')) return;
+    fetch('/update_missing_person_status/' + personId, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'Found' })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.success) mpLoadPoliceList();
+        else alert(data.error || 'Error updating status.');
+      })
+      .catch(function () { alert('Network error.'); });
+  }
+
+  // ── Utilities ─────────────────────────────────────────────────
+  function mpEsc(str) {
+    if (str == null) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+  function mpEscAttr(str) {
+    return (str || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  }
+</script>
+{% endblock %}

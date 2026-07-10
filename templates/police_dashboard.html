@@ -53,10 +53,6 @@
             transition: margin-left 0.3s ease;
         }
 
-        #sidebar:hover~main {
-            margin-left: 16rem;
-        }
-
         /* Container Spacing */
         .form-section {
             background: #ffffff;
@@ -117,15 +113,8 @@
     <div id="sidebarHoverArea" class="fixed left-0 top-0 h-full w-4 z-30 bg-transparent"></div>
 
     <!-- Sidebar Navigation -->
-    <aside id="sidebar"
-        class="w-64 bg-blue-900 text-white fixed h-full z-40 transition-transform duration-300 ease-in-out transform -translate-x-full">
+    <aside id="sidebar" class="w-64 bg-blue-900 text-white fixed h-full z-30 transition-transform duration-300 ease-in-out transform -translate-x-full">
         <div class="p-6 border-b border-blue-800">
-            <div class="flex items-center space-x-2">
-                <div class="bg-blue-600 p-1.5 rounded-lg text-white">
-                    <i data-lucide="scale"></i>
-                </div>
-                <span class="text-2xl font-serif font-bold text-white">NyayaAI</span>
-            </div>
         </div>
 
         <nav class="mt-8 px-4">
@@ -209,6 +198,12 @@
                     <i data-lucide="settings" class="w-5 h-5"></i>
                     <span>Settings</span>
                 </a>
+                <div class="absolute bottom-11 left-0 right-0 p-4 border-blue-800">
+                    <a href="/logout" class="flex items-center justify-center space-x-2 px-4 py-3 rounded-lg text-red-300 hover:bg-red-600 hover:text-white transition-colors">
+                        <i data-lucide="log-out" class="w-5 h-5"></i>
+                        <span>Sign Out</span>
+                    </a>
+                </div>
             </div>
         </nav>
 
@@ -229,8 +224,7 @@
     <!-- Main Content -->
     <main class="flex-1 transition-all duration-300 ease-in-out">
 
-        <nav
-            class="fixed w-full z-50 bg-white/80 backdrop-blur-md border-b border-slate-100 px-8 py-4 flex justify-between items-center">
+        <nav class="fixed w-full z-50 bg-white/80 backdrop-blur-md border-b border-slate-100 px-8 py-4 flex justify-between items-center">
             <div class="flex items-center space-x-2">
                 <div class="bg-blue-600 p-1.5 rounded-lg text-white">
                     <i data-lucide="scale"></i>
@@ -243,14 +237,14 @@
                 <a href="#how-it-works" class="hover:text-blue-600 transition" onclick="showSection('how-it-works')">How it Works</a>
             </div> -->
             <div class="hidden md:flex space-x-4">
-                <a href="/login"
+                <!-- <a href="/login"
                     class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-full font-bold transition shadow-lg shadow-blue-200">
                     Sign In
                 </a>
                 <a href="/signup"
                     class="bg-white hover:bg-blue-50 text-blue-600 border border-blue-600 px-6 py-2.5 rounded-full font-bold transition">
                     Sign Up
-                </a>
+                </a> -->
             </div>
         </nav>
 
@@ -452,10 +446,10 @@
                                         add additional sections if needed.
                                     </p>
                                 </div>
-                                <div id="actSections" class="space-y-3"></div>
+                                <!-- <div id="actSections" class="space-y-3"></div>
                                 <button type="button" onclick="addActSection()"
                                     class="mt-3 px-4 py-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 font-semibold transition text-sm">+
-                                    Add Additional Act/Section</button>
+                                    Add Additional Act/Section</button> -->
 
                                 <div class="mt-4">
                                     <label for="policeActSections"
@@ -561,7 +555,7 @@
                                         class="w-full border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition" />
 
                                     <div class="grid grid-cols-2 gap-3">
-                                        <input type="text" id="dob" placeholder="Date/Year of Birth"
+                                        <input type="text" id="dob" placeholder="Year of Birth"
                                             class="border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition" />
 
                                         <input type="text" id="nationality" placeholder="Nationality"
@@ -1840,73 +1834,7 @@ function initSidebar() {
             label.classList.remove('hidden');
         }
 
-        async function handleEvidenceUpload(event) {
-            event.preventDefault();
-            const form = event.target;
-            const formData = new FormData(form);
-            const button = document.getElementById('evidenceUploadBtn');
-
-            if (!formData.get('fir_no') || !formData.get('file')) {
-                alert('Please enter a FIR number and select a file.');
-                return;
-            }
-
-            button.disabled = true;
-            button.textContent = 'Uploading...';
-
-            try {
-                const response = await fetch(`/upload_evidence/${encodeURIComponent(formData.get('fir_no'))}`, {
-                    method: 'POST',
-                    body: formData
-                });
-
-                const data = await response.json();
-                if (!response.ok) {
-                    alert(data.error || 'Upload failed.');
-                    return;
-                }
-
-                alert(data.message || 'Evidence uploaded successfully.');
-                form.reset();
-                updateFileLabel({ files: [] });
-                loadEvidenceGrid(formData.get('fir_no'));
-            } catch (error) {
-                console.error('Evidence upload failed:', error);
-                alert('Failed to upload evidence. Please try again.');
-            } finally {
-                button.disabled = false;
-                button.textContent = 'Upload to Case File';
-            }
-        }
-
-        function filterEvidence(value) {
-            const current = (value || '').trim();
-            if (!current) {
-                loadEvidenceGrid('');
-                document.getElementById('filterLabel').textContent = 'All';
-                return;
-            }
-            loadEvidenceGrid(current);
-        }
-
-        function toggleFilterDropdown() {
-            const dropdown = document.getElementById('filterDropdown');
-            dropdown.classList.toggle('hidden');
-        }
-
-        function setEvidenceFilter(filter) {
-            document.getElementById('filterLabel').textContent = filter.charAt(0).toUpperCase() + filter.slice(1);
-            toggleFilterDropdown();
-            // Filtering is currently UI-only until backend supports types
-            const searchInput = document.getElementById('evidenceSearch');
-            if (searchInput) loadEvidenceGrid(searchInput.value.trim());
-        }
-
-        function clearEvidenceSearch() {
-            const searchInput = document.getElementById('evidenceSearch');
-            if (searchInput) searchInput.value = '';
-            loadEvidenceGrid('');
-        }
+        
 
         // ── Global state ──────────────────────────────────────────────
         let allComplaints = [];
@@ -2244,17 +2172,6 @@ function initSidebar() {
             }
         }
 
-        // Load legal acts on page load
-        async function loadActs() {
-            try {
-                const response = await fetch('/api/acts');
-                const acts = await response.json();
-                return acts;
-            } catch (error) {
-                console.error('Failed to load acts:', error);
-                return ["IPC", "CRPC", "NIA", "IEA", "HMA", "CPC", "IDA", "MVA"];
-            }
-        }
         let firHistoryData = {};
 
         function escapeHtml(str) {
@@ -2385,68 +2302,6 @@ function initSidebar() {
         function downloadFIR(firNo) {
             if (!firNo) return;
             window.location.href = '/fir/download/' + encodeURIComponent(firNo);
-        }
-
-        // Load sections for a given act
-        async function loadSectionDatalist(actValue, inputElement) {
-            if (!actValue) {
-                inputElement.setAttribute('list', '');
-                return;
-            }
-
-            try {
-                const response = await fetch(`/api/sections/${actValue}`);
-                const sections = await response.json();
-
-                let datalistId = 'sections-' + Date.now();
-                let datalist = document.getElementById(datalistId);
-
-                if (datalist) datalist.remove();
-
-                datalist = document.createElement('datalist');
-                datalist.id = datalistId;
-
-                sections.forEach(sec => {
-                    const option = document.createElement('option');
-                    option.value = sec.section;
-                    option.textContent = sec.title;
-                    datalist.appendChild(option);
-                });
-
-                document.body.appendChild(datalist);
-                inputElement.setAttribute('list', datalistId);
-            } catch (error) {
-                console.error('Failed to load sections:', error);
-            }
-        }
-
-        // Add Act/Section row dynamically
-        async function addActSection() {
-            const acts = await loadActs();
-
-            const row = document.createElement('div');
-            row.className = 'act-section-row grid grid-cols-2 gap-3 p-3 bg-slate-50 rounded-lg';
-
-            const actSelect = document.createElement('select');
-            actSelect.className = 'border-2 border-slate-200 rounded-lg p-2 focus:border-blue-500';
-            actSelect.innerHTML = '<option value="">Select Act</option>';
-            acts.forEach(act => {
-                const opt = document.createElement('option');
-                opt.value = act;
-                opt.textContent = act;
-                actSelect.appendChild(opt);
-            });
-            actSelect.onchange = () => loadSectionDatalist(actSelect.value, sectionInput);
-
-            const sectionInput = document.createElement('input');
-            sectionInput.type = 'text';
-            sectionInput.placeholder = 'Section Number';
-            sectionInput.className = 'border-2 border-slate-200 rounded-lg p-2 focus:border-blue-500';
-
-            row.appendChild(actSelect);
-            row.appendChild(sectionInput);
-
-            document.getElementById('actSections').appendChild(row);
         }
 
         // Main form generator function
@@ -2940,6 +2795,7 @@ function renderHomeAlert(complaints) {
         banner.classList.add('hidden');
     }
 }
+
 
     </script>
 

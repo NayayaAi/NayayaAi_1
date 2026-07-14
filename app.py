@@ -31,70 +31,6 @@ from missing_person import missing_person_bp, init_missing_person_tables
 from case import search_case_outcome, format_outcome_html
 
 
-OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
-OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
-
-def ask_openrouter(prompt, system_prompt=None, max_tokens=1000, temperature=0.3):
-    
-    if not OPENROUTER_API_KEY:
-        print("ERROR: OPENROUTER_API_KEY not set in .env")
-        return None
-    
-    try:
-        headers = {
-            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-            "HTTP-Referer": "https://nyayaai.local",
-            "X-Title": "NyayaAI"
-        }
-        
-        default_system = "You are an expert Indian legal advisor. Be clear, simple, and helpful."
-        
-        payload = {
-            "model": "mistralai/mistral-7b-instruct",
-            "messages": [
-                {
-                    "role": "system",
-                    "content": system_prompt or default_system
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
-            "temperature": temperature,
-            "max_tokens": max_tokens,
-        }
-        
-        response = requests.post(
-            OPENROUTER_URL,
-            headers=headers,
-            json=payload,
-            timeout=30
-        )
-        
-        if response.status_code != 200:
-            print(f"OpenRouter error: {response.status_code} - {response.text}")
-            return None
-        
-        data = response.json()
-        if 'choices' not in data or len(data['choices']) == 0:
-            print(f"Unexpected OpenRouter response: {data}")
-            return None
-            
-        return data['choices'][0]['message']['content'].strip()
-    
-    except requests.exceptions.Timeout:
-        print("OpenRouter timeout - request took too long")
-        return None
-    except requests.exceptions.ConnectionError:
-        print("OpenRouter connection error - check your internet")
-        return None
-    except Exception as e:
-        print(f"OpenRouter API Error: {e}")
-        return None
-
-
-
 # ---------------- OLLAMA SETUP ----------------
 import requests
 
@@ -549,36 +485,54 @@ def rights_chat():
         if not data:
             return jsonify({"answer": "Invalid request."}), 400
         question = data.get('question', '').strip()
-        print(f"DEBUG: OPENROUTER_KEY set={bool(OPENROUTER_API_KEY)}, question={question[:30]}")
         if not question:
             return jsonify({"answer": "Please ask a question about your rights."}), 400
 
+        # Step 1: RAG search for grounding
         try:
             results = search_law(question)
         except Exception as rag_err:
             print(f"RAG failed: {rag_err}")
             results = None
 
-        if not results:
-            # RAG failed or no results — try OpenRouter
-            or_answer = ask_openrouter(
-                prompt=f"A citizen asks about their rights under Indian law: {question}\n\nAnswer in simple, plain language. Be concise.",
-                system_prompt="You are a helpful Indian legal assistant. Explain legal rights simply. End with: ⚠️ For official help call 15100.",
-                max_tokens=400
-            )
-            if or_answer:
-                return jsonify({"answer": or_answer})
-            # Final fallback — keyword
-            return jsonify({"answer": build_keyword_fallback(question)})
+        # Step 2: Build context from RAG results (if any)
+        rag_context = ""
+        if results:
+            rag_context = "\n\nRELEVANT LEGAL SECTIONS FROM DATABASE:\n"
+            for r in results[:3]:
+                rag_context += (
+                    f"• Section {r.get('section', '')}: {r.get('title', '')} — "
+                    f"{r.get('description', '')[:250]}\n"
+                )
 
-        answer = format_rights_answer(results, question)
-        return jsonify({"answer": answer})
+        groq_prompt = (
+            f"A citizen asks about their rights under Indian law: {question}"
+            f"{rag_context}\n\n"
+            f"Answer in simple, plain language a non-lawyer can understand. "
+            f"Be concise (under 200 words). If the legal sections above are relevant, "
+            f"reference them naturally. End with: ⚠️ For official help call 15100."
+        )
+
+        # Step 3: Try Groq
+        answer = ask_groq(groq_prompt, max_tokens=500)
+
+        if answer:
+            return jsonify({"answer": answer})
+
+        # Step 4: Fallback — RAG results formatted directly (Groq down, RAG worked)
+        if results:
+            return jsonify({"answer": format_rights_answer(results, question)})
+
+        # Step 5: Final fallback — keyword-based, no AI needed
+        return jsonify({"answer": build_keyword_fallback(question)})
 
     except Exception as e:
         print(f"rights_chat error: {e}")
         return jsonify({"answer": build_keyword_fallback(
             request.get_json(silent=True, force=True).get('question', '')
         )}), 200
+        
+    
 
 
 def format_rights_answer(results, question):
@@ -607,83 +561,83 @@ def format_rights_answer(results, question):
     return answer
 
 
-def build_keyword_fallback(question):
-    """Instant keyword-based fallback — no AI needed."""
-    q = question.lower()
+# def build_keyword_fallback(question):
+#     """Instant keyword-based fallback — no AI needed."""
+#     q = question.lower()
 
-    if any(w in q for w in ['arrest', 'arrested', 'police custody', 'detained']):
-        return (
-            "🛡️ Your Rights When Arrested:\n\n"
-            "• You must be told the reason for your arrest.\n"
-            "• You have the right to call a lawyer immediately.\n"
-            "• You cannot be detained beyond 24 hours without a magistrate's order.\n"
-            "• You have the right to free legal aid if you cannot afford a lawyer.\n\n"
-            "📞 Call Legal Aid: 15100"
-        )
-    elif any(w in q for w in ['bail', 'bailable', 'release']):
-        return (
-            "🔑 Your Right to Bail:\n\n"
-            "• For bailable offences, bail is your legal right — police must grant it.\n"
-            "• For non-bailable offences, only a court can grant bail.\n"
-            "• You can apply for Anticipatory Bail (Section 438 CrPC) before arrest.\n"
-            "• A magistrate must be informed within 24 hours of arrest.\n\n"
-            "📞 Call Legal Aid: 15100"
-        )
-    elif any(w in q for w in ['fir', 'complaint', 'register', 'refuse', 'refused']):
-        return (
-            "📝 If Police Refuse to File Your FIR:\n\n"
-            "• Police are legally bound to register FIRs for cognizable offences.\n"
-            "• If refused, send a written complaint to the Superintendent of Police.\n"
-            "• You can also file directly with a Magistrate under Section 156(3) CrPC.\n"
-            "• E-FIR can be filed online in most states.\n\n"
-            "📞 Call Legal Aid: 15100"
-        )
-    elif any(w in q for w in ['lawyer', 'advocate', 'legal aid', 'free legal']):
-        return (
-            "⚖️ Your Right to a Lawyer:\n\n"
-            "• Every arrested person has the right to consult a lawyer (Article 22).\n"
-            "• If you cannot afford one, the state must provide a free lawyer.\n"
-            "• Contact the District Legal Services Authority (DLSA) in your district.\n"
-            "• National Legal Aid helpline: 15100 (free, 24×7).\n\n"
-            "📞 Call Legal Aid: 15100"
-        )
-    elif any(w in q for w in ['women', 'woman', 'harassment', 'domestic', 'violence', 'assault']):
-        return (
-            "👩 Women's Legal Rights:\n\n"
-            "• A woman can only be arrested between 6 AM and 6 PM (with exceptions).\n"
-            "• A female officer must be present during arrest of a woman.\n"
-            "• Domestic violence is an offence under the Protection of Women from Domestic Violence Act.\n"
-            "• File complaints at your nearest One Stop Centre or call 181 (Women Helpline).\n\n"
-            "📞 Women Helpline: 1091 | One Stop Centre: 181"
-        )
-    elif any(w in q for w in ['cyber', 'online', 'fraud', 'scam', 'hack', 'hacked']):
-        return (
-            "💻 Cyber Crime Rights:\n\n"
-            "• Report cyber crimes at cybercrime.gov.in or call 1930.\n"
-            "• Cyber fraud is covered under the IT Act 2000 and IPC Section 420.\n"
-            "• File a complaint within the first few hours for best results.\n"
-            "• Keep screenshots and transaction IDs as evidence.\n\n"
-            "📞 Cyber Crime Helpline: 1930"
-        )
-    elif any(w in q for w in ['child', 'minor', 'pocso', 'juvenile']):
-        return (
-            "🧒 Child Protection Rights:\n\n"
-            "• POCSO Act protects children from sexual offences.\n"
-            "• Any person can report child abuse — it is mandatory for some professions.\n"
-            "• Complaints can be filed at any police station regardless of location.\n"
-            "• Child Helpline: 1098 (free, 24×7).\n\n"
-            "📞 Child Helpline: 1098"
-        )
-    else:
-        return (
-            "⚖️ General Legal Rights in India:\n\n"
-            "• You have the right to remain silent when questioned by police.\n"
-            "• You cannot be forced to be a witness against yourself (Article 20).\n"
-            "• Every person has the right to approach a court for justice.\n"
-            "• Free legal aid is available to all citizens who cannot afford a lawyer.\n\n"
-            "📞 National Legal Aid Helpline: 15100\n"
-            "Try asking about: arrest rights, bail, FIR filing, lawyer rights, women's rights, or cyber crime."
-        )
+#     if any(w in q for w in ['arrest', 'arrested', 'police custody', 'detained']):
+#         return (
+#             "🛡️ Your Rights When Arrested:\n\n"
+#             "• You must be told the reason for your arrest.\n"
+#             "• You have the right to call a lawyer immediately.\n"
+#             "• You cannot be detained beyond 24 hours without a magistrate's order.\n"
+#             "• You have the right to free legal aid if you cannot afford a lawyer.\n\n"
+#             "📞 Call Legal Aid: 15100"
+#         )
+#     elif any(w in q for w in ['bail', 'bailable', 'release']):
+#         return (
+#             "🔑 Your Right to Bail:\n\n"
+#             "• For bailable offences, bail is your legal right — police must grant it.\n"
+#             "• For non-bailable offences, only a court can grant bail.\n"
+#             "• You can apply for Anticipatory Bail (Section 438 CrPC) before arrest.\n"
+#             "• A magistrate must be informed within 24 hours of arrest.\n\n"
+#             "📞 Call Legal Aid: 15100"
+#         )
+#     elif any(w in q for w in ['fir', 'complaint', 'register', 'refuse', 'refused']):
+#         return (
+#             "📝 If Police Refuse to File Your FIR:\n\n"
+#             "• Police are legally bound to register FIRs for cognizable offences.\n"
+#             "• If refused, send a written complaint to the Superintendent of Police.\n"
+#             "• You can also file directly with a Magistrate under Section 156(3) CrPC.\n"
+#             "• E-FIR can be filed online in most states.\n\n"
+#             "📞 Call Legal Aid: 15100"
+#         )
+#     elif any(w in q for w in ['lawyer', 'advocate', 'legal aid', 'free legal']):
+#         return (
+#             "⚖️ Your Right to a Lawyer:\n\n"
+#             "• Every arrested person has the right to consult a lawyer (Article 22).\n"
+#             "• If you cannot afford one, the state must provide a free lawyer.\n"
+#             "• Contact the District Legal Services Authority (DLSA) in your district.\n"
+#             "• National Legal Aid helpline: 15100 (free, 24×7).\n\n"
+#             "📞 Call Legal Aid: 15100"
+#         )
+#     elif any(w in q for w in ['women', 'woman', 'harassment', 'domestic', 'violence', 'assault']):
+#         return (
+#             "👩 Women's Legal Rights:\n\n"
+#             "• A woman can only be arrested between 6 AM and 6 PM (with exceptions).\n"
+#             "• A female officer must be present during arrest of a woman.\n"
+#             "• Domestic violence is an offence under the Protection of Women from Domestic Violence Act.\n"
+#             "• File complaints at your nearest One Stop Centre or call 181 (Women Helpline).\n\n"
+#             "📞 Women Helpline: 1091 | One Stop Centre: 181"
+#         )
+#     elif any(w in q for w in ['cyber', 'online', 'fraud', 'scam', 'hack', 'hacked']):
+#         return (
+#             "💻 Cyber Crime Rights:\n\n"
+#             "• Report cyber crimes at cybercrime.gov.in or call 1930.\n"
+#             "• Cyber fraud is covered under the IT Act 2000 and IPC Section 420.\n"
+#             "• File a complaint within the first few hours for best results.\n"
+#             "• Keep screenshots and transaction IDs as evidence.\n\n"
+#             "📞 Cyber Crime Helpline: 1930"
+#         )
+#     elif any(w in q for w in ['child', 'minor', 'pocso', 'juvenile']):
+#         return (
+#             "🧒 Child Protection Rights:\n\n"
+#             "• POCSO Act protects children from sexual offences.\n"
+#             "• Any person can report child abuse — it is mandatory for some professions.\n"
+#             "• Complaints can be filed at any police station regardless of location.\n"
+#             "• Child Helpline: 1098 (free, 24×7).\n\n"
+#             "📞 Child Helpline: 1098"
+#         )
+#     else:
+#         return (
+#             "⚖️ General Legal Rights in India:\n\n"
+#             "• You have the right to remain silent when questioned by police.\n"
+#             "• You cannot be forced to be a witness against yourself (Article 20).\n"
+#             "• Every person has the right to approach a court for justice.\n"
+#             "• Free legal aid is available to all citizens who cannot afford a lawyer.\n\n"
+#             "📞 National Legal Aid Helpline: 15100\n"
+#             "Try asking about: arrest rights, bail, FIR filing, lawyer rights, women's rights, or cyber crime."
+#         )
 
 @app.route('/api/sections/<act>', methods=['GET'])
 def get_sections(act):

@@ -450,6 +450,69 @@
                 </div>
             </div>
 
+            <!-- ═══ SECTION: Case Detail (opened from My Cases, not in sidebar nav) ═══ -->
+<div id="ld-case-detail" class="section-content py-8">
+    <div class="flex items-center gap-2 mb-2">
+        <button onclick="closeCaseDetail()" class="text-slate-400 hover:text-blue-700">
+            <i data-lucide="arrow-left" class="w-4 h-4"></i>
+        </button>
+        <span id="cdTypeBadge" class="text-xs font-semibold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full uppercase tracking-wide">Case</span>
+    </div>
+    <h2 id="cdTitle" class="text-2xl font-serif font-bold text-blue-950 mb-4">—</h2>
+
+    <div class="flex gap-6 border-b border-slate-200 mb-6">
+        <button class="cd-tab-btn pb-2 text-sm font-semibold border-b-2 border-blue-600 text-blue-700" data-tab="cdSummary" onclick="showCaseDetailTab('cdSummary')">Summary</button>
+        <button class="cd-tab-btn pb-2 text-sm font-semibold border-b-2 border-transparent text-slate-500" data-tab="cdEvidence" onclick="showCaseDetailTab('cdEvidence')">Evidence</button>
+        <button class="cd-tab-btn pb-2 text-sm font-semibold border-b-2 border-transparent text-slate-500" data-tab="cdResearch" onclick="showCaseDetailTab('cdResearch')">Research</button>
+    </div>
+
+    <!-- Summary tab -->
+    <div id="cdSummary" class="cd-tab-content grid md:grid-cols-3 gap-6">
+        <div class="md:col-span-2 space-y-4">
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+                <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Case Overview</p>
+                <p id="cdOverviewText" class="text-sm text-slate-600 leading-relaxed">Loading case details…</p>
+            </div>
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+                <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Current Status</p>
+                <div id="cdStatusText" class="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                    <span class="w-2 h-2 rounded-full bg-blue-500"></span> —
+                </div>
+            </div>
+        </div>
+        <div>
+            <div class="bg-blue-50 rounded-xl border border-blue-100 p-5">
+                <p class="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-2">Key Citations</p>
+                <ul id="cdCitationsList" class="text-sm text-blue-800 space-y-1 list-disc list-inside">
+                    <li class="text-slate-400 list-none">Loading…</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Evidence tab -->
+    <div id="cdEvidence" class="cd-tab-content hidden">
+        <div class="flex items-center justify-between mb-3">
+            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide">Case Evidence</p>
+            <button onclick="openEvidenceLog()"
+                class="text-xs font-semibold text-blue-600 hover:underline flex items-center gap-1">
+                <i data-lucide="history" class="w-3.5 h-3.5"></i> View Download Log
+            </button>
+        </div>
+        <div id="cdEvidenceGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <p class="col-span-full text-sm text-slate-400 text-center py-8">Loading evidence…</p>
+        </div>
+    </div>
+
+    <!-- Research tab -->
+    <div id="cdResearch" class="cd-tab-content hidden">
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Related Research</p>
+            <p id="cdResearchText" class="text-sm text-slate-500">Loading…</p>
+        </div>
+    </div>
+</div>
+
             <!-- ═══ SECTION: Hearing Calendar ═══ -->
             <div id="ld-calendar" class="section-content py-8">
                 <div class="flex items-center justify-between mb-6">
@@ -1098,6 +1161,22 @@
 
     <!-- ═══════════ MODALS ═══════════ -->
 
+    <!-- Evidence Download Log Modal -->
+    <div id="evidenceLogModal" class="fixed inset-0 hidden z-50 modal-backdrop items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col">
+            <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+                <h3 class="text-sm font-bold text-blue-900 flex items-center gap-2">
+                    <i data-lucide="history" class="w-4 h-4"></i> Download Log
+                </h3>
+                <button onclick="closeEvidenceLog()"
+                    class="text-slate-400 hover:text-red-500 text-xl font-bold leading-none">×</button>
+            </div>
+            <div id="evidenceLogList" class="px-5 py-4 overflow-y-auto space-y-3">
+                <p class="text-sm text-slate-400 text-center py-6">Loading log…</p>
+            </div>
+        </div>
+    </div>
+
     <!-- Case Modal -->
     <div id="caseModal" class="fixed inset-0 hidden z-50 modal-backdrop items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto">
@@ -1488,6 +1567,7 @@
         </div>
     </div>
 
+     
     <script>
         // ═══════════════════════════════════════════════
         // GLOBAL STATE — localStorage-backed
@@ -1691,6 +1771,7 @@
             <td class="px-4 py-3 text-xs">${hearingStr}</td>
             <td class="px-4 py-3">${statusBadge(c.status)}</td>
             <td class="px-4 py-3">
+                <button onclick="openCaseDetail('${esc(c.caseNo)}')" class="text-xs text-blue-600 hover:underline mr-2">View</button>
                 <button onclick="deleteCase(${i})" class="text-xs text-red-400 hover:text-red-600 px-2 py-1 rounded hover:bg-red-50">Delete</button>
             </td>
         </tr>`;
@@ -1737,6 +1818,247 @@
             renderCases();
             renderOverview();
         }
+
+// ═══════════════════════════════════════════════
+// CASE DETAIL
+// ═══════════════════════════════════════════════
+let currentCaseDetail = null;
+
+function openCaseDetail(caseNo) {
+    const c = state.cases.find(cs => cs.caseNo === caseNo);
+    if (!c) return;
+    currentCaseDetail = c;
+
+    showSection('ld-case-detail');
+    document.getElementById('cdTypeBadge').textContent = (c.type || 'Case').toUpperCase();
+    document.getElementById('cdTitle').textContent = `${c.client} vs. State`;
+    showCaseDetailTab('cdSummary');
+    loadCaseDetail(c);
+    lucide.createIcons();
+}
+
+function closeCaseDetail() {
+    showSection('ld-cases');
+}
+
+function showCaseDetailTab(tabId) {
+    document.querySelectorAll('.cd-tab-content').forEach(t => t.classList.add('hidden'));
+    document.getElementById(tabId).classList.remove('hidden');
+    document.querySelectorAll('.cd-tab-btn').forEach(b => {
+        b.classList.remove('border-blue-600', 'text-blue-700');
+        b.classList.add('border-transparent', 'text-slate-500');
+    });
+    const activeBtn = document.querySelector(`.cd-tab-btn[data-tab="${tabId}"]`);
+    activeBtn?.classList.add('border-blue-600', 'text-blue-700');
+    activeBtn?.classList.remove('border-transparent', 'text-slate-500');
+}
+
+async function loadCaseDetail(c) {
+    document.getElementById('cdOverviewText').textContent = 'Loading case details…';
+    document.getElementById('cdCitationsList').innerHTML = '<li class="text-slate-400 list-none">Loading…</li>';
+    document.getElementById('cdResearchText').textContent = 'Loading…';
+
+    try {
+        const res = await fetch(`/api/lawyer/case-detail/${encodeURIComponent(c.caseNo)}`);
+        if (!res.ok) throw new Error('Server error');
+        const data = await res.json();
+        renderCaseDetail(data, c);
+    } catch (e) {
+        renderCaseDetail(null, c);
+    }
+
+    // Evidence is fetched independently — any file type, one call, backend-driven
+    loadCaseEvidence(c.caseNo);
+}
+
+function renderCaseDetail(data, c) {
+    // Overview
+    const overview = data?.overview ||
+        `This ${c.type || 'case'} is registered as ${c.caseNo} before ${c.court}. ${c.notes || 'No additional case notes have been recorded yet.'}`;
+    document.getElementById('cdOverviewText').textContent = overview;
+
+    // Status
+    const days = c.hearing ? Math.ceil((new Date(c.hearing) - new Date()) / 86400000) : null;
+    const statusLabel = data?.status ||
+        (c.hearing
+            ? `Stage: ${c.status} (Hearing ${days === 0 ? 'Today' : days === 1 ? 'Tomorrow' : days > 0 ? `in ${days} days` : 'date passed'})`
+            : `Stage: ${c.status}`);
+    document.getElementById('cdStatusText').innerHTML = `<span class="w-2 h-2 rounded-full bg-blue-500"></span> ${esc(statusLabel)}`;
+
+    // Citations
+    const citations = data?.citations || [];
+    document.getElementById('cdCitationsList').innerHTML = citations.length
+        ? citations.map(ci => `<li>${esc(ci)}</li>`).join('')
+        : '<li class="text-slate-400 list-none">No citations linked yet.</li>';
+
+    // Research
+    document.getElementById('cdResearchText').textContent = data?.research ||
+        'No linked research yet. Use the Precedent Finder to search relevant case law for this matter.';
+}
+
+// ── EVIDENCE (backend-driven, any file type) ──────────────
+async function loadCaseEvidence(caseNo) {
+    const grid = document.getElementById('cdEvidenceGrid');
+    grid.innerHTML = '<p class="col-span-full text-sm text-slate-400 text-center py-8">Loading evidence…</p>';
+    try {
+        const res = await fetch(`/api/lawyer/case-evidence/${encodeURIComponent(caseNo)}`);
+        if (!res.ok) throw new Error('Server error');
+        const data = await res.json();
+        renderEvidenceGrid(data.evidence || [], caseNo);
+    } catch (e) {
+        renderEvidenceGrid([], caseNo);
+    }
+}
+
+function renderEvidenceGrid(evidence, caseNo) {
+    const grid = document.getElementById('cdEvidenceGrid');
+    if (!evidence || !evidence.length) {
+        grid.innerHTML = '<p class="col-span-full text-sm text-slate-400 text-center py-8">No documents or evidence linked to this case yet.</p>';
+        return;
+    }
+    grid.innerHTML = evidence.map(d => {
+        const meta = fileIconMeta(d.name, d.mimeType);
+        const sizeLabel = d.size || formatFileSize(d.sizeBytes);
+        const timeLabel = timeAgo(d.uploadedAt);
+        const metaLine = [sizeLabel, timeLabel].filter(Boolean).join(' · ');
+        return `
+        <div class="relative bg-white border border-slate-200 rounded-xl p-4 hover:border-blue-300 hover:shadow-sm transition group">
+            <div class="flex items-start gap-3">
+                <div class="w-10 h-10 rounded-lg ${meta.bg} flex items-center justify-center shrink-0">
+                    <i data-lucide="${meta.icon}" class="w-5 h-5 ${meta.color}"></i>
+                </div>
+                <div class="min-w-0 flex-1">
+                    <p class="font-semibold text-sm text-slate-800 truncate" title="${esc(d.name)}">${esc(d.name)}</p>
+                    <p class="text-xs text-slate-400 mt-0.5">${esc(metaLine)}</p>
+                </div>
+                <button onclick="downloadEvidence('${esc(d.id)}', '${esc(caseNo)}', '${esc(d.name)}')"
+                    title="Download"
+                    class="opacity-0 group-hover:opacity-100 transition text-slate-400 hover:text-blue-600 shrink-0">
+                    <i data-lucide="download" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </div>`;
+    }).join('');
+    lucide.createIcons();
+}
+
+async function downloadEvidence(evidenceId, caseNo, fileName) {
+    try {
+        const res = await fetch(`/api/lawyer/evidence/${encodeURIComponent(evidenceId)}/download`);
+        if (!res.ok) throw new Error('Download failed');
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName || 'evidence-file';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+
+        // Case-specific download log — recorded server-side
+        fetch(`/api/lawyer/evidence/${encodeURIComponent(evidenceId)}/log-download`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                caseNo: caseNo,
+                fileName: fileName,
+                downloadedAt: new Date().toISOString(),
+                lawyerId: state.lawyerId,
+                lawyerName: state.lawyerName
+            })
+        }).catch(() => {});
+    } catch (e) {
+        alert('Failed to download the file. Please try again.');
+    }
+}
+
+function fileIconMeta(fileName, mimeType) {
+    const ext = (fileName || '').split('.').pop().toLowerCase();
+    if (ext === 'pdf') return { icon: 'file-text', bg: 'bg-red-50', color: 'text-red-600' };
+    if (['doc', 'docx'].includes(ext)) return { icon: 'file-text', bg: 'bg-blue-50', color: 'text-blue-600' };
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) return { icon: 'image', bg: 'bg-purple-50', color: 'text-purple-600' };
+    if (['mp4', 'mov', 'avi', 'mkv'].includes(ext)) return { icon: 'video', bg: 'bg-amber-50', color: 'text-amber-600' };
+    if ((mimeType || '').startsWith('image/')) return { icon: 'image', bg: 'bg-purple-50', color: 'text-purple-600' };
+    if ((mimeType || '').startsWith('video/')) return { icon: 'video', bg: 'bg-amber-50', color: 'text-amber-600' };
+    return { icon: 'file', bg: 'bg-slate-100', color: 'text-slate-600' };
+}
+
+function formatFileSize(bytes) {
+    if (bytes === undefined || bytes === null) return '';
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+function timeAgo(dateString) {
+    if (!dateString) return '';
+    const diffMs = new Date() - new Date(dateString);
+    const mins = Math.floor(diffMs / 60000);
+    const hrs = Math.floor(diffMs / 3600000);
+    const days = Math.floor(diffMs / 86400000);
+    if (mins < 1) return 'Just now';
+    if (mins < 60) return `${mins} min${mins > 1 ? 's' : ''} ago`;
+    if (hrs < 24) return `${hrs} hour${hrs > 1 ? 's' : ''} ago`;
+    if (days < 30) return `${days} day${days > 1 ? 's' : ''} ago`;
+    return new Date(dateString).toLocaleDateString('en-IN');
+}
+
+let currentEvidenceLogCaseNo = null;
+
+function openEvidenceLog() {
+    currentEvidenceLogCaseNo = currentCaseDetail?.caseNo;
+    if (!currentEvidenceLogCaseNo) return;
+    showModal('evidenceLogModal');
+    lucide.createIcons();
+    loadEvidenceLog(currentEvidenceLogCaseNo);
+}
+
+function closeEvidenceLog() { hideModal('evidenceLogModal'); }
+
+async function loadEvidenceLog(caseNo) {
+    const list = document.getElementById('evidenceLogList');
+    list.innerHTML = '<p class="text-sm text-slate-400 text-center py-6">Loading log…</p>';
+    try {
+        const res = await fetch(`/api/lawyer/case-evidence-log/${encodeURIComponent(caseNo)}`);
+        if (!res.ok) throw new Error('Server error');
+        const data = await res.json();
+        renderEvidenceLog(data.log || []);
+    } catch (e) {
+        renderEvidenceLog([]);
+    }
+}
+
+function renderEvidenceLog(entries) {
+    const list = document.getElementById('evidenceLogList');
+    if (!entries.length) {
+        list.innerHTML = '<p class="text-sm text-slate-400 text-center py-6">No downloads recorded yet.</p>';
+        return;
+    }
+    // Most recent first
+    const sorted = [...entries].sort((a, b) => new Date(b.downloadedAt) - new Date(a.downloadedAt));
+    list.innerHTML = sorted.map(e => `
+        <div class="flex items-start gap-3 border-b border-slate-50 pb-3 last:border-0 last:pb-0">
+            <div class="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
+                <i data-lucide="download" class="w-4 h-4 text-blue-600"></i>
+            </div>
+            <div class="min-w-0 flex-1">
+                <p class="text-sm font-semibold text-slate-800 truncate">${esc(e.fileName)}</p>
+                <p class="text-xs text-slate-500 mt-0.5">${esc(e.lawyerName || 'Unknown')}</p>
+                <p class="text-xs text-slate-400">${formatLogTimestamp(e.downloadedAt)}</p>
+            </div>
+        </div>`).join('');
+    lucide.createIcons();
+}
+
+function formatLogTimestamp(dateString) {
+    if (!dateString) return '';
+    const d = new Date(dateString);
+    return d.toLocaleString('en-IN', {
+        day: 'numeric', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+    });
+}
 
         // ═══════════════════════════════════════════════
         // CALENDAR

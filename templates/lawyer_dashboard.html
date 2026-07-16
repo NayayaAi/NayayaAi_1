@@ -2541,149 +2541,149 @@ Date: ${today}
             clearInputs(['filingDoc', 'filingCase', 'filingDeadline', 'filingDate', 'filingAck']);
         }
 
-        // ═══════════════════════════════════════════════
-// DOCUMENT VAULT — backend-backed
-// ═══════════════════════════════════════════════
-let vaultDocs = [];
-
-async function loadVault() {
-    try {
-        const res = await fetch('/api/lawyer/vault');
-        if (!res.ok) throw new Error('Server error');
-        const data = await res.json();
-        vaultDocs = data.vault || [];
-    } catch (e) {
-        vaultDocs = [];
+    // ═══════════════════════════════════════════════
+    // DOCUMENT VAULT — backend-backed
+    // ═══════════════════════════════════════════════
+    let vaultDocs = [];
+        
+    async function loadVault() {
+        try {
+            const res = await fetch('/api/lawyer/vault');
+            if (!res.ok) throw new Error('Server error');
+            const data = await res.json();
+            vaultDocs = data.vault || [];
+        } catch (e) {
+            vaultDocs = [];
+        }
     }
-}
-
-function renderVault(data) {
-    const docs = data || vaultDocs;
-    const grid = document.getElementById('vaultGrid');
-    if (!docs.length) {
-        grid.innerHTML = '<div class="col-span-full py-16 text-center text-slate-300"><i data-lucide="folder-open" class="w-16 h-16 mx-auto mb-3"></i><p class="text-sm">No documents uploaded yet</p></div>';
-        lucide.createIcons(); return;
-    }
-    const icons = { 'FIR': 'file-text', 'Chargesheet': 'file-warning', 'Court Order': 'gavel', 'Bail Application': 'shield-check', 'Evidence': 'camera', 'Petition': 'scroll', 'Other': 'file' };
-    grid.innerHTML = docs.map(d => `
-        <div class="bg-white border border-slate-200 rounded-xl p-4 hover:border-blue-300 transition shadow-sm cursor-pointer" onclick="viewVaultDoc('${esc(d.id)}')">
-            <div class="flex items-start justify-between mb-3">
-                <div class="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center">
-                    <i data-lucide="${icons[d.type] || 'file'}" class="w-5 h-5 text-blue-600"></i>
+    
+    function renderVault(data) {
+        const docs = data || vaultDocs;
+        const grid = document.getElementById('vaultGrid');
+        if (!docs.length) {
+            grid.innerHTML = '<div class="col-span-full py-16 text-center text-slate-300"><i data-lucide="folder-open" class="w-16 h-16 mx-auto mb-3"></i><p class="text-sm">No documents uploaded     yet</p></div>';
+            lucide.createIcons(); return;
+        }
+        const icons = { 'FIR': 'file-text', 'Chargesheet': 'file-warning', 'Court Order': 'gavel', 'Bail Application': 'shield-check', 'Evidence': 'camera', 'Petition': 'scroll', 'Other':        'file' };
+        grid.innerHTML = docs.map(d => `
+            <div class="bg-white border border-slate-200 rounded-xl p-4 hover:border-blue-300 transition shadow-sm cursor-pointer" onclick="viewVaultDoc('${esc(d.id)}')">
+                <div class="flex items-start justify-between mb-3">
+                    <div class="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center">
+                        <i data-lucide="${icons[d.type] || 'file'}" class="w-5 h-5 text-blue-600"></i>
+                    </div>
+                    <button onclick="event.stopPropagation(); deleteVaultDoc('${esc(d.id)}')" class="text-slate-300 hover:text-red-400 text-lg font-bold">×</button>
                 </div>
-                <button onclick="event.stopPropagation(); deleteVaultDoc('${esc(d.id)}')" class="text-slate-300 hover:text-red-400 text-lg font-bold">×</button>
-            </div>
-            <p class="font-semibold text-sm text-slate-800 truncate">${esc(d.name)}</p>
-            <p class="text-xs text-slate-400 mt-1">${esc(d.type)} · ${esc(d.caseRef) || 'No case'}</p>
-            <p class="text-xs text-slate-300 mt-1">${new Date(d.uploadedAt).toLocaleDateString('en-IN')}</p>
-        </div>`).join('');
-    lucide.createIcons();
-
-    const cases = [...new Set(vaultDocs.map(d => d.caseRef).filter(Boolean))];
-    const cf = document.getElementById('vaultCaseFilter');
-    cf.innerHTML = '<option value="">All Cases</option>' + cases.map(c => `<option>${esc(c)}</option>`).join('');
-}
-
-function filterVault() {
-    const q = document.getElementById('vaultSearch').value.toLowerCase();
-    const c = document.getElementById('vaultCaseFilter').value;
-    const t = document.getElementById('vaultTypeFilter').value;
-    const filtered = vaultDocs.filter(d =>
-        (!q || d.name.toLowerCase().includes(q)) &&
-        (!c || d.caseRef === c) &&
-        (!t || d.type === t)
-    );
-    renderVault(filtered);
-}
-
-function openVaultUpload() { showModal('vaultModal'); }
-function closeVaultModal() { hideModal('vaultModal'); }
-
-async function saveVaultDoc() {
-    const name = val('vaultDocName');
-    const caseRef = val('vaultCaseRef');
-    const type = val('vaultDocType');
-    const fileInput = document.getElementById('vaultFile');
-    const file = fileInput.files[0];
-
-    if (!name) { alert('Document name is required.'); return; }
-
-    const formData = new FormData();
-    formData.append('name', name);
-    formData.append('caseRef', caseRef);
-    formData.append('type', type);
-    if (file) formData.append('file', file);
-
-    try {
-        const res = await fetch('/api/lawyer/vault/upload', { method: 'POST', body: formData });
-        if (!res.ok) throw new Error('Upload failed');
-        closeVaultModal();
-        clearInputs(['vaultDocName', 'vaultCaseRef']);
-        fileInput.value = '';
-        await loadVault();
-        renderVault();
-    } catch (e) {
-        alert('Failed to upload document. Please try again.');
+                <p class="font-semibold text-sm text-slate-800 truncate">${esc(d.name)}</p>
+                <p class="text-xs text-slate-400 mt-1">${esc(d.type)} · ${esc(d.caseRef) || 'No case'}</p>
+                <p class="text-xs text-slate-300 mt-1">${new Date(d.uploadedAt).toLocaleDateString('en-IN')}</p>
+            </div>`).join('');
+        lucide.createIcons();
+        
+        const cases = [...new Set(vaultDocs.map(d => d.caseRef).filter(Boolean))];
+        const cf = document.getElementById('vaultCaseFilter');
+        cf.innerHTML = '<option value="">All Cases</option>' + cases.map(c => `<option>${esc(c)}</option>`).join('');
     }
-}
-
-async function deleteVaultDoc(id) {
-    if (!confirm('Remove this document from vault?')) return;
-    try {
-        const res = await fetch(`/api/lawyer/vault/${encodeURIComponent(id)}`, { method: 'DELETE' });
-        if (!res.ok) throw new Error('Delete failed');
-        await loadVault();
-        renderVault();
-    } catch (e) {
-        alert('Failed to delete document.');
+    
+    function filterVault() {
+        const q = document.getElementById('vaultSearch').value.toLowerCase();
+        const c = document.getElementById('vaultCaseFilter').value;
+        const t = document.getElementById('vaultTypeFilter').value;
+        const filtered = vaultDocs.filter(d =>
+            (!q || d.name.toLowerCase().includes(q)) &&
+            (!c || d.caseRef === c) &&
+            (!t || d.type === t)
+        );
+        renderVault(filtered);
     }
-}
-
-function viewVaultDoc(id) {
-    const d = vaultDocs.find(x => x.id === id);
-    if (!d) return;
-    document.getElementById('vaultViewTitle').textContent = d.name;
-    document.getElementById('vaultViewMeta').textContent =
-        `${d.type} · ${d.caseRef || 'No case'} · ${new Date(d.uploadedAt).toLocaleDateString('en-IN')}`;
-
-    const contentEl = document.getElementById('vaultViewContent');
-    const noContentEl = document.getElementById('vaultViewNoContent');
-    const downloadBtn = document.getElementById('vaultViewDownloadBtn');
-
-    if (d.content) {
-        contentEl.textContent = d.content;
-        contentEl.classList.remove('hidden');
-        noContentEl.classList.add('hidden');
-    } else {
-        contentEl.classList.add('hidden');
-        noContentEl.classList.remove('hidden');
+    
+    function openVaultUpload() { showModal('vaultModal'); }
+    function closeVaultModal() { hideModal('vaultModal'); }
+    
+    async function saveVaultDoc() {
+        const name = val('vaultDocName');
+        const caseRef = val('vaultCaseRef');
+        const type = val('vaultDocType');
+        const fileInput = document.getElementById('vaultFile');
+        const file = fileInput.files[0];
+    
+        if (!name) { alert('Document name is required.'); return; }
+    
+        const formData = new FormData();
+        formData.append('name', name);
+        formData.append('caseRef', caseRef);
+        formData.append('type', type);
+        if (file) formData.append('file', file);
+    
+        try {
+            const res = await fetch('/api/lawyer/vault/upload', { method: 'POST', body: formData });
+            if (!res.ok) throw new Error('Upload failed');
+            closeVaultModal();
+            clearInputs(['vaultDocName', 'vaultCaseRef']);
+            fileInput.value = '';
+            await loadVault();
+            renderVault();
+        } catch (e) {
+            alert('Failed to upload document. Please try again.');
+        }
     }
-    if (d.storedFilename) {
-        downloadBtn.classList.remove('hidden');
-        downloadBtn.onclick = () => window.open(`/api/lawyer/vault/${encodeURIComponent(d.id)}/download`, '_blank');
-    } else {
-        downloadBtn.classList.add('hidden');
+    
+    async function deleteVaultDoc(id) {
+        if (!confirm('Remove this document from vault?')) return;
+        try {
+            const res = await fetch(`/api/lawyer/vault/${encodeURIComponent(id)}`, { method: 'DELETE' });
+            if (!res.ok) throw new Error('Delete failed');
+            await loadVault();
+            renderVault();
+        } catch (e) {
+            alert('Failed to delete document.');
+        }
     }
-    showModal('vaultViewModal');
-    lucide.createIcons();
-}
-
-function closeVaultViewModal() { hideModal('vaultViewModal'); }
-
-async function saveDraftToVaultBackend(name, caseRef, type, content) {
-    try {
-        const res = await fetch('/api/lawyer/vault/save-generated', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, caseRef, type, content })
-        });
-        if (!res.ok) throw new Error('Save failed');
-        await loadVault();
-        alert('Saved to Document Vault!');
-    } catch (e) {
-        alert('Failed to save to vault. Please try again.');
+    
+    function viewVaultDoc(id) {
+        const d = vaultDocs.find(x => x.id === id);
+        if (!d) return;
+        document.getElementById('vaultViewTitle').textContent = d.name;
+        document.getElementById('vaultViewMeta').textContent =
+            `${d.type} · ${d.caseRef || 'No case'} · ${new Date(d.uploadedAt).toLocaleDateString('en-IN')}`;
+    
+        const contentEl = document.getElementById('vaultViewContent');
+        const noContentEl = document.getElementById('vaultViewNoContent');
+        const downloadBtn = document.getElementById('vaultViewDownloadBtn');
+    
+        if (d.content) {
+            contentEl.textContent = d.content;
+            contentEl.classList.remove('hidden');
+            noContentEl.classList.add('hidden');
+        } else {
+            contentEl.classList.add('hidden');
+            noContentEl.classList.remove('hidden');
+        }
+        if (d.storedFilename) {
+            downloadBtn.classList.remove('hidden');
+            downloadBtn.onclick = () => window.open(`/api/lawyer/vault/${encodeURIComponent(d.id)}/download`, '_blank');
+        } else {
+            downloadBtn.classList.add('hidden');
+        }
+        showModal('vaultViewModal');
+        lucide.createIcons();
     }
-}
+    
+    function closeVaultViewModal() { hideModal('vaultViewModal'); }
+    
+    async function saveDraftToVaultBackend(name, caseRef, type, content) {
+        try {
+            const res = await fetch('/api/lawyer/vault/save-generated', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, caseRef, type, content })
+            });
+            if (!res.ok) throw new Error('Save failed');
+            await loadVault();
+            alert('Saved to Document Vault!');
+        } catch (e) {
+            alert('Failed to save to vault. Please try again.');
+        }
+    }
 
         // ═══════════════════════════════════════════════
         // ORDER REPOSITORY

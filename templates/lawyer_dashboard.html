@@ -545,32 +545,38 @@
                     </div>
 
                     <!-- Upcoming hearings sidebar -->
-                    <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
-                        <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                            <i data-lucide="bell" class="w-4 h-4 text-amber-500"></i>
-                            Upcoming (7 days)
-                        </h3>
-                        <div id="upcomingHearingsList" class="space-y-3">
-                            <p class="text-sm text-slate-400 text-center py-6">No hearings this week</p>
-                        </div>
+                    <!-- Upcoming hearings sidebar -->
+<div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+    <h3 id="selectedDayLabel" class="font-bold text-slate-800 mb-4 flex items-center gap-2">
+        <i data-lucide="calendar-days" class="w-4 h-4 text-blue-600"></i>
+        Today's Hearings
+    </h3>
+    <div id="selectedDayHearingsList" class="space-y-3 mb-6 pb-6 border-b border-slate-100">
+        <p class="text-sm text-slate-400 text-center py-4">No hearings on this day</p>
+    </div>
 
-                        <!-- Legend -->
-                        <div class="mt-6 pt-4 border-t border-slate-100 space-y-1.5">
-                            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Legend</p>
-                            <div class="flex items-center gap-2">
-                                <div class="w-3 h-3 rounded-full bg-red-400"></div><span
-                                    class="text-xs text-slate-600">Urgent (≤2 days)</span>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <div class="w-3 h-3 rounded-full bg-amber-400"></div><span
-                                    class="text-xs text-slate-600">Soon (3–5 days)</span>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <div class="w-3 h-3 rounded-full bg-blue-400"></div><span
-                                    class="text-xs text-slate-600">Scheduled</span>
-                            </div>
-                        </div>
-                    </div>
+    <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
+        <i data-lucide="bell" class="w-4 h-4 text-amber-500"></i>
+        Upcoming
+    </h3>
+    <div id="upcomingHearingsList" class="space-y-3">
+        <p class="text-sm text-slate-400 text-center py-6">No upcoming hearings</p>
+    </div>
+
+    <!-- Legend -->
+    <div class="mt-6 pt-4 border-t border-slate-100 space-y-1.5">
+        <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Legend</p>
+        <div class="flex items-center gap-2">
+            <div class="w-3 h-3 rounded-full bg-red-400"></div><span class="text-xs text-slate-600">Urgent (≤2 days)</span>
+        </div>
+        <div class="flex items-center gap-2">
+            <div class="w-3 h-3 rounded-full bg-amber-400"></div><span class="text-xs text-slate-600">Soon (3–5 days)</span>
+        </div>
+        <div class="flex items-center gap-2">
+            <div class="w-3 h-3 rounded-full bg-blue-400"></div><span class="text-xs text-slate-600">Scheduled</span>
+        </div>
+    </div>
+</div>
                 </div>
             </div>
 
@@ -1598,15 +1604,16 @@
         // ═══════════════════════════════════════════════
         // INIT
         // ═══════════════════════════════════════════════
-        document.addEventListener('DOMContentLoaded', () => {
-            loadState();
-            lucide.createIcons();
-            initSidebar();
-            populateLawyerInfo();
-            showSection('ld-overview');
-            renderOverview();
-            renderCalendar();
-            preloadAmendments();
+       document.addEventListener('DOMContentLoaded', async () => {
+        loadState();
+        initSidebar();
+        lucide.createIcons();
+        populateLawyerInfo();
+        showSection('ld-overview');
+        await loadHearings();
+        renderOverview();
+        renderCalendar();
+        preloadAmendments();
 
             // Draft template selector
             document.querySelectorAll('.draft-template-btn').forEach(btn => {
@@ -1677,15 +1684,15 @@
             document.querySelector(`[data-section="${id}"]`)?.classList.add('active', 'bg-blue-800');
 
             // Section-specific loads
-            if (id === 'ld-cases') renderCases();
-            if (id === 'ld-calendar') renderCalendar();
+            if (id === 'ld-cases') { loadHearings().then(renderCases); }
+            if (id === 'ld-calendar') { loadHearings().then(renderCalendar); }
             if (id === 'ld-fees') renderFees();
             if (id === 'ld-efiling') renderFilings();
             if (id === 'ld-orders') renderOrders();
             if (id === 'ld-clients') renderClients();
             if (id === 'ld-vault') renderVault();
             if (id === 'ld-timeline') renderTimelineSelect();
-            if (id === 'ld-overview') renderOverview();
+            if (id === 'ld-overview') { loadHearings().then(renderOverview); }
         }
 
         // ═══════════════════════════════════════════════
@@ -1696,30 +1703,33 @@
             document.getElementById('stat-active-cases').textContent = active;
             document.getElementById('stat-clients').textContent = state.clients.length;
 
-            const today = new Date();
-            const in7 = new Date(); in7.setDate(today.getDate() + 7);
-            const hearings = state.cases.filter(c => c.hearing && new Date(c.hearing) >= today && new Date(c.hearing) <= in7);
-            document.getElementById('stat-hearings').textContent = hearings.length;
+            const today = new Date(); today.setHours(0, 0, 0, 0);
+            const in7 = new Date(); in7.setDate(today.getDate() + 7); // 7 days from today
+            const upcomingHearings7d = hearings.filter(h => new Date(h.date) >= today && new Date(h.date) <= in7);
+            document.getElementById('stat-hearings').textContent = upcomingHearings7d.length;
 
             const pending = state.fees.filter(f => f.status !== 'Paid').reduce((s, f) => s + parseInt(f.amount || 0), 0);
             document.getElementById('stat-fees').textContent = pending.toLocaleString('en-IN');
 
             // Overview hearings
             const ohContainer = document.getElementById('overviewHearings');
-            const upcomingAll = state.cases.filter(c => c.hearing && new Date(c.hearing) >= today)
-                .sort((a, b) => new Date(a.hearing) - new Date(b.hearing)).slice(0, 5);
+            const upcomingAll = hearings.filter(h => new Date(h.date) >= today)
+                .sort((a, b) => new Date(a.date) - new Date(b.date)).slice(0, 5);
             if (upcomingAll.length) {
-                ohContainer.innerHTML = upcomingAll.map(c => {
-                    const days = Math.ceil((new Date(c.hearing) - today) / 86400000);
+                ohContainer.innerHTML = upcomingAll.map(h => {
+                    const relatedCase = state.cases.find(c => c.caseNo === h.case_no);
+                    const days = Math.ceil((new Date(h.date) - today) / 86400000);
                     const color = days <= 2 ? 'red' : days <= 5 ? 'amber' : 'blue';
                     return `<div class="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
                 <div>
-                    <p class="font-semibold text-sm text-slate-800">${esc(c.client)}</p>
-                    <p class="text-xs text-slate-400">${esc(c.caseNo)} · ${esc(c.court)}</p>
+                    <p class="font-semibold text-sm text-slate-800">${esc(relatedCase?.client || h.case_no)}</p>
+                    <p class="text-xs text-slate-400">${esc(h.case_no)} · ${esc(h.court || '')}</p>
                 </div>
                 <span class="text-xs font-bold text-${color}-600 bg-${color}-50 px-2 py-1 rounded-full">${days === 0 ? 'Today' : days === 1 ? 'Tomorrow' : `${days}d`}</span>
             </div>`;
                 }).join('');
+            } else {
+                ohContainer.innerHTML = '<p class="text-sm text-slate-400 text-center py-6">No hearings scheduled</p>';
             }
 
             // Overview recent cases
@@ -1736,8 +1746,8 @@
             }
 
             // Badge updates
-            const urgentCount = state.cases.filter(c => {
-                const days = c.hearing ? Math.ceil((new Date(c.hearing) - today) / 86400000) : 999;
+            const urgentCount = hearings.filter(h => {
+                const days = Math.ceil((new Date(h.date) - today) / 86400000);
                 return days <= 2 && days >= 0;
             }).length;
             const ub = document.getElementById('urgentBadge');
@@ -1759,10 +1769,11 @@
                 tbody.innerHTML = '<tr><td colspan="7" class="px-4 py-10 text-center text-slate-400">No cases yet. Click "Add Case" to get started.</td></tr>';
                 return;
             }
-            const today = new Date();
-            tbody.innerHTML = cases.map((c, i) => {
-                const days = c.hearing ? Math.ceil((new Date(c.hearing) - today) / 86400000) : null;
-                const hearingStr = c.hearing ? `<span class="font-medium">${c.hearing}</span>${days !== null ? `<br><span class="text-xs ${days <= 2 ? 'text-red-500 font-bold' : days <= 5 ? 'text-amber-600' : 'text-slate-400'}">${days < 0 ? 'Past' : days === 0 ? 'Today!' : `In ${days}d`}</span>` : ''}` : '<span class="text-slate-300">Not set</span>';
+            const today = new Date(); today.setHours(0, 0, 0, 0);
+                tbody.innerHTML = cases.map((c, i) => {
+                const nextHearing = getNextHearingDate(c.caseNo);
+                const days = nextHearing ? Math.ceil((new Date(nextHearing.date) - today) / 86400000) : null;
+                const hearingStr = nextHearing ? `<span class="font-medium">${esc(nextHearing.date)}${nextHearing.time ? ' · ' + esc(nextHearing.time) : ''}</      span><br><span class="text-xs ${days <= 2 ? 'text-red-500 font-bold' : days <= 5 ? 'text-amber-600' : 'text-slate-400'}">${days === 0 ? 'Today!'    : `In ${days}d`}</span>` : '<span class="text-slate-300">Not set</span>';
                 return `<tr>
             <td class="px-4 py-3 font-mono text-blue-700 font-semibold text-xs">${esc(c.caseNo)}</td>
             <td class="px-4 py-3 font-semibold text-slate-800">${esc(c.client)}</td>
@@ -1896,7 +1907,7 @@ function renderCaseDetail(data, c) {
         'No linked research yet. Use the Precedent Finder to search relevant case law for this matter.';
 }
 
-// ── EVIDENCE (backend-driven, any file type) ──────────────
+// ── EVIDENCE  ──────────────
 async function loadCaseEvidence(caseNo) {
     const grid = document.getElementById('cdEvidenceGrid');
     grid.innerHTML = '<p class="col-span-full text-sm text-slate-400 text-center py-8">Loading evidence…</p>';
@@ -2063,80 +2074,159 @@ function formatLogTimestamp(dateString) {
         // ═══════════════════════════════════════════════
         // CALENDAR
         // ═══════════════════════════════════════════════
-        let calDate = new Date();
+        let hearings = []; 
+        
+    let calDate = new Date();
+    let selectedCalDay = todayStr(); 
 
-        function renderCalendar() {
-            const year = calDate.getFullYear();
-            const month = calDate.getMonth();
-            document.getElementById('calMonthLabel').textContent =
-                calDate.toLocaleString('en-IN', { month: 'long', year: 'numeric' });
+    function todayStr() {
+        const d = new Date();
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
 
-            const firstDay = new Date(year, month, 1).getDay();
-            const daysInMonth = new Date(year, month + 1, 0).getDate();
-            const today = new Date();
+    async function loadHearings() {
+        try {
+            const res = await fetch('/api/lawyer/hearings');
+            if (!res.ok) throw new Error('Server error');
+            const data = await res.json();
+            hearings = data.hearings || [];
+        } catch (e) {
+            hearings = [];
+        }
+    }
 
-            // Build hearing map
-            const hearingMap = {};
-            state.cases.forEach(c => {
-                if (!c.hearing) return;
-                const d = new Date(c.hearing);
-                if (d.getFullYear() === year && d.getMonth() === month) {
-                    const key = d.getDate();
-                    if (!hearingMap[key]) hearingMap[key] = [];
-                    hearingMap[key].push(c);
-                }
-            });
+    function urgencyColor(dateStr) {
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const days = Math.ceil((new Date(dateStr) - today) / 86400000);
+        if (days <= 2) return 'red';
+        if (days <= 5) return 'amber';
+        return 'blue';
+    }
 
-            let html = '';
-            // Empty cells before first day
-            for (let i = 0; i < firstDay; i++) html += `<div class="cal-day border border-slate-50 p-1.5"></div>`;
-            // Day cells
-            for (let d = 1; d <= daysInMonth; d++) {
-                const isToday = today.getDate() === d && today.getMonth() === month && today.getFullYear() === year;
-                const hearings = hearingMap[d] || [];
-                const hasUrgent = hearings.some(c => {
-                    const days = Math.ceil((new Date(c.hearing) - today) / 86400000);
-                    return days <= 2;
-                });
-                html += `<div class="cal-day border border-slate-50 p-1.5 ${isToday ? 'bg-blue-50' : ''}">
-            <span class="text-xs font-semibold ${isToday ? 'text-blue-700 bg-blue-600 text-white w-5 h-5 rounded-full flex items-center justify-center' : 'text-slate-600'}">${d}</span>
-            <div class="mt-0.5 space-y-0.5">
-                ${hearings.slice(0, 2).map(c => {
-                    const days = Math.ceil((new Date(c.hearing) - today) / 86400000);
-                    const color = days <= 2 ? 'bg-red-400' : days <= 5 ? 'bg-amber-400' : 'bg-blue-400';
-                    return `<div class="hearing-dot text-white ${color} px-1 rounded truncate" title="${esc(c.client)}">${esc(c.client.split(' ')[0])}</div>`;
-                }).join('')}
-                ${hearings.length > 2 ? `<div class="text-xs text-slate-400">+${hearings.length - 2}</div>` : ''}
-            </div>
-        </div>`;
+    function getUpcomingHearingsForCase(caseNo) {
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        return hearings
+            .filter(h => h.case_no === caseNo && new Date(h.date) >= today)
+            .sort((a, b) => new Date(a.date) - new Date(b.date));
+    }
+
+    function getNextHearingDate(caseNo) {
+        const upcoming = getUpcomingHearingsForCase(caseNo);
+        return upcoming.length ? upcoming[0] : null;
+    }
+
+    function renderCalendar() {
+        const year = calDate.getFullYear();
+        const month = calDate.getMonth();
+        document.getElementById('calMonthLabel').textContent =
+            calDate.toLocaleString('en-IN', { month: 'long', year: 'numeric' });
+
+        const firstDay = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const today = new Date();
+
+        const hearingMap = {};
+        hearings.forEach(h => {
+            const d = new Date(h.date);
+            if (d.getFullYear() === year && d.getMonth() === month) {
+                const key = d.getDate();
+                if (!hearingMap[key]) hearingMap[key] = [];
+                hearingMap[key].push(h);
             }
+        });
 
-            document.getElementById('calGrid').innerHTML = html;
+        let html = '';
+        for (let i = 0; i < firstDay; i++) html += `<div class="cal-day border border-slate-50 p-1.5"></div>`;
 
-            // Upcoming hearings list
-            const today2 = new Date(); today2.setHours(0, 0, 0, 0);
-            const in7 = new Date(); in7.setDate(today2.getDate() + 7);
-            const upcoming = state.cases.filter(c => c.hearing && new Date(c.hearing) >= today2 && new Date(c.hearing) <= in7)
-                .sort((a, b) => new Date(a.hearing) - new Date(b.hearing));
+        for (let d = 1; d <= daysInMonth; d++) {
+            const isToday = today.getDate() === d && today.getMonth() === month && today.getFullYear() === year;
+            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+            const isSelected = dateStr === selectedCalDay;
+            const dayHearings = hearingMap[d] || [];
 
-            const ul = document.getElementById('upcomingHearingsList');
-            if (!upcoming.length) {
-                ul.innerHTML = '<p class="text-sm text-slate-400 text-center py-6">No hearings this week</p>';
-            } else {
-                ul.innerHTML = upcoming.map(c => {
-                    const days = Math.ceil((new Date(c.hearing) - today2) / 86400000);
-                    const cls = days <= 2 ? 'hearing-urgent' : days <= 5 ? 'hearing-soon' : 'hearing-normal';
-                    return `<div class="${cls} rounded-lg p-3 text-xs">
-                <p class="font-bold text-slate-800">${esc(c.client)}</p>
-                <p class="text-slate-500">${esc(c.caseNo)} · ${esc(c.court)}</p>
-                <p class="font-semibold mt-1">${esc(c.hearing)} <span class="text-slate-400">(${days === 0 ? 'Today' : days === 1 ? 'Tomorrow' : `${days} days`})</span></p>
+            html += `<div class="cal-day border border-slate-50 p-1.5 cursor-pointer transition ${isToday ? 'bg-blue-50' : ''} ${isSelected ? 'ring-2 ring-inset ring-blue-500' : ''}"
+                onclick="selectCalDay('${dateStr}')">
+                <span class="text-xs font-semibold ${isToday ? 'text-blue-700 bg-blue-600 text-white w-5 h-5 rounded-full flex items-center justify-center' : 'text-slate-600'}">${d}</span>
+                <div class="mt-0.5 space-y-0.5">
+                    ${dayHearings.slice(0, 2).map(h => {
+                        const relatedCase = state.cases.find(c => c.caseNo === h.case_no);
+                        const color = urgencyColor(h.date);
+                        return `<div class="hearing-dot text-white bg-${color}-400 px-1 rounded truncate" title="${esc(relatedCase?.client || h.case_no)}">${esc((relatedCase?.client || h.case_no).    split(' ')[0])}</div>`;
+                    }).join('')}
+                    ${dayHearings.length > 2 ? `<div class="text-xs text-slate-400">+${dayHearings.length - 2}</div>` : ''}
+                </div>
             </div>`;
-                }).join('');
-            }
         }
 
-        function calPrev() { calDate.setMonth(calDate.getMonth() - 1); renderCalendar(); }
-        function calNext() { calDate.setMonth(calDate.getMonth() + 1); renderCalendar(); }
+        document.getElementById('calGrid').innerHTML = html;
+
+        renderSelectedDayHearings();
+        renderUpcomingPanel();
+    }
+
+    function selectCalDay(dateStr) {
+        selectedCalDay = dateStr;
+        renderCalendar();
+    }
+
+    function renderSelectedDayHearings() {
+        const label = document.getElementById('selectedDayLabel');
+        const list = document.getElementById('selectedDayHearingsList');
+
+        const isToday = selectedCalDay === todayStr();
+        const [y, m, d] = selectedCalDay.split('-');
+        const niceDate = new Date(y, m - 1, d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+        label.innerHTML = `<i data-lucide="calendar-days" class="w-4 h-4 text-blue-600"></i> ${isToday ? "Today's Hearings" : niceDate}`;
+
+        const dayHearings = hearings
+            .filter(h => h.date === selectedCalDay)
+            .sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+
+        if (!dayHearings.length) {
+            list.innerHTML = `<p class="text-sm text-slate-400 text-center py-4">No hearings on this day</p>`;
+        } else {
+            list.innerHTML = dayHearings.map(h => {
+                const relatedCase = state.cases.find(c => c.caseNo === h.case_no);
+                const color = urgencyColor(h.date);
+                return `<div class="hearing-${color === 'red' ? 'urgent' : color === 'amber' ? 'soon' : 'normal'} rounded-lg p-3 text-xs">
+                    <p class="font-bold text-slate-800">${esc(relatedCase?.client || h.case_no)}</p>
+                    <p class="text-slate-500">${esc(h.case_no)} · ${esc(h.court || '')}</p>
+                    ${h.judge_name ? `<p class="text-slate-400">Judge: ${esc(h.judge_name)}</p>` : ''}
+                    ${h.hearing_type ? `<p class="text-slate-400">${esc(h.hearing_type)}</p>` : ''}
+                    <p class="font-semibold mt-1">${h.time ? esc(h.time) : ''}</p>
+                </div>`;
+            }).join('');
+        }
+        lucide.createIcons();
+    }
+
+    function renderUpcomingPanel() {
+        const today2 = new Date(); today2.setHours(0, 0, 0, 0);
+        const upcoming = hearings
+            .filter(h => new Date(h.date) >= today2)
+            .sort((a, b) => new Date(a.date) - new Date(b.date) || (a.time || '').localeCompare(b.time || ''))
+            .slice(0, 10);
+
+        const ul = document.getElementById('upcomingHearingsList');
+        if (!upcoming.length) {
+            ul.innerHTML = '<p class="text-sm text-slate-400 text-center py-6">No upcoming hearings</p>';
+            return;
+        }
+        ul.innerHTML = upcoming.map(h => {
+            const relatedCase = state.cases.find(c => c.caseNo === h.case_no);
+            const color = urgencyColor(h.date);
+            const days = Math.ceil((new Date(h.date) - today2) / 86400000);
+            const cls = color === 'red' ? 'hearing-urgent' : color === 'amber' ? 'hearing-soon' : 'hearing-normal';
+            return `<div class="${cls} rounded-lg p-3 text-xs cursor-pointer" onclick="selectCalDay('${h.date}')">
+                <p class="font-bold text-slate-800">${esc(relatedCase?.client || h.case_no)}</p>
+                <p class="text-slate-500">${esc(h.case_no)} · ${esc(h.court || '')}</p>
+                <p class="font-semibold mt-1">${esc(h.date)}${h.time ? ' · ' + esc(h.time) : ''} <span class="text-slate-400">(${days === 0 ? 'Today' : days === 1 ? 'Tomorrow' : `${days}d`})</span></p>
+            </div>`;
+        }).join('');
+    }
+
+    function calPrev() { calDate.setMonth(calDate.getMonth() - 1); renderCalendar(); }
+    function calNext() { calDate.setMonth(calDate.getMonth() + 1); renderCalendar(); }
 
         // ═══════════════════════════════════════════════
         // AI DOCUMENT DRAFTING

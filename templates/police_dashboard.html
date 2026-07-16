@@ -2557,24 +2557,12 @@ function initSidebar() {
                 }
 
                 try {
-                    await addActSection();
-                } catch (error) {
-                    console.error('Failed to load act sections:', error);
-                    showError('Could not load legal act list (use refresh).');
-                }
-
-                try {
                     await loadFIRHistory();
                 } catch (error) {
                     console.error('Failed to load FIR history:', error);
                     showError('Could not load FIR history (use refresh).');
                 }
 
-                // Add act/section button
-                const addBtn = document.querySelector('button[onclick*="addActSection"]');
-                if (addBtn) {
-                    addBtn.addEventListener('click', addActSection);
-                }
             } catch (error) {
                 console.error('DOM ready initialization failed:', error);
                 showError('Initialization error. Please reload the app.');

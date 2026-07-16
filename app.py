@@ -6,7 +6,7 @@ from thefuzz import process, fuzz
 from pymongo import MongoClient
 import bcrypt
 from bson.objectid import ObjectId
-from datetime import datetime
+from datetime import datetime, timezone
 from flask_wtf.csrf import CSRFProtect, CSRFError
 from reportlab.lib.styles import getSampleStyleSheet
 from ai_engine import analyze_complaint_for_sections
@@ -16,7 +16,7 @@ from flask import  jsonify
 import jwt
 from authlib.integrations.flask_client import OAuth
 from urllib.parse import urlencode
-
+from main.storage_service import upload_pdf, save_fir, get_all_firs, get_fir, fir_exists
 from functools import wraps
 from werkzeug.utils import secure_filename
 from flask import send_from_directory
@@ -1133,10 +1133,7 @@ os.makedirs(PDF_FOLDER, exist_ok=True)
 def get_fir_records():
     """Get all FIR records"""
     try:
-        fir_records = []
-        for fir in fir_collection.find({}, {"_id": 0}):
-            fir_records.append(fir)
-
+        fir_records = get_all_firs()
         return jsonify(fir_records)
 
     except Exception as e:
@@ -1147,7 +1144,7 @@ def get_fir_records():
 def get_fir_record(fir_no):
     """Get specific FIR"""
     try:
-        fir = fir_collection.find_one({"fir_no": fir_no}, {"_id": 0})
+        fir = get_fir(fir_no)
 
         if fir:
             return jsonify(fir)
@@ -1175,8 +1172,8 @@ def generate_fir():
     try:
 
         # Check duplicate FIR number
-        if fir_collection.find_one({"fir_no": data.get("fir_no")}):
-            return jsonify({"error": f"FIR number {data.get('fir_no')} already exists"}), 400
+        if fir_exists(data.get("fir_no")):
+            return jsonify({"error": "FIR already exists"}), 400
 
         # Generate FIR ID
         fir_id = str(datetime.utcnow().timestamp()).replace(".", "")
@@ -1231,12 +1228,11 @@ MESSAGE: FIR has been successfully registered and saved to police records.
 
         pdf = SimpleDocTemplate(pdf_path)
         pdf.build(elements)
+        pdf_url= upload_pdf(pdf_path, fir_id)
+    
 
-        # -------------------------
-        # Store in MongoDB
-        # -------------------------
+        fir_document={
 
-        fir_document = {
             "fir_id": fir_id,
             "fir_no": data.get("fir_no", ""),
             "dist": data.get("dist", ""),
@@ -1265,12 +1261,14 @@ MESSAGE: FIR has been successfully registered and saved to police records.
             "reasons_for_delay": data.get("reasons_for_delay", ""),
             "property_particulars": data.get("property_particulars", ""),
             "statement": data.get("statement", ""),
-            "pdf_file": pdf_filename,
-            "created_at": datetime.utcnow(),
+            "pdf_url": pdf_url,
+            "created_at": datetime.now(timezone.utc).isoformat(),
             "status": "Saved to Police Records"
         }
+       
+        save_fir(fir_document)
 
-        fir_collection.insert_one(fir_document)
+       
     
         fir_response = fir_document.copy()
         fir_response.pop("_id", None)
@@ -1730,7 +1728,7 @@ def get_all_evidence():
 @app.route('/fir/view/<fir_no>', methods=['GET'])
 def view_fir(fir_no):
     """Render a FIR as a readable HTML page (opens in new tab)."""
-    fir = fir_collection.find_one({"fir_no": fir_no}, {"_id": 0})
+    fir = get_fir(fir_no)
     if not fir:
         return f"<h2>FIR {fir_no} not found.</h2>", 404
     created_at = str(fir.get("created_at", ""))
@@ -1791,18 +1789,17 @@ def view_fir(fir_no):
 
 @app.route('/fir/download/<fir_no>', methods=['GET'])
 def download_fir(fir_no):
-    """Download the generated PDF for a FIR."""
-    safe_name = secure_filename(fir_no)
-    pdf_filename = f"FIR_{safe_name}.pdf"
-    pdf_path = os.path.join(PDF_FOLDER, pdf_filename)
-    if not os.path.exists(pdf_path):
-        return jsonify({"error": f"PDF for FIR {fir_no} not found"}), 404
-    return send_from_directory(
-        PDF_FOLDER,
-        pdf_filename,
-        as_attachment=True,
-        download_name=f"{fir_no}.pdf"
-    )
+    """Download the generated PDF for a FIR from Supabase."""
+    try:
+    
+        fir = get_fir(fir_no)
+        if not fir or not fir.get('pdf_url'):
+            return jsonify({"error": f"PDF for FIR {fir_no} not found"}), 404
+            
+        return redirect(fir.get('pdf_url'))
+        
+    except Exception as e:
+        return jsonify({"error": "Failed to download FIR", "details": str(e)}), 500
 
 
 def seed_evidence_from_filesystem():

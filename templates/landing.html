@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NyayaAI | Advanced FIR System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700;800&display=swap"
+        rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+    <style>
+        * {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #ffffff;
+            overflow-x: hidden;
+        }
+
+        .font-serif {
+            font-family: 'Playfair Display', serif;
+        }
+
+        /* Same hero gradient as the app shell */
+        .hero-gradient {
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #2563eb 100%);
+        }
+
+        .grid-overlay {
+            background-image:
+                linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+
+        .glow {
+            position: absolute;
+            border-radius: 9999px;
+            filter: blur(90px);
+            pointer-events: none;
+        }
+
+        .nav-pill {
+            transition: all 0.25s ease;
+        }
+
+        .nav-pill:hover {
+            transform: translateY(-1px);
+        }
+
+        .feature-card {
+            transition: transform 0.35s ease, box-shadow 0.35s ease, border-color 0.35s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-6px);
+            border-color: #93c5fd;
+            box-shadow: 0 20px 40px -12px rgba(37, 99, 235, 0.25);
+        }
+
+        .step-line {
+            background: linear-gradient(90deg, #2563eb 0%, rgba(37, 99, 235, 0.1) 100%);
+        }
+
+        .stat-num {
+            font-variant-numeric: tabular-nums;
+        }
+
+        ::selection {
+            background: #2563eb;
+            color: white;
+        }
+
+        .reveal-up {
+            opacity: 0;
+            transform: translateY(40px);
+        }
+
+        /* Reduced motion respect */
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                animation: none !important;
+                transition: none !important;
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-white">
+
+    <!-- ============ NAV ============ -->
+    <nav id="mainNav"
+        class="fixed w-full z-50 top-0 px-6 md:px-10 py-4 flex justify-between items-center transition-all duration-300">
+        <div class="flex items-center space-x-2.5">
+            <div class="bg-blue-600 p-1.5 rounded-lg text-white shadow-lg shadow-blue-600/30">
+                <i data-lucide="scale" class="w-5 h-5"></i>
+            </div>
+            <span id="navLogoText" class="text-2xl font-serif font-bold text-white">NyayaAI</span>
+        </div>
+
+        <div class="hidden md:flex items-center space-x-8 font-medium">
+            <a href="#features" id="navLink1"
+                class="text-white/90 hover:text-white transition text-sm font-medium">Features</a>
+            <a href="#how-it-works" id="navLink2"
+                class="text-white/90 hover:text-white transition text-sm font-medium">How it Works</a>
+            <a href="#library" id="navLink3" class="text-white/90 hover:text-white transition text-sm font-medium">Law
+                Library</a>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <a href="/login" id="loginBtn"
+                class="nav-pill hidden sm:inline-block px-5 py-2 rounded-full font-semibold text-sm text-white border border-white/30 hover:bg-white/10 transition">
+                Login
+            </a>
+            <a href="/signup"
+                class="nav-pill bg-blue-500 hover:bg-blue-400 text-white px-5 py-2 rounded-full font-bold text-sm shadow-lg shadow-blue-500/30 transition">
+                Sign Up
+            </a>
+        </div>
+    </nav>
+
+    <!-- ============ HERO ============ -->
+    <header class="hero-gradient relative overflow-hidden pt-36 pb-28 md:pt-44 md:pb-36">
+        <div class="absolute inset-0 grid-overlay opacity-60 pointer-events-none"></div>
+        <div class="glow w-96 h-96 bg-blue-500/30 -top-20 -left-20"></div>
+        <div class="glow w-96 h-96 bg-indigo-400/20 top-40 right-0"></div>
+
+        <div class="max-w-5xl mx-auto px-6 text-center relative z-10">
+            <div id="heroBadge"
+                class="inline-flex items-center gap-2 bg-white/10 border border-white/20 text-blue-100 text-xs font-semibold px-4 py-1.5 rounded-full mb-8 backdrop-blur-sm">
+                <span class="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span>
+                Offline AI Engine · No External API · No Per-Query Cost
+            </div>
+
+            <h1 id="heroTitle" class="text-5xl md:text-7xl font-serif font-bold text-white mb-6 leading-[1.08]">
+                Bridging the Gap <br class="hidden md:block">Between <span class="text-blue-400">Incident and
+                    Justice</span>
+            </h1>
+
+            <p id="heroSub" class="text-lg md:text-xl text-blue-100/90 max-w-2xl mx-auto mb-10 font-light">
+                NyayaAI drafts FORM IF-1 compliant FIRs, maps every complaint to the correct legal section, and
+                gives police, citizens, lawyers, and judges one secure record to work from.
+            </p>
+
+            <div id="heroCtas" class="flex flex-col sm:flex-row justify-center items-center gap-4 mb-16">
+                <a href="/signup"
+                    class="bg-blue-500 hover:bg-blue-400 text-white px-9 py-3.5 rounded-xl font-bold text-base transition shadow-xl shadow-blue-900/40 w-full sm:w-auto text-center">
+                    Create an Account
+                </a>
+                <a href="#how-it-works"
+                    class="border border-white/25 hover:bg-white/10 text-white px-9 py-3.5 rounded-xl font-semibold text-base transition w-full sm:w-auto text-center">
+                    See How It Works
+                </a>
+            </div>
+
+            <!-- Trust bar -->
+            <div id="trustBar" class="flex flex-wrap justify-center gap-x-10 gap-y-4 text-blue-200/80 text-sm">
+                <div class="flex items-center gap-2"><i data-lucide="shield-check" class="w-4 h-4"></i> Bcrypt-Secured
+                    Accounts</div>
+                <div class="flex items-center gap-2"><i data-lucide="lock" class="w-4 h-4"></i> PIN-Gated Evidence
+                    Locker</div>
+                <div class="flex items-center gap-2"><i data-lucide="users" class="w-4 h-4"></i> 4 Role-Based
+                    Portals</div>
+                <div class="flex items-center gap-2"><i data-lucide="gavel" class="w-4 h-4"></i> 511 IPC Sections
+                    Indexed</div>
+            </div>
+        </div>
+    </header>
+
+    <!-- ============ STATS STRIP ============ -->
+    <section class="bg-blue-950 py-10">
+        <div class="max-w-6xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+            <div class="stat-item">
+                <p class="stat-num text-3xl md:text-4xl font-serif font-bold text-white" data-count="511">0</p>
+                <p class="text-blue-300 text-xs mt-1 uppercase tracking-wide">IPC Sections Indexed</p>
+            </div>
+            <div class="stat-item">
+                <p class="stat-num text-3xl md:text-4xl font-serif font-bold text-white" data-count="8">0</p>
+                <p class="text-blue-300 text-xs mt-1 uppercase tracking-wide">Legal Acts Covered</p>
+            </div>
+            <div class="stat-item">
+                <p class="stat-num text-3xl md:text-4xl font-serif font-bold text-white" data-count="15">0</p>
+                <p class="text-blue-300 text-xs mt-1 uppercase tracking-wide">Crime Categories Mapped</p>
+            </div>
+            <div class="stat-item">
+                <p class="stat-num text-3xl md:text-4xl font-serif font-bold text-white" data-count="4">0</p>
+                <p class="text-blue-300 text-xs mt-1 uppercase tracking-wide">Role-Based Portals</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============ FEATURES ============ -->
+    <section id="features" class="py-28 max-w-6xl mx-auto px-6">
+        <div class="text-center mb-16">
+            <span class="text-blue-600 font-bold text-sm uppercase tracking-widest">Platform</span>
+            <h2 class="text-4xl font-serif font-bold text-blue-950 mt-2 mb-4">A Complete Record, From First Report to
+                Final Filing</h2>
+            <p class="text-slate-500 max-w-2xl mx-auto">Every module here is built and running — not a mockup.</p>
+            <div class="w-20 h-1.5 bg-blue-600 mx-auto rounded-full mt-6"></div>
+        </div>
+
+        <div class="grid md:grid-cols-3 gap-8">
+            <div class="feature-card reveal-up p-8 bg-slate-50 rounded-3xl border border-slate-100">
+                <div class="text-blue-600 mb-4"><i data-lucide="brain" class="w-10 h-10"></i></div>
+                <h3 class="font-bold text-xl mb-2 text-blue-900">Offline AI Section Mapping</h3>
+                <p class="text-slate-600">Keyword and fuzzy-match analysis reads the complaint narrative and
+                    suggests the correct IPC sections across 15 crime categories — no external API, no per-query
+                    cost.</p>
+            </div>
+            <div class="feature-card reveal-up p-8 bg-slate-50 rounded-3xl border border-slate-100">
+                <div class="text-blue-600 mb-4"><i data-lucide="file-text" class="w-10 h-10"></i></div>
+                <h3 class="font-bold text-xl mb-2 text-blue-900">FORM IF-1 Compliant FIRs</h3>
+                <p class="text-slate-600">A 9-section form matching the official Indian police FIR format, with
+                    duplicate-number checks and instant, print-ready PDF export via ReportLab.</p>
+            </div>
+            <div class="feature-card reveal-up p-8 bg-slate-50 rounded-3xl border border-slate-100">
+                <div class="text-blue-600 mb-4"><i data-lucide="shield-check" class="w-10 h-10"></i></div>
+                <h3 class="font-bold text-xl mb-2 text-blue-900">PIN-Gated Evidence Locker</h3>
+                <p class="text-slate-600">Upload images, PDFs, and video linked directly to an FIR number, behind a
+                    PIN-protected access screen with sanitized, tamper-resistant storage.</p>
+            </div>
+            <div class="feature-card reveal-up p-8 bg-slate-50 rounded-3xl border border-slate-100">
+                <div class="text-blue-600 mb-4"><i data-lucide="book-open" class="w-10 h-10"></i></div>
+                <h3 class="font-bold text-xl mb-2 text-blue-900">Offline Law Library</h3>
+                <p class="text-slate-600">Search and browse IPC, CrPC, and six other Indian acts from a bundled,
+                    fully offline reference database — no connectivity required to look up a section.</p>
+            </div>
+            <div class="feature-card reveal-up p-8 bg-slate-50 rounded-3xl border border-slate-100">
+                <div class="text-blue-600 mb-4"><i data-lucide="inbox" class="w-10 h-10"></i></div>
+                <h3 class="font-bold text-xl mb-2 text-blue-900">Citizen Complaints Pipeline</h3>
+                <p class="text-slate-600">Citizens file a complaint, officers review and update its status, and an
+                    FIR number attaches automatically the moment it's filed — visible at every stage.</p>
+            </div>
+            <div class="feature-card reveal-up p-8 bg-slate-50 rounded-3xl border border-slate-100">
+                <div class="text-blue-600 mb-4"><i data-lucide="scale" class="w-10 h-10"></i></div>
+                <h3 class="font-bold text-xl mb-2 text-blue-900">Case Outcome Predictor</h3>
+                <p class="text-slate-600">Describe a situation and get a reference read on likely charges and
+                    sentencing range, informed by the same indexed legal data.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============ HOW IT WORKS ============ -->
+    <section id="how-it-works" class="py-24 bg-slate-50">
+        <div class="max-w-6xl mx-auto px-6">
+            <div class="text-center mb-16">
+                <span class="text-blue-600 font-bold text-sm uppercase tracking-widest">Process</span>
+                <h2 class="text-4xl font-serif font-bold text-blue-950 mt-2">Simple 4-Step Process</h2>
+            </div>
+
+            <div class="relative flex flex-col md:flex-row justify-between gap-12 md:gap-4">
+                <div class="hidden md:block absolute top-8 left-[10%] right-[10%] h-0.5 step-line"></div>
+
+                <div class="step-item flex flex-col items-center text-center relative z-10 md:w-1/4">
+                    <div
+                        class="w-16 h-16 bg-white border-2 border-blue-600 text-blue-600 rounded-full flex items-center justify-center font-serif font-bold text-xl mb-4 shadow-lg">
+                        1</div>
+                    <p class="font-bold text-slate-800">Enter the Narrative</p>
+                    <p class="text-slate-500 text-sm mt-1">An officer records district, complainant details, and the
+                        incident in plain language.</p>
+                </div>
+                <div class="step-item flex flex-col items-center text-center relative z-10 md:w-1/4">
+                    <div
+                        class="w-16 h-16 bg-white border-2 border-blue-600 text-blue-600 rounded-full flex items-center justify-center font-serif font-bold text-xl mb-4 shadow-lg">
+                        2</div>
+                    <p class="font-bold text-slate-800">Sections Are Suggested</p>
+                    <p class="text-slate-500 text-sm mt-1">The offline AI engine matches the narrative to the
+                        relevant IPC sections, editable at any point.</p>
+                </div>
+                <div class="step-item flex flex-col items-center text-center relative z-10 md:w-1/4">
+                    <div
+                        class="w-16 h-16 bg-white border-2 border-blue-600 text-blue-600 rounded-full flex items-center justify-center font-serif font-bold text-xl mb-4 shadow-lg">
+                        3</div>
+                    <p class="font-bold text-slate-800">Record Is Saved</p>
+                    <p class="text-slate-500 text-sm mt-1">The FIR is checked for a duplicate number and stored
+                        against the case file.</p>
+                </div>
+                <div class="step-item flex flex-col items-center text-center relative z-10 md:w-1/4">
+                    <div
+                        class="w-16 h-16 bg-white border-2 border-blue-600 text-blue-600 rounded-full flex items-center justify-center font-serif font-bold text-xl mb-4 shadow-lg">
+                        4</div>
+                    <p class="font-bold text-slate-800">PDF Is Generated</p>
+                    <p class="text-slate-500 text-sm mt-1">A formatted, print-ready FIR is available to view or
+                        download immediately.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============ LAW LIBRARY TEASER ============ -->
+    <section id="library" class="py-24 max-w-6xl mx-auto px-6">
+        <div class="hero-gradient rounded-3xl px-8 py-16 md:px-16 text-center relative overflow-hidden">
+            <div class="absolute inset-0 grid-overlay opacity-40 pointer-events-none"></div>
+            <div class="relative z-10">
+                <h2 class="text-3xl md:text-4xl font-serif font-bold text-white mb-4">Eight Acts, Zero Connectivity
+                    Required</h2>
+                <p class="text-blue-100 max-w-xl mx-auto mb-10">
+                    The full text of eight Indian legal acts ships with the platform, so a section lookup never
+                    depends on an internet connection.
+                </p>
+                <div class="flex flex-wrap justify-center gap-3">
+                    <span
+                        class="bg-white/10 border border-white/20 text-white text-sm font-semibold px-4 py-2 rounded-full">IPC</span>
+                    <span
+                        class="bg-white/10 border border-white/20 text-white text-sm font-semibold px-4 py-2 rounded-full">CrPC</span>
+                    <span
+                        class="bg-white/10 border border-white/20 text-white text-sm font-semibold px-4 py-2 rounded-full">NIA</span>
+                    <span
+                        class="bg-white/10 border border-white/20 text-white text-sm font-semibold px-4 py-2 rounded-full">IEA</span>
+                    <span
+                        class="bg-white/10 border border-white/20 text-white text-sm font-semibold px-4 py-2 rounded-full">HMA</span>
+                    <span
+                        class="bg-white/10 border border-white/20 text-white text-sm font-semibold px-4 py-2 rounded-full">CPC</span>
+                    <span
+                        class="bg-white/10 border border-white/20 text-white text-sm font-semibold px-4 py-2 rounded-full">IDA</span>
+                    <span
+                        class="bg-white/10 border border-white/20 text-white text-sm font-semibold px-4 py-2 rounded-full">MVA</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============ FINAL CTA ============ -->
+    <section class="py-24 max-w-4xl mx-auto px-6 text-center">
+        <h2 class="text-3xl md:text-4xl font-serif font-bold text-blue-950 mb-4">Ready to File Smarter?</h2>
+        <p class="text-slate-600 mb-8">Create an account as a police officer, citizen, lawyer, or judge, and get your
+            first FIR drafted in minutes.</p>
+        <div class="flex flex-col sm:flex-row justify-center gap-4">
+            <a href="/signup"
+                class="bg-blue-600 hover:bg-blue-700 text-white px-9 py-3.5 rounded-xl font-bold shadow-lg shadow-blue-200 transition">
+                Sign Up Free
+            </a>
+            <a href="/login"
+                class="border-2 border-blue-600 text-blue-600 hover:bg-blue-50 px-9 py-3.5 rounded-xl font-bold transition">
+                I Already Have an Account
+            </a>
+        </div>
+    </section>
+
+    <!-- ============ FOOTER ============ -->
+    <footer class="bg-blue-950 py-16 text-white text-center">
+        <div class="max-w-6xl mx-auto px-6">
+            <div class="flex items-center justify-center gap-2 mb-4">
+                <div class="bg-blue-600 p-1.5 rounded-lg text-white"><i data-lucide="scale" class="w-5 h-5"></i></div>
+                <h2 class="text-2xl font-serif font-bold">NyayaAI</h2>
+            </div>
+            <p class="text-blue-300 mb-8 opacity-70">Empowering citizens with legal intelligence.</p>
+            <div class="border-t border-white/10 pt-8 text-sm opacity-50">
+                &copy; 2026 Team NyayaAI. All Rights Reserved.
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        lucide.createIcons();
+        gsap.registerPlugin(ScrollTrigger);
+
+        // ── Nav: transparent over hero, solid on scroll ──────────────
+        const nav = document.getElementById('mainNav');
+        const navLogo = document.getElementById('navLogoText');
+        const navLinks = [document.getElementById('navLink1'), document.getElementById('navLink2'), document.getElementById('navLink3')];
+
+        const loginBtn = document.getElementById('loginBtn');
+
+        function setNavDark() {
+            navLogo.classList.remove('text-white');
+            navLogo.classList.add('text-blue-950');
+            navLinks.forEach(l => { l.classList.remove('text-white/90', 'hover:text-white'); l.classList.add('text-slate-600', 'hover:text-blue-600'); });
+            loginBtn.classList.remove('text-white', 'border-white/30', 'hover:bg-white/10');
+            loginBtn.classList.add('text-blue-950', 'border-blue-950/30', 'hover:bg-blue-50');
+        }
+
+        function setNavLight() {
+            navLogo.classList.add('text-white');
+            navLogo.classList.remove('text-blue-950');
+            navLinks.forEach(l => { l.classList.add('text-white/90', 'hover:text-white'); l.classList.remove('text-slate-600', 'hover:text-blue-600'); });
+            loginBtn.classList.add('text-white', 'border-white/30', 'hover:bg-white/10');
+            loginBtn.classList.remove('text-blue-950', 'border-blue-950/30', 'hover:bg-blue-50');
+        }
+
+        const heroSection = document.querySelector('header.hero-gradient');
+
+        function updateNavState() {
+            const threshold = heroSection.offsetHeight - 80;
+            if (window.scrollY > threshold) {
+                nav.classList.add('bg-white/90', 'backdrop-blur-md', 'shadow-sm');
+                setNavDark();
+            } else {
+                nav.classList.remove('bg-white/90', 'backdrop-blur-md', 'shadow-sm');
+                setNavLight();
+            }
+        }
+
+        window.addEventListener('scroll', updateNavState);
+        window.addEventListener('resize', updateNavState);
+        updateNavState();
+        
+        // ── Hero load-in sequence ─────────────────────────────────────
+        const heroTl = gsap.timeline({ defaults: { ease: 'power3.out' } });
+        heroTl
+            .from('#heroBadge', { y: -20, opacity: 0, duration: 0.6 })
+            .from('#heroTitle', { y: 30, opacity: 0, duration: 0.8 }, '-=0.3')
+            .from('#heroSub', { y: 20, opacity: 0, duration: 0.7 }, '-=0.5')
+            .from('#heroCtas > a', { y: 20, opacity: 0, duration: 0.6, stagger: 0.12 }, '-=0.4')
+            .from('#trustBar > div', { y: 10, opacity: 0, duration: 0.5, stagger: 0.08 }, '-=0.3');
+
+        // ── Stat counters ─────────────────────────────────────────────
+        document.querySelectorAll('.stat-item').forEach(item => {
+            const numEl = item.querySelector('[data-count]');
+            const target = parseInt(numEl.dataset.count, 10);
+            ScrollTrigger.create({
+                trigger: item,
+                start: 'top 85%',
+                once: true,
+                onEnter: () => {
+                    gsap.to(numEl, {
+                        innerText: target,
+                        duration: 1.6,
+                        ease: 'power2.out',
+                        snap: { innerText: 1 },
+                        onUpdate: function () { numEl.textContent = Math.floor(numEl.innerText); }
+                    });
+                }
+            });
+        });
+
+        // ── Feature cards: staggered reveal on scroll ──────────────────
+        gsap.to('.feature-card', {
+            scrollTrigger: {
+                trigger: '#features',
+                start: 'top 70%',
+            },
+            opacity: 1,
+            y: 0,
+            duration: 0.7,
+            stagger: 0.12,
+            ease: 'power3.out'
+        });
+
+        // ── Process steps: draw in one by one ──────────────────────────
+        gsap.from('.step-item', {
+            scrollTrigger: {
+                trigger: '#how-it-works',
+                start: 'top 70%',
+            },
+            opacity: 0,
+            y: 30,
+            duration: 0.6,
+            stagger: 0.18,
+            ease: 'back.out(1.4)'
+        });
+
+        // ── Law library banner ──────────────────────────────────────────
+        gsap.from('#library .relative.z-10 > *', {
+            scrollTrigger: {
+                trigger: '#library',
+                start: 'top 75%',
+            },
+            opacity: 0,
+            y: 24,
+            duration: 0.7,
+            stagger: 0.1,
+            ease: 'power2.out'
+        });
+    </script>
+</body>
+
+</html>

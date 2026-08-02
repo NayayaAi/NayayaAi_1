@@ -280,7 +280,7 @@ def home():
         if role == 'lawyer':
             return redirect(url_for('lawyer_dashboard'))
         return render_template('index.html')
-    return redirect(url_for('signup')) # Direct new visitors to signup first
+    return render_template('landing.html')   # ← show the marketing page instead # Direct new visitors to signup first
 
 @app.route('/health', methods=['GET'])
 def health():

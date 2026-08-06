@@ -1,52 +1,40 @@
-import os
-from pymongo import MongoClient
-from dotenv import load_dotenv
 
+import os
+from supabase import create_client
+from dotenv import load_dotenv
 load_dotenv()
 
-# Reuses the same Mongo instance/DB as app.py's users_collection.
-MONGO_URI = os.environ.get("MONGO_URI", "mongodb://127.0.0.1:27017/")
-client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
-db = client["NyayaAI_DB"]
 
-# Same collection name app.py already references as `fir_collection`
-# (db["fir_records"]) — keeps evidence-upload's FIR-existence check working.
-firs_collection = db["fir_records"]
-
-# app.py already creates this folder and saves the PDF there before calling
-# upload_pdf(), so we just serve it back from the same place instead of
-# pushing it to cloud storage.
-PDF_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "generated_firs")
-os.makedirs(PDF_FOLDER, exist_ok=True)
-
-# Update this if the app is ever hosted somewhere other than localhost:5000.
-BASE_URL = os.environ.get("BASE_URL", "http://127.0.0.1:5000")
-
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def upload_pdf(pdf_path, fir_id):
-    """PDF is already saved locally by app.py (generated_firs/<fir_no>.pdf).
-    Just hand back a URL that /fir-pdf/<filename> can serve."""
-    filename = os.path.basename(pdf_path)
-    return f"{BASE_URL}/fir-pdf/{filename}"
-
+    """Upload PDF to Supabase Storage, return public URL."""
+    with open(pdf_path, "rb") as f:
+        supabase.storage.from_("firs").upload(
+            f"{fir_id}.pdf", f,
+            {"content-type": "application/pdf"}
+        )
+    url = supabase.storage.from_("firs").get_public_url(f"{fir_id}.pdf")
+    os.remove(pdf_path)  # delete local temp
+    return url
 
 def save_fir(fir_document):
-    """Save FIR metadata to MongoDB."""
-    firs_collection.insert_one(fir_document)
-
+    """Save FIR metadata to Supabase database."""
+    supabase.table("firs").insert(fir_document).execute()
 
 def get_all_firs():
-    """Fetch all FIRs from MongoDB (excluding Mongo's internal _id)."""
-    return list(firs_collection.find({}, {"_id": 0}))
-
+    """Fetch all FIRs from Supabase."""
+    result = supabase.table("firs").select("*").execute()
+    return result.data
 
 def get_fir(fir_no):
     """Fetch a single FIR by FIR number."""
-    return firs_collection.find_one({"fir_no": fir_no}, {"_id": 0})
-
+    result = supabase.table("firs").select("*").eq("fir_no", fir_no).execute()
+    return result.data[0] if result.data else None
 
 def fir_exists(fir_no):
     """Check if a FIR number already exists."""
-    if not fir_no:
-        return False
-    return firs_collection.count_documents({"fir_no": fir_no}) > 0
+    result = supabase.table("firs").select("fir_no").eq("fir_no", fir_no).execute()
+    return len(result.data) > 0

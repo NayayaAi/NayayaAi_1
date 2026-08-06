@@ -8,6 +8,51 @@ function updateFileName() {
     }
 }
 
+// ── FIR Proof Upload ────────────────────────────────────────────
+let selectedProofFiles = [];
+
+function renderProofFileList() {
+    const input = document.getElementById('proofFileInput');
+    selectedProofFiles = Array.from(input.files);
+    const list = document.getElementById('proofFileList');
+
+    list.innerHTML = selectedProofFiles.map((f, i) => `
+        <div class="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-sm">
+            <span class="truncate text-blue-700 font-medium">${f.name} (${(f.size/1024).toFixed(1)} KB)</span>
+            <button type="button" onclick="removeProofFile(${i})" class="text-red-500 font-bold">×</button>
+        </div>
+    `).join('');
+}
+
+function removeProofFile(index) {
+    selectedProofFiles.splice(index, 1);
+    const dt = new DataTransfer();
+    selectedProofFiles.forEach(f => dt.items.add(f));
+    document.getElementById('proofFileInput').files = dt.files;
+    renderProofFileList();
+}
+
+// Call this AFTER generateFIR() succeeds, passing the fir_no from the server response
+async function uploadProofsForFIR(firNo) {
+    if (!selectedProofFiles.length) return;
+
+    for (const file of selectedProofFiles) {
+        const fd = new FormData();
+        fd.append('fir_no', firNo);
+        fd.append('file', file);
+
+        try {
+            const res = await fetch('/upload-evidence', { method: 'POST', body: fd });
+            const data = await res.json();
+            if (!res.ok) console.error('Proof upload failed:', data.error);
+        } catch (e) {
+            console.error('Proof upload error:', e);
+        }
+    }
+    selectedProofFiles = [];
+    document.getElementById('proofFileList').innerHTML = '';
+}
+
 // Function to handle the actual upload
 async function handleEvidenceUpload() {
     const firNo = document.getElementById('evidenceFirNo').value;

@@ -255,16 +255,7 @@
                 <a href="#features" class="hover:text-blue-600 transition" onclick="showSection('features')">Features</a>
                 <a href="#how-it-works" class="hover:text-blue-600 transition" onclick="showSection('how-it-works')">How it Works</a>
             </div> -->
-            <div class="hidden md:flex space-x-4">
-                <a href="/login"
-                    class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-full font-bold transition shadow-lg shadow-blue-200">
-                    Sign In
-                </a>
-                <a href="/signup"
-                    class="bg-white hover:bg-blue-50 text-blue-600 border border-blue-600 px-6 py-2.5 rounded-full font-bold transition">
-                    Sign Up
-                </a>
-            </div>
+
         </nav>
 
         <!-- Hero Section -->
@@ -578,6 +569,29 @@
                                     Words of Informant) *</label>
                                 <textarea id="narrative" placeholder="Complete incident narrative..." rows="5"
                                     class="w-full border-2 border-slate-200 rounded-lg p-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition resize-none"></textarea>
+                            </div>
+                            <!-- Section 10: Proof Upload -->
+                            <div>
+                                <div class="flex items-center mb-4">
+                                    <div
+                                        class="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm mr-3">
+                                        10</div>
+                                    <h3 class="text-xl font-bold text-blue-900">Upload Proof / Evidence</h3>
+                                    <span
+                                        class="ml-2 text-sm text-blue-600 bg-blue-50 px-2 py-1 rounded-full">Optional</span>
+                                </div>
+
+                                <div class="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center hover:border-blue-400 hover:bg-blue-50 transition cursor-pointer"
+                                    onclick="document.getElementById('proofFileInput').click()">
+                                    <i data-lucide="file-plus" class="w-8 h-8 text-slate-300 mx-auto mb-2"></i>
+                                    <p class="text-sm text-slate-500 font-medium">Click to attach proof files</p>
+                                    <p class="text-xs text-slate-400 mt-1">Any file type — images, PDFs, videos, audio,
+                                        docs</p>
+                                    <input type="file" id="proofFileInput" multiple class="hidden"
+                                        onchange="renderProofFileList()">
+                                </div>
+
+                                <div id="proofFileList" class="mt-3 space-y-2"></div>
                             </div>
 
                             <!-- Submit Button -->
@@ -2546,6 +2560,7 @@
 
                 const data = await response.json();
                 showFirSuccessModal(data);
+                if (data.fir_no) await uploadProofsForFIR(data.fir_no);
             } catch (error) {
                 console.error('FIR generation failed:', error);
                 alert("Error: " + error.message);
@@ -2872,7 +2887,7 @@
                 resultDiv.innerHTML = "❌ Failed to connect";
             }
         }
-        
+
         document.getElementById('complaintsBoard').addEventListener('wheel', function (e) {
             if (e.deltaY !== 0) {
                 e.preventDefault();

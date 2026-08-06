@@ -167,6 +167,10 @@ os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 def missing_persons_page():
     return render_template('missing_persons.html')
 
+@app.route('/script.js')
+def serve_script():
+    return send_from_directory(app.root_path, 'script.js')
+
 
 @app.route('/missing_persons_template')
 def missing_persons_template():

@@ -1029,7 +1029,7 @@
                                     <i data-lucide="file-plus" class="w-8 h-8 text-slate-300 mx-auto mb-2"></i>
                                     <p class="text-sm text-slate-500 font-medium">Click to choose file</p>
                                     <p class="text-xs text-slate-400 mt-1">Images · PDFs · Videos · Audio</p>
-                                    <input type="file" name="file" id="evidenceFileInput" required class="hidden"
+                                    <input type="file" name="file" id="evidenceFileInput" class="hidden"
                                         onchange="updateFileLabel(this)">
                                 </div>
 
@@ -2684,6 +2684,157 @@
             }
         }
 
+    
+            // ── Evidence Locker ────────────────────────────────────────────
+        let evidenceFilter = 'all';
+        let evidenceData = [];
+        let currentEvidenceFir = '';
+
+        async function handleEvidenceUpload(event) {
+            event.preventDefault(); // must run first, no matter what
+
+            const form = event.target;
+            const firNo = form.querySelector('[name="fir_no"]').value.trim();
+            const fileInput = document.getElementById('evidenceFileInput');
+
+    if (!firNo || !fileInput.files.length) {
+        showError('Please provide both an FIR number and a file.');
+        return false;
+    }
+
+    const formData = new FormData();
+    formData.append('fir_no', firNo);
+    formData.append('file', fileInput.files[0]);
+
+    const btn = document.getElementById('evidenceUploadBtn');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = 'Uploading…';
+
+    try {
+        const response = await fetch('/upload-evidence', {
+            method: 'POST',
+            body: formData
+        });
+        const result = await response.json();
+
+        if (!response.ok) {
+            showError(result.error || 'Upload failed.');
+            return false;
+        }
+
+        form.reset();
+        document.getElementById('selectedFileLabel').classList.add('hidden');
+        document.getElementById('evidenceSearch').value = firNo;
+        await loadEvidenceGrid(firNo);
+    } catch (error) {
+        console.error('Upload error:', error);
+        showError('Something went wrong uploading the file.');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }
+
+    return false;
+}
+
+function updateFileLabel(input) {
+    const label = document.getElementById('selectedFileLabel');
+    const nameSpan = document.getElementById('selectedFileName');
+    if (input.files.length > 0) {
+        nameSpan.textContent = input.files[0].name;
+        label.classList.remove('hidden');
+    } else {
+        label.classList.add('hidden');
+    }
+}
+
+async function loadEvidenceGrid(firNo) {
+    currentEvidenceFir = (firNo || '').trim();
+    const grid = document.getElementById('evidenceGrid');
+    const empty = document.getElementById('evidenceEmptyState');
+    const countBar = document.getElementById('evidenceCountBar');
+
+    if (!currentEvidenceFir) {
+        grid.innerHTML = '';
+        countBar.classList.add('hidden');
+        empty.classList.remove('hidden');
+        return;
+    }
+
+    try {
+        const res = await fetch(`/api/evidence?fir_no=${encodeURIComponent(currentEvidenceFir)}`);
+        if (!res.ok) throw new Error('Failed to load evidence');
+        evidenceData = await res.json();
+        renderEvidenceGrid();
+    } catch (err) {
+        console.error('Failed to load evidence:', err);
+        grid.innerHTML = '';
+        countBar.classList.add('hidden');
+        empty.classList.remove('hidden');
+    }
+}
+
+function renderEvidenceGrid() {
+    const grid = document.getElementById('evidenceGrid');
+    const empty = document.getElementById('evidenceEmptyState');
+    const countBar = document.getElementById('evidenceCountBar');
+    const countText = document.getElementById('evidenceCountText');
+
+    const filtered = evidenceFilter === 'all'
+        ? evidenceData
+        : evidenceData.filter(f => f.file_type === evidenceFilter);
+
+    if (!filtered.length) {
+        grid.innerHTML = '';
+        countBar.classList.add('hidden');
+        empty.classList.remove('hidden');
+        return;
+    }
+
+    empty.classList.add('hidden');
+    countBar.classList.remove('hidden');
+    countText.textContent = `${filtered.length} file${filtered.length !== 1 ? 's' : ''} for FIR ${currentEvidenceFir}`;
+
+    grid.innerHTML = filtered.map(file => `
+        <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
+            <p class="text-xs font-semibold text-slate-700 truncate mb-1">${escapeHtml(file.filename)}</p>
+            <p class="text-[10px] text-slate-400 uppercase mb-2">${escapeHtml(file.file_type)}</p>
+            <a href="${file.file_url}" target="_blank" rel="noopener"
+               class="text-blue-600 text-xs font-bold hover:underline">VIEW</a>
+        </div>
+    `).join('');
+}
+
+function filterEvidence(value) {
+    loadEvidenceGrid(value);
+}
+
+function toggleFilterDropdown() {
+    document.getElementById('filterDropdown').classList.toggle('hidden');
+}
+
+function setEvidenceFilter(type) {
+    evidenceFilter = type;
+    document.getElementById('filterLabel').textContent =
+        type === 'all' ? 'All' : type.charAt(0).toUpperCase() + type.slice(1);
+    document.getElementById('filterDropdown').classList.add('hidden');
+    renderEvidenceGrid();
+}
+
+function clearEvidenceSearch() {
+    document.getElementById('evidenceSearch').value = '';
+    loadEvidenceGrid('');
+}
+
+document.addEventListener('click', (e) => {
+    const dropdown = document.getElementById('filterDropdown');
+    const toggleBtn = document.getElementById('filterToggleBtn');
+    if (dropdown && !dropdown.classList.contains('hidden') &&
+        !dropdown.contains(e.target) && !toggleBtn.contains(e.target)) {
+        dropdown.classList.add('hidden');
+    }
+});
 
 
     </script>

@@ -1632,7 +1632,7 @@ def upload_evidence_file():
     if not fir_no or not file:
         return jsonify({"error": "Missing FIR or file"}), 400
 
-    if not fir_collection.find_one({"fir_no": fir_no}):
+    if not fir_exists(fir_no):
         return jsonify({"error": "FIR number does not exist. Please enter a valid FIR."}), 400
 
     filename = secure_filename(file.filename)

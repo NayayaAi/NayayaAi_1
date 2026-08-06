@@ -9,37 +9,65 @@ function updateFileName() {
 }
 
 // Function to handle the actual upload
-async function handleEvidenceUpload() {
-    const firNo = document.getElementById('evidenceFirNo').value;
-    const fileInput = document.getElementById('evidenceFile');
-    
-    if (!firNo || fileInput.files.length === 0) {
+async function handleEvidenceUpload(event) {
+    event.preventDefault(); // must be first — stops native submit no matter what happens after
+
+    const firNo = document.getElementById('evidenceFirNo')?.value
+               || event.target.querySelector('[name="fir_no"]')?.value;
+    const fileInput = document.getElementById('evidenceFileInput')
+               || event.target.querySelector('[name="file"]');
+
+    if (!firNo || !fileInput?.files?.length) {
         alert("Please provide both an FIR number and a file.");
-        return;
+        return false;
     }
 
     const formData = new FormData();
+    formData.append('fir_no', firNo);
     formData.append('file', fileInput.files[0]);
 
     try {
-        const response = await fetch(`/upload_evidence/${encodeURIComponent(firNo)}`, {
+        const response = await fetch('/upload-evidence', {
             method: 'POST',
             body: formData
         });
-        
+
         const result = await response.json();
-        if (result.success) {
-            alert("Evidence successfully secured in locker.");
-            fileInput.value = ""; // Reset
-            document.getElementById('fileNameDisplay').innerText = "Select Evidence File";
-            loadEvidence();
-        } else {
-            alert("Upload failed: " + result.error);
+
+        if (!response.ok) {
+            alert("Upload failed: " + (result.error || "Unknown error"));
+            return false;
         }
+
+        alert("Evidence successfully secured in locker.");
+        fileInput.value = "";
+        const label = document.getElementById('selectedFileLabel');
+        if (label) label.classList.add('hidden');
+        loadEvidence();
     } catch (error) {
-        console.error("Error:", error);
+        console.error("Upload error:", error);
+        alert("Something went wrong uploading the file. Check the console for details.");
+    }
+
+    return false; // belt-and-braces, in case preventDefault didn't stick
+}
+
+
+function updateFileLabel(input) {
+    const label = document.getElementById('selectedFileLabel');
+    const nameSpan = document.getElementById('selectedFileName');
+    if (input.files.length > 0) {
+        nameSpan.textContent = input.files[0].name;
+        label.classList.remove('hidden');
+    } else {
+        label.classList.add('hidden');
     }
 }
+
+function loadEvidenceGrid() {
+    return loadEvidence();
+}
+
 
 function handleSearch() {
     const input = document.getElementById('userInput').value;

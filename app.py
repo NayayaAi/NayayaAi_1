@@ -30,6 +30,8 @@ load_dotenv()
 from missing_person import missing_person_bp, init_missing_person_tables
 from case import search_case_outcome, format_outcome_html
 
+from complaint_categorizer import categorize_complaint
+
 
 # ---------------- OLLAMA SETUP ----------------
 import requests
@@ -280,7 +282,7 @@ def home():
         if role == 'lawyer':
             return redirect(url_for('lawyer_dashboard'))
         return render_template('index.html')
-    return render_template('landing.html')   # ← show the marketing page instead # Direct new visitors to signup first
+    return render_template('landing.html')   
 
 @app.route('/health', methods=['GET'])
 def health():
@@ -321,10 +323,17 @@ def init_complaints_table():
             status TEXT DEFAULT 'Pending',
             fir_no TEXT,
             officer_notes TEXT,
+            category TEXT DEFAULT 'Other / Needs Review',
+            is_cognizable INTEGER DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+    existing_cols = [row[1] for row in cursor.execute("PRAGMA table_info(citizen_complaints)").fetchall()]
+    if 'category' not in existing_cols:
+        cursor.execute("ALTER TABLE citizen_complaints ADD COLUMN category TEXT DEFAULT 'Other / Needs Review'")
+    if 'is_cognizable' not in existing_cols:
+        cursor.execute("ALTER TABLE citizen_complaints ADD COLUMN is_cognizable INTEGER DEFAULT 0")
     conn.commit()
     conn.close()
 
@@ -346,7 +355,7 @@ def judge_dashboard():
 
 @app.route('/api/complaint', methods=['POST'])
 def file_complaint():
-    """Citizen files a new complaint."""
+    """Citizen files a new complaint. Category is auto-detected — never entered by the citizen."""
     data = request.get_json()
     name = data.get('full_name', '').strip()
     description = data.get('incident_description', '').strip()
@@ -354,24 +363,35 @@ def file_complaint():
         return jsonify({"error": "Name and incident description are required"}), 400
 
     tracking_id = "CMP-" + str(uuid.uuid4())[:8].upper()
+
+    # Automatic categorization from the incident description text
+    result = categorize_complaint(description)
+
     try:
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         cursor.execute('''
             INSERT INTO citizen_complaints
-              (tracking_id, full_name, phone, incident_description, incident_date, location)
-            VALUES (?, ?, ?, ?, ?, ?)
+              (tracking_id, full_name, phone, incident_description, incident_date, location, category, is_cognizable)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             tracking_id,
             name,
             data.get('phone', ''),
             description,
             data.get('incident_date', ''),
-            data.get('location', '')
+            data.get('location', ''),
+            result["category"],
+            1 if result["is_cognizable"] else 0
         ))
         conn.commit()
         conn.close()
-        return jsonify({"tracking_id": tracking_id, "status": "Pending"}), 201
+        return jsonify({
+            "tracking_id": tracking_id,
+            "status": "Pending",
+            "category": result["category"],
+            "can_file_fir": result["can_file_fir"]
+        }), 201
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     
@@ -385,7 +405,7 @@ def get_all_complaints():
         cursor.execute('''
             SELECT tracking_id, full_name, phone, incident_description,
                    incident_date, location, status, fir_no, officer_notes,
-                   created_at, updated_at
+                   created_at, updated_at, category, is_cognizable
             FROM citizen_complaints
             ORDER BY created_at DESC
         ''')
@@ -402,7 +422,9 @@ def get_all_complaints():
             "fir_no":               r[7],
             "officer_notes":        r[8],
             "created_at":           r[9],
-            "updated_at":           r[10]
+            "updated_at":           r[10],
+            "category":             r[11] or "Other / Needs Review",
+            "is_cognizable":        bool(r[12])
         } for r in rows])
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -446,7 +468,8 @@ def track_complaint(tracking_id):
         cursor = conn.cursor()
         cursor.execute('''
             SELECT tracking_id, full_name, incident_description, incident_date,
-                   location, status, fir_no, officer_notes, created_at, updated_at
+                   location, status, fir_no, officer_notes, created_at, updated_at,
+                   category, is_cognizable
             FROM citizen_complaints WHERE tracking_id = ?
         ''', (tracking_id.upper(),))
         row = cursor.fetchone()
@@ -463,7 +486,9 @@ def track_complaint(tracking_id):
             "fir_no": row[6],
             "officer_notes": row[7],
             "created_at": row[8],
-            "updated_at": row[9]
+            "updated_at": row[9],
+            "category": row[10] or "Other / Needs Review",
+            "is_cognizable": bool(row[11])
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500

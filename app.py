@@ -32,6 +32,11 @@ from case import search_case_outcome, format_outcome_html
 
 from complaint_categorizer import categorize_complaint
 
+import re
+from datetime import datetime, timezone, timedelta
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+
 
 # ---------------- OLLAMA SETUP ----------------
 import requests
@@ -81,27 +86,51 @@ def ask_ollama(prompt):
 app = Flask(__name__)
 app.secret_key = "nyaya_ai_ultra_secure_key"
 
-oauth = OAuth(app)
- 
-google = oauth.register(
-    name='google',
-    client_id=os.environ.get('GOOGLE_CLIENT_ID'),
-    client_secret=os.environ.get('GOOGLE_CLIENT_SECRET'),
-    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
-    client_kwargs={'scope': 'openid email profile'}
+
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SECURE=True,
+    SESSION_COOKIE_SAMESITE="Strict",
+    PERMANENT_SESSION_LIFETIME=timedelta(hours=8),
 )
- 
-github = oauth.register(
-    name='github',
-    client_id=os.environ.get('GITHUB_CLIENT_ID'),
-    client_secret=os.environ.get('GITHUB_CLIENT_SECRET'),
-    access_token_url='https://github.com/login/oauth/access_token',
-    access_token_params=None,
-    authorize_url='https://github.com/login/oauth/authorize',
-    authorize_params=None,
-    api_base_url='https://api.github.com/',
-    client_kwargs={'scope': 'user:email'},
-)
+
+limiter = Limiter(get_remote_address, app=app, default_limits=[])
+
+ALLOWED_ORIGINS = {
+    "https://yourdomain.com",
+    "http://127.0.0.1:5000",
+}
+
+def require_same_origin(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if request.method in ("POST", "PUT", "PATCH", "DELETE"):
+            origin = request.headers.get("Origin") or request.headers.get("Referer")
+            if not origin:
+                return jsonify({"error": "Request rejected."}), 403
+            origin_root = "/".join(origin.split("/")[:3])
+            if origin_root not in ALLOWED_ORIGINS:
+                return jsonify({"error": "Request rejected."}), 403
+        return view(*args, **kwargs)
+    return wrapped
+
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+MIN_PASSWORD_LEN = 10
+MAX_FAILED_ATTEMPTS = 5
+LOCKOUT_SECONDS = 15 * 60
+
+def validate_password(pw: str) -> str | None:
+    if len(pw) < MIN_PASSWORD_LEN:
+        return f"Password must be at least {MIN_PASSWORD_LEN} characters."
+    if not re.search(r"[A-Z]", pw):
+        return "Password must contain an uppercase letter."
+    if not re.search(r"[a-z]", pw):
+        return "Password must contain a lowercase letter."
+    if not re.search(r"[0-9]", pw):
+        return "Password must contain a digit."
+    if not re.search(r"[^A-Za-z0-9]", pw):
+        return "Password must contain a special character."
+    return None
 
 # 2. DATABASE CONNECTIONS
 DB_PATH = os.path.join(app.root_path, "IndiaLaw.db")
@@ -114,16 +143,7 @@ try:
 except Exception as e:
     print(f"ERROR: MongoDB connection failed: {e}")
 
-# 3. USER MODEL AND LOADER
 
-
-
-
-# --- ROUTES ---
-
-
-
-# --- FIR LOGIC (SQLite) ---
 
 # Optional CORS support
 try:
@@ -1357,23 +1377,32 @@ def generate_unique_id(role):
     return f"{prefix}{num:03d}"
 
 @app.route('/signup', methods=['GET', 'POST'])
+@require_same_origin
+@limiter.limit("5 per hour")
 def signup():
     if request.method == 'POST':
         data = request.get_json()
-        fullname = data.get('fullname')
-        email = data.get('email')
+        fullname = (data.get('fullname') or '').strip()
+        email = (data.get('email') or '').strip().lower()
         password = data.get('password')
         role = data.get('role')
         
         if not all([fullname, email, password, role]):
             return jsonify({"error": "All fields are required"}), 400
         
+        if not EMAIL_RE.match(email):
+            return jsonify({"error": "Invalid email address"}), 400
+        
         if role not in ['police', 'citizen', 'lawyer', 'judge']:
             return jsonify({"error": "Invalid role"}), 400
         
+        pw_error = validate_password(password)
+        if pw_error:
+            return jsonify({"error": pw_error}), 400
+        
         # Check if user already exists
         if users_collection.find_one({'email': email}):
-            return jsonify({"error": "Email already registered"}), 400
+            return jsonify({"message": "If eligible, your account has been created."}), 200
         
         # Hash password
         password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
@@ -1403,7 +1432,9 @@ def signup():
             'password_hash': password_hash,
             'role': role,
             'unique_id': unique_id,
-            'created_at': datetime.utcnow()
+            'created_at': datetime.utcnow(),
+            'failed_attempts': 0,
+            'locked_until': None,
         }
         
         try:
@@ -1419,19 +1450,43 @@ def signup():
     return render_template('signup.html')
 
 @app.route('/login', methods=['GET', 'POST'])
+@require_same_origin
+@limiter.limit("10 per 15 minutes")
 def login():
     if request.method == 'POST':
         data = request.get_json()
-        email = data.get('email')
+        email = (data.get('email') or '').strip().lower()
         password = data.get('password')
         
         if not all([email, password]):
             return jsonify({"error": "Email and password are required"}), 400
         
         user = users_collection.find_one({'email': email})
-        if not user or not bcrypt.checkpw(password.encode('utf-8'), user['password_hash']):
+
+        if not user:
+            bcrypt.checkpw(password.encode('utf-8'), bcrypt.hashpw(b"dummy", bcrypt.gensalt()))
             return jsonify({"error": "Invalid credentials"}), 401
-        
+
+        locked_until = user.get('locked_until')
+        if locked_until and locked_until > datetime.utcnow():
+            return jsonify({"error": "Account temporarily locked. Try again later."}), 423
+
+        if not bcrypt.checkpw(password.encode('utf-8'), user['password_hash']):
+            failed = user.get('failed_attempts', 0) + 1
+            update = {'failed_attempts': failed}
+            if failed >= MAX_FAILED_ATTEMPTS:
+                update['locked_until'] = datetime.utcnow() + timedelta(seconds=LOCKOUT_SECONDS)
+                update['failed_attempts'] = 0
+            users_collection.update_one({'_id': user['_id']}, {'$set': update})
+            return jsonify({"error": "Invalid credentials"}), 401
+
+        users_collection.update_one(
+            {'_id': user['_id']},
+            {'$set': {'failed_attempts': 0, 'locked_until': None, 'last_login': datetime.utcnow()}}
+        )
+
+        session.clear()
+        session.permanent = True
         # Store user in session
         session['user_id'] = str(user['_id'])
         session['role'] = user['role']
@@ -1451,166 +1506,6 @@ def login():
     
     return render_template('login.html')
 
-
-@app.route('/auth/google')
-def auth_google():
-    """Redirect user to Google OAuth"""
-    redirect_uri = url_for('auth_google_callback', _external=True)
-    return google.authorize_redirect(redirect_uri)
- 
- 
-@app.route('/auth/google/callback')
-def auth_google_callback():
-    """Handle Google OAuth callback"""
-    try:
-        token = google.authorize_access_token()
-        user_info = token.get('userinfo')
-        
-        if not user_info:
-            return redirect(url_for('login'))
-        
-        email = user_info.get('email')
-        fullname = user_info.get('name', 'Google User')
-        profile_pic = user_info.get('picture', '')
-        
-        # Find or create user
-        user = users_collection.find_one({'email': email})
-        
-        if not user:
-            # Create new user (default role: citizen for OAuth signups)
-            unique_id = generate_unique_id('citizen')
-            password_hash = bcrypt.hashpw(
-                os.urandom(16),  # Random password since OAuth
-                bcrypt.gensalt()
-            )
-            
-            user = {
-                'fullname': fullname,
-                'email': email,
-                'password_hash': password_hash,
-                'role': 'citizen',  # Default role
-                'unique_id': unique_id,
-                'profile_pic': profile_pic,
-                'oauth_provider': 'google',
-                'created_at': datetime.utcnow()
-            }
-            users_collection.insert_one(user)
-        else:
-            # Update profile pic if not already set
-            if not user.get('profile_pic'):
-                users_collection.update_one(
-                    {'_id': user['_id']},
-                    {'$set': {'profile_pic': profile_pic, 'oauth_provider': 'google'}}
-                )
-            user = users_collection.find_one({'_id': user['_id']})
-        
-        # Log user in
-        session['user_id'] = str(user['_id'])
-        session['role'] = user['role']
-        session['unique_id'] = user['unique_id']
-        session['fullname'] = user.get('fullname', 'User')
-        
-        # Redirect based on role
-        if user['role'] == 'citizen':
-            return redirect(url_for('citizen_dashboard'))
-        elif user['role'] == 'judge':
-            return redirect(url_for('judge_dashboard'))
-        elif user['role'] == 'lawyer':
-            return redirect(url_for('lawyer_dashboard'))
-        else:
-            return redirect(url_for('home'))
-        
-    except Exception as e:
-        print(f"Google OAuth error: {e}")
-        flash("Authentication failed. Please try again.", "error")
-        return redirect(url_for('login'))
- 
- 
-# ──── GITHUB OAUTH ────────────────────────────────────
- 
-@app.route('/auth/github')
-def auth_github():
-    """Redirect user to GitHub OAuth"""
-    redirect_uri = url_for('auth_github_callback', _external=True)
-    return github.authorize_redirect(redirect_uri)
- 
- 
-@app.route('/auth/github/callback')
-def auth_github_callback():
-    """Handle GitHub OAuth callback"""
-    try:
-        token = github.authorize_access_token()
-        
-        # Get user info from GitHub API
-        resp = github.get('user', token=token)
-        user_info = resp.json()
-        
-        github_id = user_info.get('id')
-        email = user_info.get('email') or f"github_{github_id}@noreply.github.com"
-        fullname = user_info.get('name') or user_info.get('login')
-        profile_pic = user_info.get('avatar_url', '')
-        
-        # Find or create user
-        user = users_collection.find_one({'email': email})
-        
-        if not user:
-            # Create new user (default role: citizen for OAuth signups)
-            unique_id = generate_unique_id('citizen')
-            password_hash = bcrypt.hashpw(
-                os.urandom(16),  # Random password since OAuth
-                bcrypt.gensalt()
-            )
-            
-            user = {
-                'fullname': fullname,
-                'email': email,
-                'password_hash': password_hash,
-                'role': 'citizen',  # Default role
-                'unique_id': unique_id,
-                'profile_pic': profile_pic,
-                'github_id': github_id,
-                'oauth_provider': 'github',
-                'created_at': datetime.utcnow()
-            }
-            users_collection.insert_one(user)
-        else:
-            # Update profile pic and github_id if not already set
-            updates = {}
-            if not user.get('profile_pic'):
-                updates['profile_pic'] = profile_pic
-            if not user.get('github_id'):
-                updates['github_id'] = github_id
-            if updates:
-                updates['oauth_provider'] = 'github'
-                users_collection.update_one(
-                    {'_id': user['_id']},
-                    {'$set': updates}
-                )
-            user = users_collection.find_one({'_id': user['_id']})
-        
-        # Log user in
-        session['user_id'] = str(user['_id'])
-        session['role'] = user['role']
-        session['unique_id'] = user['unique_id']
-        session['fullname'] = user.get('fullname', 'User')
-        
-        # Redirect based on role
-        if user['role'] == 'citizen':
-            return redirect(url_for('citizen_dashboard'))
-        elif user['role'] == 'judge':
-            return redirect(url_for('judge_dashboard'))
-        elif user['role'] == 'lawyer':
-            return redirect(url_for('lawyer_dashboard'))
-        else:
-            return redirect(url_for('home'))
-        
-    except Exception as e:
-        print(f"GitHub OAuth error: {e}")
-        flash("Authentication failed. Please try again.", "error")
-        return redirect(url_for('login'))
-    
-    
-    
 
 @app.route('/citizen_dashboard')
 def citizen_dashboard_redirect():

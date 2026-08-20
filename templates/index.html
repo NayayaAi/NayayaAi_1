@@ -2894,8 +2894,8 @@
                 this.scrollBy({ left: e.deltaY * 2, behavior: 'smooth' });
             }
         });
-    
-            // ── Evidence Locker ────────────────────────────────────────────
+
+        // ── Evidence Locker ────────────────────────────────────────────
         let evidenceFilter = 'all';
         let evidenceData = [];
         let currentEvidenceFir = '';
@@ -2907,106 +2907,106 @@
             const firNo = form.querySelector('[name="fir_no"]').value.trim();
             const fileInput = document.getElementById('evidenceFileInput');
 
-    if (!firNo || !fileInput.files.length) {
-        showError('Please provide both an FIR number and a file.');
-        return false;
-    }
+            if (!firNo || !fileInput.files.length) {
+                showError('Please provide both an FIR number and a file.');
+                return false;
+            }
 
-    const formData = new FormData();
-    formData.append('fir_no', firNo);
-    formData.append('file', fileInput.files[0]);
+            const formData = new FormData();
+            formData.append('fir_no', firNo);
+            formData.append('file', fileInput.files[0]);
 
-    const btn = document.getElementById('evidenceUploadBtn');
-    const originalText = btn.innerHTML;
-    btn.disabled = true;
-    btn.innerHTML = 'Uploading…';
+            const btn = document.getElementById('evidenceUploadBtn');
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = 'Uploading…';
 
-    try {
-        const response = await fetch('/upload-evidence', {
-            method: 'POST',
-            body: formData
-        });
-        const result = await response.json();
+            try {
+                const response = await fetch('/upload-evidence', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
 
-        if (!response.ok) {
-            showError(result.error || 'Upload failed.');
+                if (!response.ok) {
+                    showError(result.error || 'Upload failed.');
+                    return false;
+                }
+
+                form.reset();
+                document.getElementById('selectedFileLabel').classList.add('hidden');
+                document.getElementById('evidenceSearch').value = firNo;
+                await loadEvidenceGrid(firNo);
+            } catch (error) {
+                console.error('Upload error:', error);
+                showError('Something went wrong uploading the file.');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+
             return false;
         }
 
-        form.reset();
-        document.getElementById('selectedFileLabel').classList.add('hidden');
-        document.getElementById('evidenceSearch').value = firNo;
-        await loadEvidenceGrid(firNo);
-    } catch (error) {
-        console.error('Upload error:', error);
-        showError('Something went wrong uploading the file.');
-    } finally {
-        btn.disabled = false;
-        btn.innerHTML = originalText;
-    }
+        function updateFileLabel(input) {
+            const label = document.getElementById('selectedFileLabel');
+            const nameSpan = document.getElementById('selectedFileName');
+            if (input.files.length > 0) {
+                nameSpan.textContent = input.files[0].name;
+                label.classList.remove('hidden');
+            } else {
+                label.classList.add('hidden');
+            }
+        }
 
-    return false;
-}
+        async function loadEvidenceGrid(firNo) {
+            currentEvidenceFir = (firNo || '').trim();
+            const grid = document.getElementById('evidenceGrid');
+            const empty = document.getElementById('evidenceEmptyState');
+            const countBar = document.getElementById('evidenceCountBar');
 
-function updateFileLabel(input) {
-    const label = document.getElementById('selectedFileLabel');
-    const nameSpan = document.getElementById('selectedFileName');
-    if (input.files.length > 0) {
-        nameSpan.textContent = input.files[0].name;
-        label.classList.remove('hidden');
-    } else {
-        label.classList.add('hidden');
-    }
-}
+            if (!currentEvidenceFir) {
+                grid.innerHTML = '';
+                countBar.classList.add('hidden');
+                empty.classList.remove('hidden');
+                return;
+            }
 
-async function loadEvidenceGrid(firNo) {
-    currentEvidenceFir = (firNo || '').trim();
-    const grid = document.getElementById('evidenceGrid');
-    const empty = document.getElementById('evidenceEmptyState');
-    const countBar = document.getElementById('evidenceCountBar');
+            try {
+                const res = await fetch(`/api/evidence?fir_no=${encodeURIComponent(currentEvidenceFir)}`);
+                if (!res.ok) throw new Error('Failed to load evidence');
+                evidenceData = await res.json();
+                renderEvidenceGrid();
+            } catch (err) {
+                console.error('Failed to load evidence:', err);
+                grid.innerHTML = '';
+                countBar.classList.add('hidden');
+                empty.classList.remove('hidden');
+            }
+        }
 
-    if (!currentEvidenceFir) {
-        grid.innerHTML = '';
-        countBar.classList.add('hidden');
-        empty.classList.remove('hidden');
-        return;
-    }
+        function renderEvidenceGrid() {
+            const grid = document.getElementById('evidenceGrid');
+            const empty = document.getElementById('evidenceEmptyState');
+            const countBar = document.getElementById('evidenceCountBar');
+            const countText = document.getElementById('evidenceCountText');
 
-    try {
-        const res = await fetch(`/api/evidence?fir_no=${encodeURIComponent(currentEvidenceFir)}`);
-        if (!res.ok) throw new Error('Failed to load evidence');
-        evidenceData = await res.json();
-        renderEvidenceGrid();
-    } catch (err) {
-        console.error('Failed to load evidence:', err);
-        grid.innerHTML = '';
-        countBar.classList.add('hidden');
-        empty.classList.remove('hidden');
-    }
-}
+            const filtered = evidenceFilter === 'all'
+                ? evidenceData
+                : evidenceData.filter(f => f.file_type === evidenceFilter);
 
-function renderEvidenceGrid() {
-    const grid = document.getElementById('evidenceGrid');
-    const empty = document.getElementById('evidenceEmptyState');
-    const countBar = document.getElementById('evidenceCountBar');
-    const countText = document.getElementById('evidenceCountText');
+            if (!filtered.length) {
+                grid.innerHTML = '';
+                countBar.classList.add('hidden');
+                empty.classList.remove('hidden');
+                return;
+            }
 
-    const filtered = evidenceFilter === 'all'
-        ? evidenceData
-        : evidenceData.filter(f => f.file_type === evidenceFilter);
+            empty.classList.add('hidden');
+            countBar.classList.remove('hidden');
+            countText.textContent = `${filtered.length} file${filtered.length !== 1 ? 's' : ''} for FIR ${currentEvidenceFir}`;
 
-    if (!filtered.length) {
-        grid.innerHTML = '';
-        countBar.classList.add('hidden');
-        empty.classList.remove('hidden');
-        return;
-    }
-
-    empty.classList.add('hidden');
-    countBar.classList.remove('hidden');
-    countText.textContent = `${filtered.length} file${filtered.length !== 1 ? 's' : ''} for FIR ${currentEvidenceFir}`;
-
-    grid.innerHTML = filtered.map(file => `
+            grid.innerHTML = filtered.map(file => `
         <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
             <p class="text-xs font-semibold text-slate-700 truncate mb-1">${escapeHtml(file.filename)}</p>
             <p class="text-[10px] text-slate-400 uppercase mb-2">${escapeHtml(file.file_type)}</p>
@@ -3014,38 +3014,210 @@ function renderEvidenceGrid() {
                class="text-blue-600 text-xs font-bold hover:underline">VIEW</a>
         </div>
     `).join('');
-}
+        }
 
-function filterEvidence(value) {
-    loadEvidenceGrid(value);
-}
+        function filterEvidence(value) {
+            loadEvidenceGrid(value);
+        }
 
-function toggleFilterDropdown() {
-    document.getElementById('filterDropdown').classList.toggle('hidden');
-}
+        function toggleFilterDropdown() {
+            document.getElementById('filterDropdown').classList.toggle('hidden');
+        }
 
-function setEvidenceFilter(type) {
-    evidenceFilter = type;
-    document.getElementById('filterLabel').textContent =
-        type === 'all' ? 'All' : type.charAt(0).toUpperCase() + type.slice(1);
-    document.getElementById('filterDropdown').classList.add('hidden');
-    renderEvidenceGrid();
-}
+        function setEvidenceFilter(type) {
+            evidenceFilter = type;
+            document.getElementById('filterLabel').textContent =
+                type === 'all' ? 'All' : type.charAt(0).toUpperCase() + type.slice(1);
+            document.getElementById('filterDropdown').classList.add('hidden');
+            renderEvidenceGrid();
+        }
 
-function clearEvidenceSearch() {
-    document.getElementById('evidenceSearch').value = '';
-    loadEvidenceGrid('');
-}
+        function clearEvidenceSearch() {
+            document.getElementById('evidenceSearch').value = '';
+            loadEvidenceGrid('');
+        }
 
-document.addEventListener('click', (e) => {
-    const dropdown = document.getElementById('filterDropdown');
-    const toggleBtn = document.getElementById('filterToggleBtn');
-    if (dropdown && !dropdown.classList.contains('hidden') &&
-        !dropdown.contains(e.target) && !toggleBtn.contains(e.target)) {
-        dropdown.classList.add('hidden');
-    }
-});
+        document.addEventListener('click', (e) => {
+            const dropdown = document.getElementById('filterDropdown');
+            const toggleBtn = document.getElementById('filterToggleBtn');
+            if (dropdown && !dropdown.classList.contains('hidden') &&
+                !dropdown.contains(e.target) && !toggleBtn.contains(e.target)) {
+                dropdown.classList.add('hidden');
+            }
+        });
+        async function predictOutcome() {
+            const input = document.getElementById('outcomeInput').value.trim();
+            const resultDiv = document.getElementById('outcomeResult');
 
+            if (!input) {
+                resultDiv.innerHTML = '⚠️ Please describe the situation first.';
+                resultDiv.classList.remove('hidden');
+                return;
+            }
+
+            resultDiv.innerHTML = '⏳ Analyzing…';
+            resultDiv.classList.remove('hidden');
+
+            try {
+                const response = await fetch('/api/predict-outcome', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ situation: input })
+                });
+                const data = await response.json();
+                resultDiv.innerHTML = data.prediction || 'No prediction returned.';
+            } catch (error) {
+                console.error('Predict outcome error:', error);
+                resultDiv.innerHTML = '❌ Failed to connect.';
+            }
+        }
+
+        // ══════════════════════════════════════
+        // Legal Glossary — static term lookup
+        // ══════════════════════════════════════
+        const LEGAL_GLOSSARY = {
+            "bail": "Temporary release of an accused person awaiting trial, usually on condition of a surety or bond.",
+            "cognizable": "An offence for which police can arrest without a warrant and start investigation without court permission.",
+            "non-cognizable": "An offence for which police cannot arrest without a warrant or investigate without court permission.",
+            "mens rea": "The mental element of a crime — the intention or knowledge of wrongdoing.",
+            "actus reus": "The physical act of committing a crime, as opposed to the mental intent.",
+            "fir": "First Information Report — the document police prepare when they first receive information about a cognizable offence.",
+            "chargesheet": "The final report filed by police after investigation, listing the accused and evidence against them.",
+            "anticipatory bail": "Bail sought in advance of arrest, when a person believes they may be arrested for a non-bailable offence.",
+            "vakalatnama": "A document authorizing an advocate to represent a party in court.",
+            "caveat": "A notice filed in court requesting to be heard before any order is passed against the filer.",
+            "acquittal": "A judgment that the accused is not guilty of the offence charged.",
+            "remand": "A court order sending an accused person into police or judicial custody during investigation.",
+            "plaintiff": "The party who initiates a civil lawsuit.",
+            "defendant": "The party being sued or accused in a civil or criminal case.",
+            "affidavit": "A written statement confirmed by oath, used as evidence in court.",
+            "injunction": "A court order requiring a party to do or stop doing a specific act.",
+            "decree": "The formal expression of a court's final decision in a civil suit.",
+            "summons": "A legal document ordering a person to appear in court.",
+            "warrant": "A legal document authorizing police to arrest a person or search a place.",
+            "bailable offence": "An offence where bail is a matter of right and police/court must grant it if requested.",
+            "non-bailable offence": "A serious offence where bail is at the discretion of the court, not a right.",
+            "compoundable offence": "An offence where the complainant can withdraw the case by settling with the accused.",
+            "non-compoundable offence": "A serious offence that cannot be withdrawn by mutual settlement.",
+        };
+
+        function searchGlossary() {
+            const query = document.getElementById('glossarySearch').value.trim().toLowerCase();
+            const resultsDiv = document.getElementById('glossaryResults');
+
+            if (!query) {
+                resultsDiv.innerHTML = '';
+                return;
+            }
+
+            const matches = Object.entries(LEGAL_GLOSSARY)
+                .filter(([term]) => term.includes(query));
+
+            if (!matches.length) {
+                resultsDiv.innerHTML = '<p class="text-slate-400 text-xs px-2 py-3">No matching terms found.</p>';
+                return;
+            }
+
+            resultsDiv.innerHTML = matches.map(([term, def]) => `
+        <div class="bg-white border border-slate-200 rounded-lg p-2.5">
+            <p class="font-bold text-slate-800 text-sm capitalize">${escapeHtml(term)}</p>
+            <p class="text-xs text-slate-600 mt-0.5">${escapeHtml(def)}</p>
+        </div>
+    `).join('');
+        }
+
+        // ══════════════════════════════════════
+        // Compare Sections — uses existing section-detail API
+        // ══════════════════════════════════════
+        async function compareSections() {
+            const act1 = document.getElementById('compareAct1').value;
+            const sec1 = document.getElementById('compareSec1').value.trim();
+            const act2 = document.getElementById('compareAct2').value;
+            const sec2 = document.getElementById('compareSec2').value.trim();
+            const resultDiv = document.getElementById('compareResult');
+
+            if (!act1 || !sec1 || !act2 || !sec2) {
+                resultDiv.innerHTML = '<p class="text-red-500 text-sm px-2">Please select both acts and enter both section numbers.</p>';
+                resultDiv.classList.remove('hidden');
+                return;
+            }
+
+            resultDiv.innerHTML = '<p class="text-slate-400 text-sm px-2">⏳ Loading…</p>';
+            resultDiv.classList.remove('hidden');
+
+            try {
+                const [res1, res2] = await Promise.all([
+                    fetch(`/api/section-detail/${act1}/${encodeURIComponent(sec1)}`),
+                    fetch(`/api/section-detail/${act2}/${encodeURIComponent(sec2)}`)
+                ]);
+                const data1 = await res1.json();
+                const data2 = await res2.json();
+
+                resultDiv.innerHTML = `
+            <div class="grid grid-cols-2 gap-3 text-sm">
+                <div class="bg-white border border-slate-200 rounded-lg p-3">
+                    <p class="font-bold text-blue-700">${escapeHtml(act1)} Sec ${escapeHtml(sec1)}</p>
+                    <p class="text-xs text-slate-600 mt-1">${res1.ok ? escapeHtml(data1.title || '') : (data1.error || 'Not found')}</p>
+                    <p class="text-xs text-slate-500 mt-1">${res1.ok ? escapeHtml((data1.description || '').slice(0, 200)) : ''}</p>
+                </div>
+                <div class="bg-white border border-slate-200 rounded-lg p-3">
+                    <p class="font-bold text-orange-600">${escapeHtml(act2)} Sec ${escapeHtml(sec2)}</p>
+                    <p class="text-xs text-slate-600 mt-1">${res2.ok ? escapeHtml(data2.title || '') : (data2.error || 'Not found')}</p>
+                    <p class="text-xs text-slate-500 mt-1">${res2.ok ? escapeHtml((data2.description || '').slice(0, 200)) : ''}</p>
+                </div>
+            </div>
+        `;
+            } catch (e) {
+                console.error('Compare sections error:', e);
+                resultDiv.innerHTML = '<p class="text-red-500 text-sm px-2">❌ Failed to compare sections.</p>';
+            }
+        }
+
+        // ══════════════════════════════════════
+        // 2024 Law Amendments — static IPC/CrPC → BNS/BNSS mapping
+        // ══════════════════════════════════════
+        const LAW_AMENDMENTS = {
+            "ipc 302": { new: "BNS Section 103", note: "Murder" },
+            "ipc 375": { new: "BNS Section 63", note: "Rape" },
+            "ipc 376": { new: "BNS Section 64", note: "Punishment for rape" },
+            "ipc 420": { new: "BNS Section 318", note: "Cheating" },
+            "ipc 406": { new: "BNS Section 316", note: "Criminal breach of trust" },
+            "ipc 34": { new: "BNS Section 3(5)", note: "Common intention" },
+            "ipc 120b": { new: "BNS Section 61", note: "Criminal conspiracy" },
+            "crpc 154": { new: "BNSS Section 173", note: "FIR registration" },
+            "crpc 41": { new: "BNSS Section 35", note: "Arrest without warrant" },
+            "crpc 437": { new: "BNSS Section 480", note: "Bail in non-bailable offences" },
+            "crpc 438": { new: "BNSS Section 482", note: "Anticipatory bail" },
+            "crpc 161": { new: "BNSS Section 180", note: "Police examination of witnesses" },
+            "crpc 164": { new: "BNSS Section 183", note: "Recording of confessions/statements" },
+        };
+
+        function searchAmendments() {
+            const query = document.getElementById('amendmentSearch').value.trim().toLowerCase().replace(/\s+/g, ' ');
+            const resultsDiv = document.getElementById('amendmentResults');
+
+            if (!query) {
+                resultsDiv.innerHTML = '';
+                return;
+            }
+
+            const matches = Object.entries(LAW_AMENDMENTS)
+                .filter(([old]) => old.includes(query));
+
+            if (!matches.length) {
+                resultsDiv.innerHTML = '<p class="text-slate-400 text-xs px-2 py-3">No matching section found. Try "IPC 302" or "CrPC 154".</p>';
+                return;
+            }
+
+            resultsDiv.innerHTML = matches.map(([old, { new: newSec, note }]) => `
+        <div class="bg-white border border-slate-200 rounded-lg p-2.5 flex items-center gap-2">
+            <span class="font-mono text-xs font-bold text-slate-500 uppercase">${escapeHtml(old)}</span>
+            <span class="text-slate-400">→</span>
+            <span class="font-mono text-xs font-bold text-green-700">${escapeHtml(newSec)}</span>
+            <span class="text-xs text-slate-500 ml-auto">${escapeHtml(note)}</span>
+        </div>
+    `).join('');
+        }
 
     </script>
 

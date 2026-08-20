@@ -38,3 +38,15 @@ def fir_exists(fir_no):
     """Check if a FIR number already exists."""
     result = supabase.table("firs").select("fir_no").eq("fir_no", fir_no).execute()
     return len(result.data) > 0
+
+def assign_lawyer_to_fir(fir_no, lawyer_id):
+    """Assign a lawyer to a FIR by fir_no. Returns True if a row was updated."""
+    result = supabase.table("firs").update(
+        {"assigned_lawyer_id": lawyer_id}
+    ).eq("fir_no", fir_no).execute()
+    return len(result.data) > 0
+
+def get_firs_by_lawyer(lawyer_id):
+    """Fetch all FIRs assigned to a given lawyer."""
+    result = supabase.table("firs").select("*").eq("assigned_lawyer_id", lawyer_id).execute()
+    return result.data

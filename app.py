@@ -36,7 +36,7 @@ import re
 from datetime import datetime, timezone, timedelta
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-
+from main.storage_service import upload_pdf, save_fir, get_all_firs, get_fir, fir_exists, assign_lawyer_to_fir, get_firs_by_lawyer
 
 # ---------------- OLLAMA SETUP ----------------
 import requests
@@ -526,8 +526,21 @@ def rights_chat():
         question = data.get('question', '').strip()
         if not question:
             return jsonify({"answer": "Please ask a question about your rights."}), 400
+        
+        GREETINGS = {
+            "hi", "hii", "hiii", "hello", "hey", "heya", "yo",
+            "good morning", "good afternoon", "good evening",
+            "thanks", "thank you", "ok", "okay", "bye"
+            }
+        
+        if question.lower().strip("!.? ") in GREETINGS:
+            
+            return jsonify({
+                "answer": "Hi! I'm NyayaAI's rights assistant. Ask me about arrest, "
+                "bail, filing an FIR, your right to a lawyer, or any other "
+                "legal rights question — I'll explain it in plain language."
+                })
 
-        # Step 1: RAG search for grounding
         try:
             results = search_law(question)
         except Exception as rag_err:
@@ -550,7 +563,7 @@ def rights_chat():
             f"Answer in simple, plain language a non-lawyer can understand. "
             f"Be concise (under 200 words). If the legal sections above are relevant, "
             f"reference them naturally. End with: ⚠️ For official help call 15100."
-        )
+            )
 
         # Step 3: Try Groq
         answer = ask_groq(groq_prompt, max_tokens=500)
@@ -776,13 +789,16 @@ def open_bare_act(act_code):
         return jsonify({"error": "Act not found"}), 404
     return redirect(url)
 
-@app.route('/lawyer-dashboard')
+@app.route('/lawyer_dashboard')
 def lawyer_dashboard():
     if 'user_id' not in session:
         return redirect(url_for('login'))
     if session.get('role') != 'lawyer':
         return redirect(url_for('home'))
-    return render_template('lawyer_dashboard.html')
+
+    cases = get_firs_by_lawyer(session['user_id'])
+    lawyer = {"name": session.get('fullname', 'Advocate')}
+    return render_template('lawyer_dashboard.html', cases=cases, lawyer=lawyer)
 
 # ── ADD THIS IMPORT at the top of app.py ──
 from groq import Groq
@@ -810,7 +826,7 @@ def ask_groq(prompt, max_tokens=2000):
                     "content": prompt
                 }
             ],
-            model="llama-3.3-70b-versatile",  # fastest + best quality on Groq free tier
+            model="openai/gpt-oss-120b",  # fastest + best quality on Groq free tier
             max_tokens=max_tokens,
             temperature=0.3,  # low temp = consistent legal language
         )
@@ -907,7 +923,8 @@ def lawyer_find_precedents():
     if not query:
         return jsonify({"answer": "Please enter a search query."}), 400
 
-    # RAG search first
+    # RAG search first (with the relevance threshold from rag_engine.py,
+    # this correctly returns None for procedural/off-topic queries)
     rag_results = search_law(query)
 
     rag_context = ""
@@ -919,24 +936,55 @@ def lawyer_find_precedents():
                 f"{r.get('description', '')[:200]}\n"
             )
 
-    if search_type == 'outcome':
+    # ── Detect procedural / how-to queries ──
+    # Lawyers already know the law — what they actually search for is
+    # procedure, drafting, and filing steps, not "which section applies."
+    PROCEDURAL_TRIGGERS = [
+        'how to', 'how do i', 'steps to', 'procedure for', 'process for',
+        'format for', 'how is', 'how can i', 'draft a', 'file a', 'filing',
+        'vakalatnama', 'caveat', 'certified copy', 'stamp duty',
+        'court fee', 'application format'
+    ]
+    is_procedural = any(t in query.lower() for t in PROCEDURAL_TRIGGERS)
+
+    if is_procedural:
         groq_prompt = (
-            f"As an Indian legal expert, analyze this situation and predict likely case outcome "
-            f"with relevant Supreme Court and High Court precedents:\n\n{query}{rag_context}\n\n"
-            f"Give: 1) Likely outcome 2) Key precedents 3) Relevant sections 4) Advice"
+            f"As an Indian legal practice expert, answer this procedural "
+            f"question for a practicing lawyer:\n\n{query}{rag_context}\n\n"
+            f"Give a direct, practical, step-by-step answer — the actual "
+            f"procedure, required documents/format, relevant court fee or "
+            f"stamp duty if applicable, and which court/registry it goes "
+            f"to. Do not invent case citations or discuss substantive "
+            f"sections unless the question specifically asks for them. "
+            f"If you're not certain of a specific procedural detail (e.g. "
+            f"state-specific stamp duty), say so rather than guessing."
+        )
+    elif search_type == 'outcome':
+        groq_prompt = (
+            f"As an Indian legal expert, analyze this situation and predict "
+            f"likely case outcome:\n\n{query}{rag_context}\n\n"
+            f"Give: 1) Likely outcome 2) Key precedents 3) Relevant sections "
+            f"4) Advice. Only cite specific case names/citations if you are "
+            f"confident they are real — otherwise describe the general "
+            f"principle without attributing it to a specific case."
         )
     else:
         groq_prompt = (
-            f"As an Indian legal expert, find all relevant law sections for:\n\n{query}"
-            f"{rag_context}\n\n"
+            f"As an Indian legal expert, find all relevant law sections "
+            f"for:\n\n{query}{rag_context}\n\n"
             f"Give: 1) Applicable IPC/BNS sections 2) CrPC/BNSS provisions "
-            f"3) Key Supreme Court judgments 4) Legal strategy"
+            f"3) Key Supreme Court judgments 4) Legal strategy. Only cite "
+            f"specific case names/citations if you are confident they are "
+            f"real — otherwise describe the general principle without "
+            f"attributing it to a specific case. If the query isn't "
+            f"actually a legal research question (e.g. too vague, off-"
+            f"topic, or unrelated to Indian law), say so directly instead "
+            f"of forcing an answer into this format."
         )
 
     answer = ask_groq(groq_prompt, max_tokens=1500)
 
     if not answer:
-        # Pure RAG fallback
         if rag_results:
             answer = "⚖️ RELEVANT LEGAL SECTIONS (NyayaAI Database):\n\n"
             for r in rag_results[:5]:
@@ -1167,10 +1215,17 @@ def ask_law():
     return jsonify({"answer": answer})
 
 
-# MongoDB connection
-
 fir_collection = db["fir_records"]
 evidence_collection = db["evidence_files"]
+
+@app.route('/api/fir-records/<fir_no>/assign-lawyer', methods=['POST'])
+def assign_lawyer(fir_no):
+    if 'user_id' not in session or session.get('role') != 'lawyer':
+        return jsonify({"error": "Unauthorized"}), 401
+    fir_no = fir_no.strip()
+    if not assign_lawyer_to_fir(fir_no, session['user_id']):
+        return jsonify({"error": "FIR not found"}), 404
+    return jsonify({"message": "Case added to your dashboard", "fir_no": fir_no})
 
 # Folder to store generated PDFs
 PDF_FOLDER = "generated_firs"

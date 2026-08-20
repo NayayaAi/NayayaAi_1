@@ -868,6 +868,29 @@
     }
 
     // ──────────────────────────────────────────────
+    // Minimal markdown → HTML for chat answers
+    // (escapes HTML first, then converts **bold**, bullets, newlines)
+    // ──────────────────────────────────────────────
+    function formatAnswer(text) {
+      if (!text) return 'No answer received.';
+
+      // Escape raw HTML so we don't accidentally inject tags
+      const escapeMap = { '&': '&amp;', '<': '&lt;', '>': '&gt;' };
+      let safe = text.replace(/[&<>]/g, ch => escapeMap[ch]);
+
+      // **bold** → <strong>bold</strong>
+      safe = safe.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+      // Lines starting with "- " or "• " → bullet points
+      safe = safe.replace(/^[-•]\s+(.*)$/gm, '&nbsp;&nbsp;• $1');
+
+      // Preserve line breaks
+      safe = safe.replace(/\n/g, '<br>');
+
+      return safe;
+    }
+
+    // ──────────────────────────────────────────────
     // Know Your Rights  →  POST /api/rights-chat
     // ──────────────────────────────────────────────
     async function askRightsQuestion(preset) {
@@ -909,11 +932,11 @@
     <div class="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center shrink-0">
       <i data-lucide="bot" class="w-4 h-4 text-purple-600"></i>
     </div>
-    <div class="chat-bubble-ai px-4 py-3 max-w-sm text-sm whitespace-pre-wrap">${data.answer || 'No answer received.'}</div>`;
+    <div class="chat-bubble-ai px-4 py-3 max-w-sm text-sm">${formatAnswer(data.answer)}</div>`;
           lucide.createIcons();
         }
         lucide.createIcons();
-      }  catch (e) {
+      } catch (e) {
         console.error('Rights chat error:', e);
         const el = document.getElementById(loadId);
         if (el) {

@@ -496,10 +496,31 @@
     </section>
 
     <!-- ══════ DRAFTS (placeholder) ══════ -->
+    <!-- ══════ DRAFTS (global, across all cases) ══════ -->
     <section id="drafts" class="pt-24 pb-16 px-6 min-h-screen hidden">
-      <div class="max-w-3xl mx-auto text-center py-20">
-        <i data-lucide="file-text" class="w-10 h-10 text-blue-300 mx-auto mb-3"></i>
-        <p class="text-slate-400">Document drafting tools coming soon.</p>
+      <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-serif font-bold text-blue-900 mb-6">All Drafts</h1>
+
+        <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+          <div id="global-drafts-loading"
+            class="hidden text-sm text-slate-400 flex items-center gap-2 py-8 justify-center">
+            <div class="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+            Loading drafts…
+          </div>
+          <div id="global-drafts-list" class="space-y-2"></div>
+          <p id="global-drafts-empty" class="hidden text-sm text-slate-400 text-center py-16">
+            No drafts saved yet. Open a case's workspace to generate and save one.
+          </p>
+        </div>
+
+        <div id="global-draft-view-wrap" class="hidden bg-white rounded-2xl border border-slate-100 shadow-sm p-6 mt-6">
+          <div class="flex items-center justify-between mb-3">
+            <span class="font-bold text-blue-900 text-sm">Draft Preview</span>
+            <button onclick="document.getElementById('global-draft-view-wrap').classList.add('hidden')"
+              class="text-xs text-slate-400 hover:text-slate-600 font-semibold">CLOSE</button>
+          </div>
+          <div id="global-draft-view" class="assistant-answer text-sm text-slate-700"></div>
+        </div>
       </div>
     </section>
 
@@ -625,12 +646,21 @@
                 <div class="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
                 Drafting…
               </div>
-              <div id="cw-draft-result" class="assistant-answer text-sm text-slate-700 whitespace-pre-wrap"></div>
-              <p class="text-xs text-slate-400 mt-4">Drafts aren't saved yet — copy the text you need before leaving
-                this tab.</p>
+              <div id="cw-draft-result" class="assistant-answer text-sm text-slate-700"></div>
+              <button id="cw-draft-save-btn" onclick="cwSaveDraft()"
+                class="hidden mt-3 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl text-sm font-semibold transition">
+                Save Draft
+              </button>
+              <p id="cw-draft-save-msg" class="hidden text-sm mt-2 font-semibold"></p>
+
+              <div class="mt-6 pt-6 border-t border-slate-100">
+                <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Saved Drafts</p>
+                <div id="cw-saved-drafts-list" class="space-y-2"></div>
+                <p id="cw-saved-drafts-empty" class="hidden text-sm text-slate-400 text-center py-6">No saved drafts for
+                  this case yet.</p>
+              </div>
             </div>
           </div>
-
         </div>
       </div>
     </section>
@@ -657,6 +687,7 @@
         await cwLoadOverview(firNo);
         await cwLoadDocuments(firNo);
         await cwLoadHearings(firNo);
+        await cwLoadDrafts(firNo);
         if (window.lucide) lucide.createIcons();
       }
 
@@ -805,13 +836,20 @@
         }
       }
 
+      let cwLastDraftKind = null;
+      let cwLastDraftText = null;
+
       async function cwGenerateDraft(kind) {
         if (!cwCurrentFir || !cwCurrentCaseData) return;
         const loading = document.getElementById('cw-draft-loading');
         const result = document.getElementById('cw-draft-result');
+        const saveBtn = document.getElementById('cw-draft-save-btn');
+        const saveMsg = document.getElementById('cw-draft-save-msg');
 
         loading.classList.remove('hidden');
-        result.textContent = '';
+        result.innerHTML = '';
+        saveBtn.classList.add('hidden');
+        saveMsg.classList.add('hidden');
 
         const c = cwCurrentCaseData;
         const prompt = kind === 'bail'
@@ -827,13 +865,91 @@
             body: JSON.stringify({ prompt })
           });
           const data = await res.json();
-          result.textContent = data.text || 'No draft returned.';
+          const raw = data.text || 'No draft returned.';
+          result.innerHTML = window.marked ? marked.parse(raw) : raw;
+
+          cwLastDraftKind = kind;
+          cwLastDraftText = raw;
+          saveBtn.classList.remove('hidden');
         } catch (e) {
           result.textContent = 'Something went wrong generating the draft.';
         } finally {
           loading.classList.add('hidden');
         }
       }
+
+      async function cwSaveDraft() {
+        if (!cwCurrentFir || !cwLastDraftText) return;
+        const saveMsg = document.getElementById('cw-draft-save-msg');
+
+        try {
+          const res = await fetch(`/api/case/${encodeURIComponent(cwCurrentFir)}/drafts`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ kind: cwLastDraftKind, content: cwLastDraftText })
+          });
+          if (!res.ok) throw new Error('Failed to save');
+
+          saveMsg.textContent = '✓ Draft saved.';
+          saveMsg.className = 'text-sm mt-2 font-semibold text-green-600';
+          saveMsg.classList.remove('hidden');
+          await cwLoadDrafts(cwCurrentFir);
+        } catch (e) {
+          saveMsg.textContent = '✗ Could not save draft.';
+          saveMsg.className = 'text-sm mt-2 font-semibold text-red-600';
+          saveMsg.classList.remove('hidden');
+        }
+      }
+
+      async function cwLoadDrafts(firNo) {
+        const list = document.getElementById('cw-saved-drafts-list');
+        const empty = document.getElementById('cw-saved-drafts-empty');
+        try {
+          const res = await fetch(`/api/case/${encodeURIComponent(firNo)}/drafts`);
+          const drafts = await res.json();
+
+          if (!drafts.length) {
+            list.innerHTML = '';
+            empty.classList.remove('hidden');
+            return;
+          }
+          empty.classList.add('hidden');
+          list.innerHTML = drafts.map(d => `
+      <div class="flex items-center justify-between bg-slate-50 rounded-xl px-4 py-2.5 text-sm">
+        <div>
+          <span class="font-semibold text-slate-700 capitalize">${escapeHtml(d.kind)}</span>
+          <span class="text-slate-400 ml-2">${escapeHtml(d.created_at)}</span>
+        </div>
+        <div class="flex gap-2">
+          <button onclick='cwViewDraft(${JSON.stringify(d.content)})' class="text-blue-600 text-xs font-bold hover:underline">VIEW</button>
+          <button onclick="cwDeleteDraft(${d.id})" class="text-red-500 text-xs font-bold hover:underline">DELETE</button>
+        </div>
+      </div>
+    `).join('');
+        } catch (e) {
+          console.error('Load drafts error:', e);
+        }
+      }
+
+      function cwViewDraft(content) {
+        const result = document.getElementById('cw-draft-result');
+        result.innerHTML = window.marked ? marked.parse(content) : content;
+        document.getElementById('cw-draft-save-btn').classList.add('hidden');
+        document.getElementById('cw-draft-save-msg').classList.add('hidden');
+      }
+
+      async function cwDeleteDraft(draftId) {
+        if (!cwCurrentFir) return;
+        try {
+          await fetch(`/api/case/${encodeURIComponent(cwCurrentFir)}/drafts/${draftId}`, { method: 'DELETE' });
+          await cwLoadDrafts(cwCurrentFir);
+        } catch (e) {
+          console.error('Delete draft error:', e);
+        }
+      }
+
+
+
     </script>
 
   </main>
@@ -862,6 +978,8 @@
       if (link) link.classList.add('active', 'bg-blue-800');
 
       window.scrollTo({ top: 0 });
+
+      if (id === 'drafts') loadGlobalDrafts();
     }
 
     document.querySelectorAll('.sidebar-link').forEach(link => {
@@ -992,6 +1110,55 @@
       const msg = document.getElementById('claim-msg');
       msg.textContent = text;
       msg.className = `text-sm mt-2 font-semibold ${colorClass}`;
+    }
+
+    // ── Global Drafts (sidebar) ──
+    async function loadGlobalDrafts() {
+      const loading = document.getElementById('global-drafts-loading');
+      const list = document.getElementById('global-drafts-list');
+      const empty = document.getElementById('global-drafts-empty');
+
+      loading.classList.remove('hidden');
+      list.innerHTML = '';
+      empty.classList.add('hidden');
+
+      try {
+        const res = await fetch('/api/lawyer/drafts');
+        const drafts = await res.json();
+
+        if (!drafts.length) {
+          empty.classList.remove('hidden');
+          return;
+        }
+
+        list.innerHTML = drafts.map(d => `
+          <div class="flex items-center justify-between bg-slate-50 rounded-xl px-4 py-3 text-sm">
+            <div>
+              <span class="font-bold text-blue-900">FIR: ${escapeHtml(d.fir_no)}</span>
+              <span class="font-semibold text-slate-700 capitalize ml-3">${escapeHtml(d.kind)}</span>
+              <span class="text-slate-400 ml-2">${escapeHtml(d.created_at)}</span>
+            </div>
+            <div class="flex gap-2">
+              <button onclick='viewGlobalDraft(${JSON.stringify(d.content)})' class="text-blue-600 text-xs font-bold hover:underline">VIEW</button>
+              <button onclick="openCaseWorkspace('${escapeHtml(d.fir_no)}')" class="text-slate-500 text-xs font-bold hover:underline">OPEN CASE</button>
+            </div>
+          </div>
+        `).join('');
+      } catch (e) {
+        console.error('Load global drafts error:', e);
+        empty.textContent = 'Something went wrong loading drafts.';
+        empty.classList.remove('hidden');
+      } finally {
+        loading.classList.add('hidden');
+      }
+    }
+
+    function viewGlobalDraft(content) {
+      const wrap = document.getElementById('global-draft-view-wrap');
+      const view = document.getElementById('global-draft-view');
+      view.innerHTML = window.marked ? marked.parse(content) : content;
+      wrap.classList.remove('hidden');
+      wrap.scrollIntoView({ behavior: 'smooth' });
     }
 
     // ── Legal Assistant ──

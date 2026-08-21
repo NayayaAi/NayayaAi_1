@@ -1857,10 +1857,103 @@ def add_hearing(fir_no):
     conn.close()
     return jsonify({"message": "Hearing added"}), 201
 
+# ── Case Drafts (new) ──
+def init_drafts_table():
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS case_drafts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            fir_no TEXT NOT NULL,
+            kind TEXT NOT NULL,
+            content TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+@app.route('/api/case/<fir_no>/drafts', methods=['GET'])
+def get_drafts(fir_no):
+    if 'user_id' not in session or session.get('role') != 'lawyer':
+        return jsonify({"error": "Unauthorized"}), 401
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT id, kind, content, created_at FROM case_drafts WHERE fir_no = ? ORDER BY created_at DESC",
+        (fir_no,)
+    )
+    rows = cursor.fetchall()
+    conn.close()
+    return jsonify([
+        {"id": r[0], "kind": r[1], "content": r[2], "created_at": str(r[3])}
+        for r in rows
+    ])
+
+@app.route('/api/case/<fir_no>/drafts', methods=['POST'])
+def save_draft(fir_no):
+    if 'user_id' not in session or session.get('role') != 'lawyer':
+        return jsonify({"error": "Unauthorized"}), 401
+    data = request.get_json()
+    kind = data.get('kind', 'document').strip()
+    content = data.get('content', '').strip()
+    if not content:
+        return jsonify({"error": "Draft content required"}), 400
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO case_drafts (fir_no, kind, content) VALUES (?, ?, ?)",
+        (fir_no, kind, content)
+    )
+    draft_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return jsonify({"message": "Draft saved", "id": draft_id}), 201
+
+@app.route('/api/case/<fir_no>/drafts/<int:draft_id>', methods=['DELETE'])
+def delete_draft(fir_no, draft_id):
+    if 'user_id' not in session or session.get('role') != 'lawyer':
+        return jsonify({"error": "Unauthorized"}), 401
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM case_drafts WHERE id = ? AND fir_no = ?", (draft_id, fir_no))
+    conn.commit()
+    conn.close()
+    return jsonify({"message": "Draft deleted"})
+
+# ── Global drafts across all of a lawyer's cases ──
+@app.route('/api/lawyer/drafts', methods=['GET'])
+def get_all_lawyer_drafts():
+    if 'user_id' not in session or session.get('role') != 'lawyer':
+        return jsonify({"error": "Unauthorized"}), 401
+
+    cases = get_firs_by_lawyer(session['user_id'])
+    fir_nos = [c.get('fir_no') for c in cases if c.get('fir_no')]
+
+    if not fir_nos:
+        return jsonify([])
+
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    placeholders = ','.join('?' for _ in fir_nos)
+    cursor.execute(
+        f"SELECT id, fir_no, kind, content, created_at FROM case_drafts "
+        f"WHERE fir_no IN ({placeholders}) ORDER BY created_at DESC",
+        fir_nos
+    )
+    rows = cursor.fetchall()
+    conn.close()
+    return jsonify([
+        {"id": r[0], "fir_no": r[1], "kind": r[2], "content": r[3], "created_at": str(r[4])}
+        for r in rows
+    ])
+
 if __name__ == '__main__':
     init_fir_table()
     init_user_table()
     init_evidence_table()
     init_complaints_table()
+    init_hearings_table()
+    init_drafts_table()
     seed_evidence_from_filesystem()
     app.run(debug=True, port=5000)

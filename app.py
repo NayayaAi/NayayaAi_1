@@ -1807,6 +1807,55 @@ def seed_evidence_from_filesystem():
             seeded += 1
     if seeded:
         print(f"Evidence migration: seeded {seeded} file(s) into MongoDB.")
+        
+        # ── Case Hearings (new — nothing tracked this before) ──
+def init_hearings_table():
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS case_hearings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            fir_no TEXT NOT NULL,
+            hearing_date TEXT NOT NULL,
+            note TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+@app.route('/api/case/<fir_no>/hearings', methods=['GET'])
+def get_hearings(fir_no):
+    if 'user_id' not in session or session.get('role') != 'lawyer':
+        return jsonify({"error": "Unauthorized"}), 401
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT id, hearing_date, note FROM case_hearings WHERE fir_no = ? ORDER BY hearing_date",
+        (fir_no,)
+    )
+    rows = cursor.fetchall()
+    conn.close()
+    return jsonify([{"id": r[0], "hearing_date": r[1], "note": r[2] or ""} for r in rows])
+
+@app.route('/api/case/<fir_no>/hearings', methods=['POST'])
+def add_hearing(fir_no):
+    if 'user_id' not in session or session.get('role') != 'lawyer':
+        return jsonify({"error": "Unauthorized"}), 401
+    data = request.get_json()
+    hearing_date = data.get('hearing_date', '').strip()
+    note = data.get('note', '').strip()
+    if not hearing_date:
+        return jsonify({"error": "Hearing date required"}), 400
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO case_hearings (fir_no, hearing_date, note) VALUES (?, ?, ?)",
+        (fir_no, hearing_date, note)
+    )
+    conn.commit()
+    conn.close()
+    return jsonify({"message": "Hearing added"}), 201
 
 if __name__ == '__main__':
     init_fir_table()

@@ -370,6 +370,16 @@
           </div>
           <p id="home-hearings-empty" class="text-sm text-slate-400 hidden">No upcoming hearings scheduled.</p>
         </div>
+        <!-- Upcoming Deadlines strip -->
+        <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 mt-6">
+          <div class="flex items-center gap-2 mb-4">
+            <i data-lucide="alert-triangle" class="w-4 h-4 text-red-600"></i>
+            <span class="font-bold text-red-900">Upcoming Deadlines</span>
+          </div>
+          <div id="home-deadlines-loading" class="text-sm text-slate-400">Loading…</div>
+          <div id="home-deadlines-list" class="space-y-2 hidden"></div>
+          <p id="home-deadlines-empty" class="text-sm text-slate-400 hidden">No deadlines due in the next 14 days.</p>
+        </div>
 
       </div>
     </section>
@@ -550,7 +560,18 @@
               <h1 class="text-2xl font-serif font-bold text-blue-900">FIR: <span id="cw-fir-no"></span></h1>
               <p id="cw-client" class="text-sm text-slate-500 mt-1"></p>
             </div>
-            <span id="cw-status-pill"></span>
+            <div class="flex items-center gap-2">
+              <span id="cw-status-pill"></span>
+              <select id="cw-status-select" onchange="cwUpdateStatus()"
+                class="border-2 border-slate-200 rounded-lg px-2 py-1.5 text-xs font-semibold text-slate-600 focus:border-blue-500 outline-none">
+                <option value="">Change status…</option>
+                <option value="Investigation">Investigation</option>
+                <option value="Court Proceedings">Court Proceedings</option>
+                <option value="Trial">Trial</option>
+                <option value="Closed">Closed</option>
+              </select>
+              <span id="cw-status-msg" class="hidden text-xs font-semibold"></span>
+            </div>
           </div>
 
           <!-- Tabs -->
@@ -563,6 +584,8 @@
               data-tab="documents" onclick="cwSwitchTab('documents')">Documents</button>
             <button class="cw-tab-btn px-4 py-2.5 text-sm font-semibold border-b-2 border-transparent text-slate-500"
               data-tab="hearings" onclick="cwSwitchTab('hearings')">Hearings</button>
+            <button class="cw-tab-btn px-4 py-2.5 text-sm font-semibold border-b-2 border-transparent text-slate-500"
+              data-tab="deadlines" onclick="cwSwitchTab('deadlines')">Deadlines</button>
             <button class="cw-tab-btn px-4 py-2.5 text-sm font-semibold border-b-2 border-transparent text-slate-500"
               data-tab="drafts" onclick="cwSwitchTab('drafts')">Drafts</button>
           </div>
@@ -631,6 +654,30 @@
             </div>
           </div>
 
+          <!-- Deadlines -->
+          <div id="cw-tab-deadlines" class="cw-tab-panel hidden">
+            <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+              <div class="flex gap-3 mb-5 flex-wrap">
+                <select id="cw-deadline-type" class="border-2 border-slate-200 rounded-xl px-3 py-2 text-sm">
+                  <option value="Chargesheet Filing">Chargesheet Filing</option>
+                  <option value="Bail Application">Bail Application</option>
+                  <option value="Appeal Limitation">Appeal Limitation</option>
+                  <option value="Revision Petition">Revision Petition</option>
+                  <option value="Discharge Application">Discharge Application</option>
+                  <option value="Custom">Custom</option>
+                </select>
+                <input type="date" id="cw-deadline-date" class="border-2 border-slate-200 rounded-xl px-3 py-2 text-sm">
+                <input type="text" id="cw-deadline-note" placeholder="Note (optional)"
+                  class="flex-1 border-2 border-slate-200 rounded-xl px-3 py-2 text-sm min-w-[150px]">
+                <button onclick="cwAddDeadline()"
+                  class="px-5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold text-sm transition">Add</button>
+              </div>
+              <div id="cw-deadlines-list" class="space-y-2"></div>
+              <p id="cw-deadlines-empty" class="hidden text-sm text-slate-400 text-center py-8">No deadlines tracked
+                yet.</p>
+            </div>
+          </div>
+
           <!-- Drafts -->
           <div id="cw-tab-drafts" class="cw-tab-panel hidden">
             <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
@@ -687,6 +734,7 @@
         await cwLoadOverview(firNo);
         await cwLoadDocuments(firNo);
         await cwLoadHearings(firNo);
+        await cwLoadDeadlines(firNo); 
         await cwLoadDrafts(firNo);
         if (window.lucide) lucide.createIcons();
       }
@@ -717,6 +765,7 @@
           document.getElementById('cw-client').textContent = `Client: ${data.complainant_name || '—'}`;
           document.getElementById('cw-status-pill').innerHTML =
             `<span class="status-pill status-${(data.status || 'active').toLowerCase().replace(/\s+/g, '-')}">${data.status || 'Active'}</span>`;
+          document.getElementById('cw-status-select').value = '';
 
           document.getElementById('cw-dist').textContent = data.dist || '—';
           document.getElementById('cw-ps').textContent = data.ps || '—';
@@ -727,6 +776,42 @@
           document.getElementById('cw-statement').textContent = data.statement || '—';
         } catch (e) {
           console.error('Case workspace overview error:', e);
+        }
+      }
+
+      async function cwUpdateStatus() {
+        if (!cwCurrentFir) return;
+        const select = document.getElementById('cw-status-select');
+        const msg = document.getElementById('cw-status-msg');
+        const newStatus = select.value;
+        if (!newStatus) return;
+
+        try {
+          const res = await fetch(`/api/case/${encodeURIComponent(cwCurrentFir)}/status`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: newStatus })
+          });
+          const data = await res.json();
+
+          if (!res.ok) {
+            msg.textContent = data.error || 'Could not update status.';
+            msg.className = 'text-xs font-semibold text-red-600';
+            msg.classList.remove('hidden');
+            return;
+          }
+
+          document.getElementById('cw-status-pill').innerHTML =
+            `<span class="status-pill status-${newStatus.toLowerCase().replace(/\s+/g, '-')}">${newStatus}</span>`;
+          msg.textContent = '✓ Updated';
+          msg.className = 'text-xs font-semibold text-green-600';
+          msg.classList.remove('hidden');
+          setTimeout(() => msg.classList.add('hidden'), 2000);
+          select.value = '';
+        } catch (e) {
+          msg.textContent = 'Something went wrong.';
+          msg.className = 'text-xs font-semibold text-red-600';
+          msg.classList.remove('hidden');
         }
       }
 
@@ -798,6 +883,137 @@
           await cwLoadHearings(cwCurrentFir);
         } catch (e) {
           console.error('Add hearing error:', e);
+        }
+      }
+
+      async function cwLoadDeadlines(firNo) {
+        const list = document.getElementById('cw-deadlines-list');
+        const empty = document.getElementById('cw-deadlines-empty');
+        try {
+          const res = await fetch(`/api/case/${encodeURIComponent(firNo)}/deadlines`);
+          const deadlines = await res.json();
+
+          if (!deadlines.length) {
+            list.innerHTML = '';
+            empty.classList.remove('hidden');
+            return;
+          }
+          empty.classList.add('hidden');
+
+          const today = new Date().toISOString().split('T')[0];
+
+          list.innerHTML = deadlines.map(d => {
+            const isOverdue = !d.completed && d.due_date < today;
+            const rowClass = d.completed
+              ? 'bg-slate-50 opacity-60'
+              : isOverdue ? 'bg-red-50 border border-red-200' : 'bg-slate-50';
+            return `
+        <div class="flex items-center justify-between ${rowClass} rounded-xl px-4 py-2.5 text-sm">
+          <div class="flex items-center gap-3">
+            <input type="checkbox" ${d.completed ? 'checked' : ''}
+              onchange="cwToggleDeadline(${d.id}, this.checked)" class="w-4 h-4">
+            <div>
+              <span class="font-semibold ${d.completed ? 'line-through text-slate-400' : isOverdue ? 'text-red-700' : 'text-slate-700'}">
+                ${escapeHtml(d.deadline_type)}
+              </span>
+              <span class="ml-2 ${isOverdue && !d.completed ? 'text-red-600 font-bold' : 'text-slate-500'}">
+                ${escapeHtml(d.due_date)}${isOverdue && !d.completed ? ' — OVERDUE' : ''}
+              </span>
+              ${d.note ? `<span class="text-slate-400 ml-2">${escapeHtml(d.note)}</span>` : ''}
+            </div>
+          </div>
+          <button onclick="cwDeleteDeadline(${d.id})" class="text-red-500 text-xs font-bold hover:underline">DELETE</button>
+        </div>`;
+          }).join('');
+        } catch (e) {
+          console.error('Load deadlines error:', e);
+        }
+      }
+
+      async function cwAddDeadline() {
+        if (!cwCurrentFir) return;
+        const deadline_type = document.getElementById('cw-deadline-type').value;
+        const due_date = document.getElementById('cw-deadline-date').value;
+        const note = document.getElementById('cw-deadline-note').value.trim();
+        if (!due_date) return;
+
+        try {
+          const res = await fetch(`/api/case/${encodeURIComponent(cwCurrentFir)}/deadlines`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ deadline_type, due_date, note })
+          });
+          if (!res.ok) throw new Error('Failed to add deadline');
+
+          document.getElementById('cw-deadline-date').value = '';
+          document.getElementById('cw-deadline-note').value = '';
+          await cwLoadDeadlines(cwCurrentFir);
+        } catch (e) {
+          console.error('Add deadline error:', e);
+        }
+      }
+
+      async function cwToggleDeadline(deadlineId, completed) {
+        if (!cwCurrentFir) return;
+        try {
+          await fetch(`/api/case/${encodeURIComponent(cwCurrentFir)}/deadlines/${deadlineId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ completed })
+          });
+          await cwLoadDeadlines(cwCurrentFir);
+        } catch (e) {
+          console.error('Toggle deadline error:', e);
+        }
+      }
+
+      async function cwDeleteDeadline(deadlineId) {
+        if (!cwCurrentFir) return;
+        try {
+          await fetch(`/api/case/${encodeURIComponent(cwCurrentFir)}/deadlines/${deadlineId}`, { method: 'DELETE' });
+          await cwLoadDeadlines(cwCurrentFir);
+        } catch (e) {
+          console.error('Delete deadline error:', e);
+        }
+      }
+
+      // ── Home widget: fetched once on page load, not derived from case-card data-attributes ──
+      async function loadHomeDeadlines() {
+        const loading = document.getElementById('home-deadlines-loading');
+        const list = document.getElementById('home-deadlines-list');
+        const empty = document.getElementById('home-deadlines-empty');
+
+        try {
+          const res = await fetch('/api/lawyer/deadlines');
+          const deadlines = await res.json();
+          loading.classList.add('hidden');
+
+          if (!deadlines.length) {
+            empty.classList.remove('hidden');
+            return;
+          }
+          list.classList.remove('hidden');
+
+          const today = new Date().toISOString().split('T')[0];
+          list.innerHTML = deadlines.map(d => {
+            const isOverdue = d.due_date < today;
+            return `
+        <div class="flex items-center justify-between ${isOverdue ? 'bg-red-50 border border-red-200' : 'bg-slate-50'} rounded-xl px-4 py-2.5 text-sm cursor-pointer"
+          onclick="openCaseWorkspace('${escapeHtml(d.fir_no)}')">
+          <div>
+            <span class="font-bold text-blue-900">FIR: ${escapeHtml(d.fir_no)}</span>
+            <span class="font-semibold ml-2 ${isOverdue ? 'text-red-700' : 'text-slate-700'}">${escapeHtml(d.deadline_type)}</span>
+          </div>
+          <span class="${isOverdue ? 'text-red-600 font-bold' : 'text-slate-500'}">
+            ${escapeHtml(d.due_date)}${isOverdue ? ' — OVERDUE' : ''}
+          </span>
+        </div>`;
+          }).join('');
+        } catch (e) {
+          console.error('Load home deadlines error:', e);
+          loading.classList.add('hidden');
+          empty.textContent = 'Could not load deadlines.';
+          empty.classList.remove('hidden');
         }
       }
 
@@ -1007,6 +1223,7 @@
     });
 
     showSection('home');
+    loadHomeDeadlines();
 
     document.getElementById('case-search').addEventListener('input', (e) => {
       const q = e.target.value.trim().toLowerCase();

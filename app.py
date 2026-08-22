@@ -36,7 +36,8 @@ import re
 from datetime import datetime, timezone, timedelta
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-from main.storage_service import upload_pdf, save_fir, get_all_firs, get_fir, fir_exists, assign_lawyer_to_fir, get_firs_by_lawyer
+from main.storage_service import upload_pdf, save_fir, get_all_firs, get_fir, fir_exists, assign_lawyer_to_fir, get_firs_by_lawyer, add_case_hearing, get_case_hearings, save_case_draft, get_case_drafts, delete_case_draft, get_case_drafts_for_firs,update_fir_status,update_next_hearing_date,add_case_deadline, get_case_deadlines, mark_deadline_complete, delete_case_deadline, get_upcoming_deadlines_for_firs
+
 
 # ---------------- OLLAMA SETUP ----------------
 import requests
@@ -131,6 +132,13 @@ def validate_password(pw: str) -> str | None:
     if not re.search(r"[^A-Za-z0-9]", pw):
         return "Password must contain a special character."
     return None
+
+def lawyer_owns_case(fir_no):
+    """Confirm the logged-in lawyer is actually assigned to this FIR."""
+    fir = get_fir(fir_no)
+    if not fir:
+        return False
+    return str(fir.get('assigned_lawyer_id')) == str(session.get('user_id'))
 
 # 2. DATABASE CONNECTIONS
 DB_PATH = os.path.join(app.root_path, "IndiaLaw.db")
@@ -1808,120 +1816,70 @@ def seed_evidence_from_filesystem():
     if seeded:
         print(f"Evidence migration: seeded {seeded} file(s) into MongoDB.")
         
-        # ── Case Hearings (new — nothing tracked this before) ──
-def init_hearings_table():
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS case_hearings (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            fir_no TEXT NOT NULL,
-            hearing_date TEXT NOT NULL,
-            note TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    conn.commit()
-    conn.close()
+        
 
 @app.route('/api/case/<fir_no>/hearings', methods=['GET'])
 def get_hearings(fir_no):
     if 'user_id' not in session or session.get('role') != 'lawyer':
         return jsonify({"error": "Unauthorized"}), 401
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT id, hearing_date, note FROM case_hearings WHERE fir_no = ? ORDER BY hearing_date",
-        (fir_no,)
-    )
-    rows = cursor.fetchall()
-    conn.close()
-    return jsonify([{"id": r[0], "hearing_date": r[1], "note": r[2] or ""} for r in rows])
+    if not lawyer_owns_case(fir_no):
+        return jsonify({"error": "Forbidden"}), 403
+    return jsonify(get_case_hearings(fir_no))
 
 @app.route('/api/case/<fir_no>/hearings', methods=['POST'])
 def add_hearing(fir_no):
     if 'user_id' not in session or session.get('role') != 'lawyer':
         return jsonify({"error": "Unauthorized"}), 401
+    if not lawyer_owns_case(fir_no):
+        return jsonify({"error": "Forbidden"}), 403
     data = request.get_json()
     hearing_date = data.get('hearing_date', '').strip()
     note = data.get('note', '').strip()
     if not hearing_date:
         return jsonify({"error": "Hearing date required"}), 400
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute(
-        "INSERT INTO case_hearings (fir_no, hearing_date, note) VALUES (?, ?, ?)",
-        (fir_no, hearing_date, note)
-    )
-    conn.commit()
-    conn.close()
+    add_case_hearing(fir_no, hearing_date, note)
+
+    # Sync next_hearing_date to the earliest upcoming hearing for this case
+    all_hearings = get_case_hearings(fir_no)
+    today = datetime.now().strftime('%Y-%m-%d')
+    upcoming = sorted([h['hearing_date'] for h in all_hearings if h['hearing_date'] >= today])
+    if upcoming:
+        update_next_hearing_date(fir_no, upcoming[0])
+
     return jsonify({"message": "Hearing added"}), 201
 
-# ── Case Drafts (new) ──
-def init_drafts_table():
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS case_drafts (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            fir_no TEXT NOT NULL,
-            kind TEXT NOT NULL,
-            content TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    conn.commit()
-    conn.close()
 
 @app.route('/api/case/<fir_no>/drafts', methods=['GET'])
 def get_drafts(fir_no):
     if 'user_id' not in session or session.get('role') != 'lawyer':
         return jsonify({"error": "Unauthorized"}), 401
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT id, kind, content, created_at FROM case_drafts WHERE fir_no = ? ORDER BY created_at DESC",
-        (fir_no,)
-    )
-    rows = cursor.fetchall()
-    conn.close()
-    return jsonify([
-        {"id": r[0], "kind": r[1], "content": r[2], "created_at": str(r[3])}
-        for r in rows
-    ])
+    if not lawyer_owns_case(fir_no):
+        return jsonify({"error": "Forbidden"}), 403
+    return jsonify(get_case_drafts(fir_no))
 
 @app.route('/api/case/<fir_no>/drafts', methods=['POST'])
 def save_draft(fir_no):
     if 'user_id' not in session or session.get('role') != 'lawyer':
         return jsonify({"error": "Unauthorized"}), 401
+    if not lawyer_owns_case(fir_no):
+        return jsonify({"error": "Forbidden"}), 403
     data = request.get_json()
     kind = data.get('kind', 'document').strip()
     content = data.get('content', '').strip()
     if not content:
         return jsonify({"error": "Draft content required"}), 400
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute(
-        "INSERT INTO case_drafts (fir_no, kind, content) VALUES (?, ?, ?)",
-        (fir_no, kind, content)
-    )
-    draft_id = cursor.lastrowid
-    conn.commit()
-    conn.close()
-    return jsonify({"message": "Draft saved", "id": draft_id}), 201
+    saved = save_case_draft(fir_no, kind, content)
+    return jsonify({"message": "Draft saved", "id": saved.get('id') if saved else None}), 201
 
 @app.route('/api/case/<fir_no>/drafts/<int:draft_id>', methods=['DELETE'])
 def delete_draft(fir_no, draft_id):
     if 'user_id' not in session or session.get('role') != 'lawyer':
         return jsonify({"error": "Unauthorized"}), 401
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM case_drafts WHERE id = ? AND fir_no = ?", (draft_id, fir_no))
-    conn.commit()
-    conn.close()
+    if not lawyer_owns_case(fir_no):
+        return jsonify({"error": "Forbidden"}), 403
+    delete_case_draft(fir_no, draft_id)
     return jsonify({"message": "Draft deleted"})
 
-# ── Global drafts across all of a lawyer's cases ──
 @app.route('/api/lawyer/drafts', methods=['GET'])
 def get_all_lawyer_drafts():
     if 'user_id' not in session or session.get('role') != 'lawyer':
@@ -1929,31 +1887,88 @@ def get_all_lawyer_drafts():
 
     cases = get_firs_by_lawyer(session['user_id'])
     fir_nos = [c.get('fir_no') for c in cases if c.get('fir_no')]
+    return jsonify(get_case_drafts_for_firs(fir_nos))
+    
 
-    if not fir_nos:
-        return jsonify([])
+VALID_CASE_STATUSES = ['Investigation', 'Court Proceedings', 'Trial', 'Closed']
 
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    placeholders = ','.join('?' for _ in fir_nos)
-    cursor.execute(
-        f"SELECT id, fir_no, kind, content, created_at FROM case_drafts "
-        f"WHERE fir_no IN ({placeholders}) ORDER BY created_at DESC",
-        fir_nos
-    )
-    rows = cursor.fetchall()
-    conn.close()
-    return jsonify([
-        {"id": r[0], "fir_no": r[1], "kind": r[2], "content": r[3], "created_at": str(r[4])}
-        for r in rows
-    ])
+@app.route('/api/case/<fir_no>/status', methods=['PATCH'])
+def update_case_status(fir_no):
+    if 'user_id' not in session or session.get('role') != 'lawyer':
+        return jsonify({"error": "Unauthorized"}), 401
+    if not lawyer_owns_case(fir_no):
+        return jsonify({"error": "Forbidden"}), 403
+    data = request.get_json()
+    status = data.get('status', '').strip()
+    if status not in VALID_CASE_STATUSES:
+        return jsonify({"error": "Invalid status"}), 400
+    if not update_fir_status(fir_no, status):
+        return jsonify({"error": "FIR not found"}), 404
+    return jsonify({"message": "Status updated", "status": status})
+
+
+DEADLINE_TYPES = [
+    'Chargesheet Filing', 'Bail Application', 'Appeal Limitation',
+    'Revision Petition', 'Discharge Application', 'Custom'
+]
+
+@app.route('/api/case/<fir_no>/deadlines', methods=['GET'])
+def get_deadlines(fir_no):
+    if 'user_id' not in session or session.get('role') != 'lawyer':
+        return jsonify({"error": "Unauthorized"}), 401
+    if not lawyer_owns_case(fir_no):
+        return jsonify({"error": "Forbidden"}), 403
+    return jsonify(get_case_deadlines(fir_no))
+
+@app.route('/api/case/<fir_no>/deadlines', methods=['POST'])
+def add_deadline(fir_no):
+    if 'user_id' not in session or session.get('role') != 'lawyer':
+        return jsonify({"error": "Unauthorized"}), 401
+    if not lawyer_owns_case(fir_no):
+        return jsonify({"error": "Forbidden"}), 403
+    data = request.get_json()
+    deadline_type = data.get('deadline_type', '').strip()
+    due_date = data.get('due_date', '').strip()
+    note = data.get('note', '').strip()
+    if not deadline_type or not due_date:
+        return jsonify({"error": "Deadline type and due date are required"}), 400
+    saved = add_case_deadline(fir_no, deadline_type, due_date, note)
+    return jsonify({"message": "Deadline added", "id": saved.get('id') if saved else None}), 201
+
+@app.route('/api/case/<fir_no>/deadlines/<int:deadline_id>', methods=['PATCH'])
+def update_deadline(fir_no, deadline_id):
+    if 'user_id' not in session or session.get('role') != 'lawyer':
+        return jsonify({"error": "Unauthorized"}), 401
+    if not lawyer_owns_case(fir_no):
+        return jsonify({"error": "Forbidden"}), 403
+    data = request.get_json()
+    completed = bool(data.get('completed', True))
+    mark_deadline_complete(fir_no, deadline_id, completed)
+    return jsonify({"message": "Deadline updated"})
+
+@app.route('/api/case/<fir_no>/deadlines/<int:deadline_id>', methods=['DELETE'])
+def remove_deadline(fir_no, deadline_id):
+    if 'user_id' not in session or session.get('role') != 'lawyer':
+        return jsonify({"error": "Unauthorized"}), 401
+    if not lawyer_owns_case(fir_no):
+        return jsonify({"error": "Forbidden"}), 403
+    delete_case_deadline(fir_no, deadline_id)
+    return jsonify({"message": "Deadline deleted"})
+
+@app.route('/api/lawyer/deadlines', methods=['GET'])
+def get_all_lawyer_deadlines():
+    """Across all of the lawyer's cases — for the Home widget."""
+    if 'user_id' not in session or session.get('role') != 'lawyer':
+        return jsonify({"error": "Unauthorized"}), 401
+    cases = get_firs_by_lawyer(session['user_id'])
+    fir_nos = [c.get('fir_no') for c in cases if c.get('fir_no')]
+    return jsonify(get_upcoming_deadlines_for_firs(fir_nos))
+    
 
 if __name__ == '__main__':
     init_fir_table()
     init_user_table()
     init_evidence_table()
     init_complaints_table()
-    init_hearings_table()
-    init_drafts_table()
     seed_evidence_from_filesystem()
     app.run(debug=True, port=5000)

@@ -1992,7 +1992,8 @@ def get_client_status(fir_no):
         "fir_no": fir.get('fir_no'),
         "status": fir.get('status'),
         "next_hearing_date": fir.get('next_hearing_date'),
-        "client_note": fir.get('client_note') or ""
+        "client_note": fir.get('client_note') or "",
+        "client_note_updated_at": fir.get('client_note_updated_at')
     })
     
 

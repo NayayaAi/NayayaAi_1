@@ -141,9 +141,10 @@ def get_upcoming_deadlines_for_firs(fir_nos, days_ahead=14):
     return result.data
 
 def set_client_visibility(fir_no, visible, note):
-    """Toggle whether a case's status is visible to the client, with an optional note."""
+    from datetime import datetime, timezone
     result = supabase.table("firs").update({
         "visible_to_client": visible,
-        "client_note": note
+        "client_note": note,
+        "client_note_updated_at": datetime.now(timezone.utc).isoformat()
     }).eq("fir_no", fir_no).execute()
     return len(result.data) > 0

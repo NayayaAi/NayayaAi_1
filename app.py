@@ -36,7 +36,7 @@ import re
 from datetime import datetime, timezone, timedelta
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-from main.storage_service import upload_pdf, save_fir, get_all_firs, get_fir, fir_exists, assign_lawyer_to_fir, get_firs_by_lawyer, add_case_hearing, get_case_hearings, save_case_draft, get_case_drafts, delete_case_draft, get_case_drafts_for_firs,update_fir_status,update_next_hearing_date,add_case_deadline, get_case_deadlines, mark_deadline_complete, delete_case_deadline, get_upcoming_deadlines_for_firs
+from main.storage_service import upload_pdf, save_fir, get_all_firs, get_fir, fir_exists, assign_lawyer_to_fir, get_firs_by_lawyer, add_case_hearing, get_case_hearings, save_case_draft, get_case_drafts, delete_case_draft, get_case_drafts_for_firs,update_fir_status,update_next_hearing_date,add_case_deadline, get_case_deadlines, mark_deadline_complete, delete_case_deadline, get_upcoming_deadlines_for_firs,set_client_visibility
 
 
 # ---------------- OLLAMA SETUP ----------------
@@ -1963,6 +1963,37 @@ def get_all_lawyer_deadlines():
     cases = get_firs_by_lawyer(session['user_id'])
     fir_nos = [c.get('fir_no') for c in cases if c.get('fir_no')]
     return jsonify(get_upcoming_deadlines_for_firs(fir_nos))
+
+@app.route('/api/case/<fir_no>/client-visibility', methods=['PATCH'])
+def update_client_visibility(fir_no):
+    if 'user_id' not in session or session.get('role') != 'lawyer':
+        return jsonify({"error": "Unauthorized"}), 401
+    if not lawyer_owns_case(fir_no):
+        return jsonify({"error": "Forbidden"}), 403
+    data = request.get_json()
+    visible = bool(data.get('visible', False))
+    note = data.get('note', '').strip()
+    try:
+        if not set_client_visibility(fir_no, visible, note):
+            return jsonify({"error": "FIR not found"}), 404
+    except Exception as e:
+        print(f"client-visibility update error: {e}")
+        return jsonify({"error": "Could not save. Check server logs."}), 500
+    return jsonify({"message": "Updated", "visible": visible})
+
+
+@app.route('/api/case/<fir_no>/client-status', methods=['GET'])
+def get_client_status(fir_no):
+    """Public — no login required, matches the citizen 'My Lawyer' lookup pattern."""
+    fir = get_fir(fir_no)
+    if not fir or not fir.get('visible_to_client'):
+        return jsonify({"error": "Status not available for this FIR"}), 404
+    return jsonify({
+        "fir_no": fir.get('fir_no'),
+        "status": fir.get('status'),
+        "next_hearing_date": fir.get('next_hearing_date'),
+        "client_note": fir.get('client_note') or ""
+    })
     
 
 if __name__ == '__main__':

@@ -611,7 +611,34 @@
                 <p id="cw-statement" class="text-slate-700 whitespace-pre-wrap leading-relaxed"></p>
               </div>
             </div>
+
+            <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 mt-4">
+              <div class="flex items-center justify-between mb-3">
+                <div>
+                  <p class="font-semibold text-slate-800 text-sm">Message to client</p>
+                  <p class="text-xs text-slate-400">Write a note and send it — the client will see your latest message
+                    and case status on their portal.</p>
+                </div>
+                <span id="cw-client-visibility-badge" class="text-xs font-semibold px-2.5 py-1 rounded-full"></span>
+              </div>
+              <textarea id="cw-client-note" rows="3"
+                placeholder="e.g. Chargesheet has been filed, next hearing is on 15th September…"
+                class="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm focus:border-blue-500 outline-none resize-none"></textarea>
+              <div class="flex items-center gap-3 mt-3">
+                <button onclick="cwSendToClient()"
+                  class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition">
+                  Send to Client
+                </button>
+                <button id="cw-stop-sharing-btn" onclick="cwStopSharing()"
+                  class="hidden text-xs text-slate-400 hover:text-red-500 font-semibold">
+                  Stop sharing with client
+                </button>
+              </div>
+              <p id="cw-client-visibility-msg" class="hidden text-xs mt-2 font-semibold"></p>
+            </div>
           </div>
+
+
 
           <!-- AI Summary -->
           <div id="cw-tab-summary" class="cw-tab-panel hidden">
@@ -734,7 +761,7 @@
         await cwLoadOverview(firNo);
         await cwLoadDocuments(firNo);
         await cwLoadHearings(firNo);
-        await cwLoadDeadlines(firNo); 
+        await cwLoadDeadlines(firNo);
         await cwLoadDrafts(firNo);
         if (window.lucide) lucide.createIcons();
       }
@@ -766,7 +793,9 @@
           document.getElementById('cw-status-pill').innerHTML =
             `<span class="status-pill status-${(data.status || 'active').toLowerCase().replace(/\s+/g, '-')}">${data.status || 'Active'}</span>`;
           document.getElementById('cw-status-select').value = '';
-
+          document.getElementById('cw-status-select').value = '';
+          document.getElementById('cw-client-note').value = data.client_note || '';
+          cwUpdateVisibilityBadge(!!data.visible_to_client);
           document.getElementById('cw-dist').textContent = data.dist || '—';
           document.getElementById('cw-ps').textContent = data.ps || '—';
           document.getElementById('cw-fir-date').textContent = data.fir_date || '—';
@@ -812,6 +841,72 @@
           msg.textContent = 'Something went wrong.';
           msg.className = 'text-xs font-semibold text-red-600';
           msg.classList.remove('hidden');
+        }
+      }
+
+      async function cwSendToClient() {
+        if (!cwCurrentFir) return;
+        const note = document.getElementById('cw-client-note').value.trim();
+        const msg = document.getElementById('cw-client-visibility-msg');
+
+        msg.textContent = 'Sending…';
+        msg.className = 'text-xs mt-2 font-semibold text-slate-400';
+        msg.classList.remove('hidden');
+
+        try {
+          const res = await fetch(`/api/case/${encodeURIComponent(cwCurrentFir)}/client-visibility`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ visible: true, note })
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Failed');
+
+          msg.textContent = '✓ Sent — visible to client now.';
+          msg.className = 'text-xs mt-2 font-semibold text-green-600';
+          cwUpdateVisibilityBadge(true);
+        } catch (e) {
+          msg.textContent = 'Could not send. ' + e.message;
+          msg.className = 'text-xs mt-2 font-semibold text-red-600';
+        }
+      }
+
+      async function cwStopSharing() {
+        if (!cwCurrentFir) return;
+        const note = document.getElementById('cw-client-note').value.trim();
+        const msg = document.getElementById('cw-client-visibility-msg');
+
+        try {
+          const res = await fetch(`/api/case/${encodeURIComponent(cwCurrentFir)}/client-visibility`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ visible: false, note })
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Failed');
+
+          msg.textContent = '✓ Hidden from client.';
+          msg.className = 'text-xs mt-2 font-semibold text-slate-600';
+          msg.classList.remove('hidden');
+          cwUpdateVisibilityBadge(false);
+        } catch (e) {
+          msg.textContent = 'Could not update.';
+          msg.className = 'text-xs mt-2 font-semibold text-red-600';
+          msg.classList.remove('hidden');
+        }
+      }
+
+      function cwUpdateVisibilityBadge(visible) {
+        const badge = document.getElementById('cw-client-visibility-badge');
+        const stopBtn = document.getElementById('cw-stop-sharing-btn');
+        if (visible) {
+          badge.textContent = 'Visible to client';
+          badge.className = 'text-xs font-semibold px-2.5 py-1 rounded-full bg-green-100 text-green-700';
+          stopBtn.classList.remove('hidden');
+        } else {
+          badge.textContent = 'Not shared';
+          badge.className = 'text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-500';
+          stopBtn.classList.add('hidden');
         }
       }
 

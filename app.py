@@ -564,17 +564,19 @@ def rights_chat():
                     f"• Section {r.get('section', '')}: {r.get('title', '')} — "
                     f"{r.get('description', '')[:250]}\n"
                 )
-
-        groq_prompt = (
+                
+                groq_prompt = (
             f"A citizen asks about their rights under Indian law: {question}"
             f"{rag_context}\n\n"
             f"Answer in simple, plain language a non-lawyer can understand. "
-            f"Be concise (under 200 words). If the legal sections above are relevant, "
-            f"reference them naturally. End with: ⚠️ For official help call 15100."
+            f"STRICT LIMIT: under 150 words, 3-4 short points maximum — do not "
+            f"list every possibly-relevant section or provision. If the legal "
+            f"sections above are relevant, reference at most 1-2 of them naturally. "
+            f"End with: ⚠️ For official help call 15100."
             )
 
         # Step 3: Try Groq
-        answer = ask_groq(groq_prompt, max_tokens=500)
+        answer = ask_groq(groq_prompt, max_tokens=1200)
 
         if answer:
             return jsonify({"answer": answer})
@@ -814,7 +816,7 @@ from groq import Groq
 # ── ADD THIS after load_dotenv() ──
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 
-def ask_groq(prompt, max_tokens=2000):
+def ask_groq(prompt, max_tokens=2000, reasoning_effort="low"):
     """Fast legal AI using Groq — 300-800 tokens/sec, free tier."""
     try:
         client_groq = Groq(api_key=GROQ_API_KEY)
@@ -826,7 +828,9 @@ def ask_groq(prompt, max_tokens=2000):
                         "You are an expert Indian criminal lawyer with 20 years of experience. "
                         "You draft precise, court-ready legal documents following Indian law. "
                         "Always reference BNSS (replacing CrPC), BNS (replacing IPC), and BSA (replacing Evidence Act) "
-                        "where applicable alongside old provisions. Be formal and thorough."
+                        "where applicable alongside old provisions. Be formal and thorough. "
+                        "Match your answer length to the question — a simple practice question "
+                        "deserves a direct, short answer, not an exhaustive treatise."
                     )
                 },
                 {
@@ -837,8 +841,19 @@ def ask_groq(prompt, max_tokens=2000):
             model="openai/gpt-oss-120b",  # fastest + best quality on Groq free tier
             max_tokens=max_tokens,
             temperature=0.3,  # low temp = consistent legal language
+            reasoning_effort=reasoning_effort,  # "low" = less hidden reasoning, more room for the actual answer
         )
-        return chat_completion.choices[0].message.content.strip()
+        text = chat_completion.choices[0].message.content.strip()
+        finish_reason = chat_completion.choices[0].finish_reason
+
+        if finish_reason == "length":
+            text += (
+                "\n\n---\n*⚠️ This answer was cut short by the response length limit. "
+                "Ask a narrower question (e.g. focus on one act, or one aspect of the case) "
+                "to get a complete answer.*"
+            )
+
+        return text
     except Exception as e:
         print(f"Groq API Error: {e}")
         return None  # will fall back to RAG template
@@ -874,7 +889,7 @@ def lawyer_draft_document():
     enhanced_prompt = prompt + rag_context
 
     # Try Groq first
-    text = ask_groq(enhanced_prompt, max_tokens=2000)
+    text = ask_groq(enhanced_prompt, max_tokens=3000)
 
     # Fallback to RAG template if Groq fails
     if not text:
@@ -909,7 +924,7 @@ def lawyer_bail_draft():
     enhanced_prompt = prompt + rag_context
 
     # Try Groq
-    text = ask_groq(enhanced_prompt, max_tokens=2000)
+    text = ask_groq(enhanced_prompt, max_tokens=3000)
 
     # Fallback
     if not text:
@@ -954,18 +969,20 @@ def lawyer_find_precedents():
         'court fee', 'application format'
     ]
     is_procedural = any(t in query.lower() for t in PROCEDURAL_TRIGGERS)
-
+    
+    
     if is_procedural:
         groq_prompt = (
             f"As an Indian legal practice expert, answer this procedural "
             f"question for a practicing lawyer:\n\n{query}{rag_context}\n\n"
-            f"Give a direct, practical, step-by-step answer — the actual "
-            f"procedure, required documents/format, relevant court fee or "
-            f"stamp duty if applicable, and which court/registry it goes "
-            f"to. Do not invent case citations or discuss substantive "
-            f"sections unless the question specifically asks for them. "
-            f"If you're not certain of a specific procedural detail (e.g. "
-            f"state-specific stamp duty), say so rather than guessing."
+            f"Give a direct, practical answer. If the question is a simple "
+            f"'when/should I' practice question (like when to raise an "
+            f"objection), 3-5 short bullet points is enough — do not force "
+            f"a full procedure/document/court-fee breakdown onto a question "
+            f"that doesn't need one. Only go into procedure/format/fee detail "
+            f"if the question is actually asking how to file or draft "
+            f"something. Do not invent case citations. If you're not certain "
+            f"of a specific detail, say so rather than guessing."
         )
     elif search_type == 'outcome':
         groq_prompt = (
@@ -974,7 +991,10 @@ def lawyer_find_precedents():
             f"Give: 1) Likely outcome 2) Key precedents 3) Relevant sections "
             f"4) Advice. Only cite specific case names/citations if you are "
             f"confident they are real — otherwise describe the general "
-            f"principle without attributing it to a specific case."
+            f"principle without attributing it to a specific case. "
+            f"Keep the answer complete rather than exhaustive — cover the "        # ← added
+            f"most important 4-6 points fully rather than listing everything "     # ← added
+            f"and running out of room."                                            # ← added
         )
     else:
         groq_prompt = (
@@ -987,10 +1007,12 @@ def lawyer_find_precedents():
             f"attributing it to a specific case. If the query isn't "
             f"actually a legal research question (e.g. too vague, off-"
             f"topic, or unrelated to Indian law), say so directly instead "
-            f"of forcing an answer into this format."
+            f"of forcing an answer into this format. "
+            f"Keep the answer complete rather than exhaustive — cover the "        # ← added
+            f"most important 4-6 sections fully rather than listing every "        # ← added
+            f"possibly-relevant one and running out of room."                      # ← added
         )
-
-    answer = ask_groq(groq_prompt, max_tokens=1500)
+    answer = ask_groq(groq_prompt, max_tokens=3500)
 
     if not answer:
         if rag_results:

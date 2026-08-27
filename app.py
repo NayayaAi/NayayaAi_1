@@ -36,7 +36,7 @@ import re
 from datetime import datetime, timezone, timedelta
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-from main.storage_service import upload_pdf, save_fir, get_all_firs, get_fir, fir_exists, assign_lawyer_to_fir, get_firs_by_lawyer, add_case_hearing, get_case_hearings, save_case_draft, get_case_drafts, delete_case_draft, get_case_drafts_for_firs,update_fir_status,update_next_hearing_date,add_case_deadline, get_case_deadlines, mark_deadline_complete, delete_case_deadline, get_upcoming_deadlines_for_firs,set_client_visibility
+from main.storage_service import upload_pdf, save_fir, get_all_firs, get_fir, fir_exists, assign_lawyer_to_fir, get_firs_by_lawyer, add_case_hearing, get_case_hearings, save_case_draft, get_case_drafts, delete_case_draft, get_case_drafts_for_firs,update_fir_status,update_next_hearing_date,add_case_deadline, get_case_deadlines, mark_deadline_complete, delete_case_deadline, get_upcoming_deadlines_for_firs,set_client_visibility,upload_profile_photo
 
 
 # ---------------- OLLAMA SETUP ----------------
@@ -2018,6 +2018,62 @@ def get_client_status(fir_no):
         "client_note_updated_at": fir.get('client_note_updated_at')
     })
     
+
+@app.route('/api/lawyer/profile', methods=['GET'])
+def get_lawyer_profile():
+    if 'user_id' not in session or session.get('role') != 'lawyer':
+        return jsonify({"error": "Unauthorized"}), 401
+    user = users_collection.find_one({'_id': ObjectId(session['user_id'])})
+    if not user:
+        return jsonify({"error": "Not found"}), 404
+    return jsonify({
+        "fullname": user.get('fullname', ''),
+        "email": user.get('email', ''),
+        "unique_id": user.get('unique_id', ''),
+        "phone": user.get('phone', ''),
+        "office_address": user.get('office_address', ''),
+        "bio": user.get('bio', ''),
+        "years_experience": user.get('years_experience', ''),
+        "bar_enrollment_no": user.get('bar_enrollment_no', ''),
+        "practice_area": user.get('practice_area', ''),
+        "photo_url": user.get('photo_url', '')
+    })
+
+@app.route('/api/lawyer/profile', methods=['PATCH'])
+def update_lawyer_profile():
+    if 'user_id' not in session or session.get('role') != 'lawyer':
+        return jsonify({"error": "Unauthorized"}), 401
+    data = request.get_json()
+    allowed_fields = ['phone', 'office_address', 'bio', 'years_experience', 'bar_enrollment_no', 'practice_area']
+    update = {k: str(data.get(k, '')).strip() for k in allowed_fields if k in data}
+    if not update:
+        return jsonify({"error": "No fields to update"}), 400
+    users_collection.update_one({'_id': ObjectId(session['user_id'])}, {'$set': update})
+    return jsonify({"message": "Profile updated"})
+
+@app.route('/api/lawyer/profile/photo', methods=['POST'])
+def upload_lawyer_photo():
+    if 'user_id' not in session or session.get('role') != 'lawyer':
+        return jsonify({"error": "Unauthorized"}), 401
+    file = request.files.get('photo')
+    if not file or file.filename == '':
+        return jsonify({"error": "No photo provided"}), 400
+
+    temp_dir = os.path.join(app.root_path, 'static', 'uploads', 'temp_avatars')
+    os.makedirs(temp_dir, exist_ok=True)
+    ext = os.path.splitext(secure_filename(file.filename))[1] or '.jpg'
+    temp_path = os.path.join(temp_dir, f"{session['user_id']}{ext}")
+    file.save(temp_path)
+
+    try:
+        url = upload_profile_photo(temp_path, session['user_id'])
+    except Exception as e:
+        print(f"Profile photo upload error: {e}")
+        return jsonify({"error": "Upload failed"}), 500
+
+    users_collection.update_one({'_id': ObjectId(session['user_id'])}, {'$set': {'photo_url': url}})
+    return jsonify({"message": "Photo updated", "photo_url": url})
+
 
 if __name__ == '__main__':
     init_fir_table()

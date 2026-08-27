@@ -148,3 +148,15 @@ def set_client_visibility(fir_no, visible, note):
         "client_note_updated_at": datetime.now(timezone.utc).isoformat()
     }).eq("fir_no", fir_no).execute()
     return len(result.data) > 0
+
+def upload_profile_photo(photo_path, user_id):
+    """Upload a lawyer's profile photo to Supabase Storage, return public URL."""
+    ext = os.path.splitext(photo_path)[1] or ".jpg"
+    with open(photo_path, "rb") as f:
+        supabase.storage.from_("avatars").upload(
+            f"{user_id}{ext}", f,
+            {"content-type": "image/jpeg", "upsert": "true"}
+        )
+    url = supabase.storage.from_("avatars").get_public_url(f"{user_id}{ext}")
+    os.remove(photo_path)
+    return url

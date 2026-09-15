@@ -160,3 +160,56 @@ def upload_profile_photo(photo_path, user_id):
     url = supabase.storage.from_("avatars").get_public_url(f"{user_id}{ext}")
     os.remove(photo_path)
     return url
+
+def add_docket_entry(judge_id, case_id, hearing_date, case_type="", urgency="normal", remarks=""):
+    result = supabase.table("case_docket").insert({
+        "judge_id": judge_id,
+        "case_id": case_id,
+        "hearing_date": hearing_date,
+        "case_type": case_type,
+        "urgency": urgency,
+        "status": "scheduled",
+        "remarks": remarks
+    }).execute()
+    return result.data[0] if result.data else None
+
+def get_docket_for_judge(judge_id, status=None, urgency=None):
+    query = supabase.table("case_docket").select("*").eq("judge_id", judge_id)
+    if status:
+        query = query.eq("status", status)
+    if urgency:
+        query = query.eq("urgency", urgency)
+    result = query.order("hearing_date").execute()
+    return result.data
+
+def get_docket_entry(entry_id):
+    result = supabase.table("case_docket").select("*").eq("id", entry_id).execute()
+    return result.data[0] if result.data else None
+
+def check_docket_conflict(judge_id, hearing_date, window_minutes=30, exclude_id=None):
+    from datetime import datetime, timedelta
+    dt = datetime.fromisoformat(hearing_date)
+    lower = (dt - timedelta(minutes=window_minutes)).isoformat()
+    upper = (dt + timedelta(minutes=window_minutes)).isoformat()
+
+    query = supabase.table("case_docket").select("*") \
+        .eq("judge_id", judge_id) \
+        .gte("hearing_date", lower) \
+        .lte("hearing_date", upper) \
+        .not_.in_("status", ["cancelled", "completed"])
+    result = query.execute()
+
+    conflicts = result.data
+    if exclude_id:
+        conflicts = [c for c in conflicts if c["id"] != exclude_id]
+    return conflicts[0] if conflicts else None
+
+def update_docket_entry(entry_id, judge_id, updates):
+    result = supabase.table("case_docket").update(updates) \
+        .eq("id", entry_id).eq("judge_id", judge_id).execute()
+    return len(result.data) > 0
+
+def delete_docket_entry(entry_id, judge_id):
+    result = supabase.table("case_docket").delete() \
+        .eq("id", entry_id).eq("judge_id", judge_id).execute()
+    return len(result.data) > 0

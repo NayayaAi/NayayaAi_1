@@ -37,6 +37,7 @@ from datetime import datetime, timezone, timedelta
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from main.storage_service import upload_pdf, save_fir, get_all_firs, get_fir, fir_exists, assign_lawyer_to_fir, get_firs_by_lawyer, add_case_hearing, get_case_hearings, save_case_draft, get_case_drafts, delete_case_draft, get_case_drafts_for_firs,update_fir_status,update_next_hearing_date,add_case_deadline, get_case_deadlines, mark_deadline_complete, delete_case_deadline, get_upcoming_deadlines_for_firs,set_client_visibility,upload_profile_photo
+from main.judge_routes import judge_bp
 
 
 # ---------------- OLLAMA SETUP ----------------
@@ -87,6 +88,7 @@ def ask_ollama(prompt):
 app = Flask(__name__)
 app.secret_key = "nyaya_ai_ultra_secure_key"
 
+app.register_blueprint(judge_bp)
 
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
@@ -132,6 +134,91 @@ def validate_password(pw: str) -> str | None:
     if not re.search(r"[^A-Za-z0-9]", pw):
         return "Password must contain a special character."
     return None
+
+FIR_NO_RE = re.compile(r'^FIR[-/A-Za-z0-9]{2,25}$', re.IGNORECASE)
+NAME_RE = re.compile(r"^[A-Za-z\s\.\']{2,100}$")
+DATE_RE = re.compile(r'^\d{4}-\d{2}-\d{2}$')
+TIME_RE = re.compile(r'^\d{2}:\d{2}$')
+MIN_STATEMENT_LEN = 25
+
+def validate_fir_data(data):
+    """Returns list of error strings. Empty list = valid."""
+    errors = []
+    current_year = datetime.now().year
+
+    fir_no = (data.get('fir_no') or '').strip()
+    if not fir_no:
+        errors.append("FIR number is required.")
+    elif not FIR_NO_RE.match(fir_no):
+        errors.append("FIR number must start with 'FIR' (e.g. FIR-2026-001).")
+
+    dist = (data.get('dist') or '').strip()
+    if not dist:
+        errors.append("District is required.")
+    elif dist not in INDIAN_DISTRICTS:
+        errors.append("District must be selected from the list.")
+
+    if not (data.get('ps') or '').strip():
+        errors.append("Police Station is required.")
+
+    year = (data.get('year') or '').strip()
+    if not year.isdigit() or not (2000 <= int(year) <= current_year + 1):
+        errors.append(f"Year must be between 2000 and {current_year + 1}.")
+
+    fir_date = (data.get('fir_date') or '').strip()
+    fd = None
+    if not DATE_RE.match(fir_date):
+        errors.append("FIR date must be YYYY-MM-DD.")
+    else:
+        fd = datetime.strptime(fir_date, "%Y-%m-%d").date()
+        if fd > datetime.now().date():
+            errors.append("FIR date cannot be in the future.")
+
+    occ_date = (data.get('occurrence_date') or '').strip()
+    od = None
+    if occ_date:
+        if not DATE_RE.match(occ_date):
+            errors.append("Occurrence date must be YYYY-MM-DD.")
+        else:
+            od = datetime.strptime(occ_date, "%Y-%m-%d").date()
+            if fd and od > fd:
+                errors.append("Occurrence date cannot be after FIR date.")
+
+    info_date = (data.get('info_received_date') or '').strip()
+    if info_date:
+        if not DATE_RE.match(info_date):
+            errors.append("Info received date must be YYYY-MM-DD.")
+        elif od:
+            idt = datetime.strptime(info_date, "%Y-%m-%d").date()
+            if idt < od:
+                errors.append("Info received date cannot be before occurrence date.")
+
+    for tfield, label in [('occurrence_time', 'Occurrence time'), ('info_received_time', 'Info received time')]:
+        tval = (data.get(tfield) or '').strip()
+        if tval and not TIME_RE.match(tval):
+            errors.append(f"{label} must be HH:MM.")
+
+    comp_name = (data.get('complainant_name') or '').strip()
+    if not comp_name:
+        errors.append("Complainant name is required.")
+    elif not NAME_RE.match(comp_name):
+        errors.append("Complainant name must contain only letters/spaces.")
+
+    statement = (data.get('statement') or '').strip()
+    if not statement:
+        errors.append("Statement/narrative is required.")
+    elif len(statement) < MIN_STATEMENT_LEN:
+        errors.append(f"Statement must be at least {MIN_STATEMENT_LEN} characters.")
+
+    type_of_info = (data.get('type_of_information') or '').strip()
+    if type_of_info and type_of_info not in ('Written', 'Oral'):
+        errors.append("Type of information must be Written or Oral.")
+
+    act_sections = (data.get('act_sections') or '').strip()
+    if act_sections and not re.match(r'^[A-Za-z0-9,\s\.\-/]+$', act_sections):
+        errors.append("Act/Sections contains invalid characters.")
+
+    return errors
 
 def lawyer_owns_case(fir_no):
     """Confirm the logged-in lawyer is actually assigned to this FIR."""
@@ -1293,6 +1380,14 @@ def get_fir_record(fir_no):
 def generate_fir():
 
     data = request.get_json()
+    if not data:
+        return jsonify({"error": "No JSON received"}), 400
+
+    errors = validate_fir_data(data)
+    if errors:
+        return jsonify({"error": "Validation failed", "details": errors}), 400
+
+    complaint_text = data.get("statement", "")
     
     if not data:
         return jsonify({"error": "No JSON received"}), 400

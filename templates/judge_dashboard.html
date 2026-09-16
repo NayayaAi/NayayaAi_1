@@ -78,7 +78,8 @@
                 class="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors">
                 <i data-lucide="briefcase" class="w-5 h-5"></i><span>Case Workspace</span>
             </a>
-            <a href="#" class="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors">
+            <a href="#" id="navLibrary"
+                class="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors">
                 <i data-lucide="gavel" class="w-5 h-5"></i><span>Law Library</span>
             </a>
             <a href="#" class="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors">
@@ -166,13 +167,14 @@
                         <p class="font-semibold text-slate-800">Add a Hearing</p>
                         <p class="text-xs text-slate-400 mt-1">Schedule a new case hearing</p>
                     </button>
-                    <div class="bg-white p-6 rounded-xl border border-slate-100 shadow-sm opacity-60">
+                    <button onclick="showPage('library')"
+                        class="bg-white p-6 rounded-xl border border-slate-100 shadow-sm hover:shadow-md hover:border-purple-300 transition text-left">
                         <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center mb-3">
                             <i data-lucide="gavel" class="w-5 h-5 text-purple-600"></i>
                         </div>
                         <p class="font-semibold text-slate-800">Law Library</p>
-                        <p class="text-xs text-slate-400 mt-1">Coming soon</p>
-                    </div>
+                        <p class="text-xs text-slate-400 mt-1">Browse acts & research precedents</p>
+                    </button>
                 </div>
             </section>
 
@@ -271,7 +273,7 @@
                         <!-- FIR Info -->
                         <div>
                             <h4 class="text-sm font-bold text-slate-500 uppercase tracking-wide mb-3">FIR Details</h4>
-                            <div id="wsFirInfo" class="bg-slate-50 rounded-lg p-4 text-sm space-y-2">
+                            <div id="wsFirInfo" class="bg-slate-50 rounded-lg p-4 text-base space-y-3">
                                 <p class="text-slate-400">Loading…</p>
                             </div>
                         </div>
@@ -280,7 +282,7 @@
                         <div>
                             <h4 class="text-sm font-bold text-slate-500 uppercase tracking-wide mb-3">Hearing Timeline
                             </h4>
-                            <div id="wsTimeline" class="space-y-3"></div>
+                            <div id="wsTimeline" class="space-y-4"></div>
                         </div>
                     </div>
                 </div>
@@ -288,9 +290,80 @@
         </section>
         <!-- ═══════════ END CASE WORKSPACE PAGE ═══════════ -->
 
+        <!-- ═══════════ LAW LIBRARY PAGE ═══════════ -->
+        <section id="library-page" class="hidden">
+            <section class="px-10 py-10">
+                <h2 class="text-2xl font-serif font-bold text-blue-900 flex items-center gap-2 mb-6">
+                    <i data-lucide="gavel" class="w-5 h-5 text-purple-600"></i> Law Library
+                </h2>
+
+                <!-- Tabs -->
+                <div class="flex gap-2 mb-6 border-b border-slate-200">
+                    <button id="libTabBrowse" onclick="switchLibraryTab('browse')"
+                        class="px-4 py-2.5 text-sm font-semibold border-b-2 border-blue-600 text-blue-900">Browse
+                        Acts</button>
+                    <button id="libTabResearch" onclick="switchLibraryTab('research')"
+                        class="px-4 py-2.5 text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-blue-900">Precedent
+                        Research</button>
+                    <button id="libTabBookmarks" onclick="switchLibraryTab('bookmarks')"
+                        class="px-4 py-2.5 text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-blue-900">Bookmarks</button>
+                </div>
+
+                <!-- BROWSE TAB -->
+                <div id="libBrowseTab">
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                        <div class="md:col-span-1">
+                            <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-2" id="actsList">
+                            </div>
+                        </div>
+                        <div class="md:col-span-3">
+                            <div class="flex gap-3 mb-4">
+                                <input type="text" id="sectionSearchInput"
+                                    placeholder="Search sections by number, title, or keyword — select an act to narrow, or search all acts…"
+                                    class="flex-1 border-2 border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:border-blue-500 outline-none">
+                            </div>
+                            <div id="sectionsList"
+                                class="bg-white rounded-xl border border-slate-200 shadow-sm divide-y divide-slate-100">
+                                <div class="px-6 py-8 text-center text-slate-400 text-sm">Select an act to browse its
+                                    sections</div>
+                            </div>
+                            <div id="sectionsPagination" class="flex justify-center gap-2 mt-4"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- RESEARCH TAB -->
+                <div id="libResearchTab" class="hidden">
+                    <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Ask about precedents,
+                            sections, or legal principles</label>
+                        <textarea id="researchQuery" rows="3"
+                            placeholder="e.g. Supreme Court precedents on anticipatory bail in economic offences"
+                            class="w-full border-2 border-slate-200 rounded-lg p-3 text-sm focus:border-blue-500 outline-none resize-none"></textarea>
+                        <button id="researchBtn"
+                            class="mt-3 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl font-semibold text-sm transition">
+                            Research
+                        </button>
+                        <div id="researchResult"
+                            class="mt-6 hidden bg-slate-50 rounded-lg p-5 text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- BOOKMARKS TAB -->
+                <div id="libBookmarksTab" class="hidden">
+                    <div id="bookmarksList"
+                        class="bg-white rounded-xl border border-slate-200 shadow-sm divide-y divide-slate-100">
+                        <div class="px-6 py-8 text-center text-slate-400 text-sm">No bookmarked sections yet</div>
+                    </div>
+                </div>
+            </section>
+        </section>
+        <!-- ═══════════ END LAW LIBRARY PAGE ═══════════ -->
+
     </main>
 
-    <!-- Modal -->
+    <!-- Docket Modal -->
     <div id="docketModal"
         class="fixed inset-0 hidden z-50 bg-black/40 backdrop-blur-sm items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md">
@@ -302,11 +375,14 @@
             <div class="px-6 py-5 space-y-4">
                 <input type="hidden" id="entryId">
 
-                <div>
+                <div class="relative">
                     <label class="block text-sm font-semibold text-slate-700 mb-1">Case ID (FIR Number)</label>
-                    <input type="text" id="caseIdInput" list="firOptionsList" placeholder="Start typing an FIR number…"
+                    <input type="text" id="caseIdInput" autocomplete="off"
+                        placeholder="Search FIR number, complainant, or district…"
                         class="w-full border-2 border-slate-200 rounded-lg p-2.5 focus:border-blue-500 outline-none text-sm">
-                    <datalist id="firOptionsList"></datalist>
+                    <div id="firSearchResults"
+                        class="hidden absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                    </div>
                     <p id="firPreview" class="text-xs text-slate-400 mt-1 hidden"></p>
                 </div>
 
@@ -366,6 +442,27 @@
         </div>
     </div>
 
+    <!-- Section Detail Modal -->
+    <div id="sectionDetailModal"
+        class="fixed inset-0 hidden z-50 bg-black/40 backdrop-blur-sm items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-y-auto">
+            <div class="flex items-center justify-between px-6 py-5 border-b border-slate-100">
+                <h3 id="sdTitle" class="text-lg font-bold text-blue-900"></h3>
+                <button onclick="closeSectionDetail()"
+                    class="text-slate-400 hover:text-red-500 text-2xl font-bold leading-none">×</button>
+            </div>
+            <div class="px-6 py-5">
+                <p id="sdDescription" class="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap"></p>
+            </div>
+            <div class="px-6 py-4 border-t border-slate-100 flex gap-3">
+                <button id="sdBookmarkBtn" onclick="toggleBookmarkFromModal()"
+                    class="flex-1 py-2.5 border-2 border-blue-200 hover:bg-blue-50 text-blue-700 rounded-xl font-semibold text-sm transition">
+                    ☆ Bookmark
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script>
         lucide.createIcons();
 
@@ -374,15 +471,22 @@
             document.getElementById("home-page").classList.toggle("hidden", page !== "home");
             document.getElementById("docket-page").classList.toggle("hidden", page !== "docket");
             document.getElementById("workspace-page").classList.toggle("hidden", page !== "workspace");
+            document.getElementById("library-page").classList.toggle("hidden", page !== "library");
             document.getElementById("navHome").classList.toggle("bg-blue-800", page === "home");
             document.getElementById("navDocket").classList.toggle("bg-blue-800", page === "docket");
             document.getElementById("navWorkspace").classList.toggle("bg-blue-800", page === "workspace");
+            document.getElementById("navLibrary").classList.toggle("bg-blue-800", page === "library");
             window.scrollTo(0, 0);
+            if (page === "library" && !window._libraryLoaded) {
+                loadActs();
+                window._libraryLoaded = true;
+            }
         }
 
         document.getElementById("navHome").addEventListener("click", (e) => { e.preventDefault(); showPage("home"); });
         document.getElementById("navDocket").addEventListener("click", (e) => { e.preventDefault(); showPage("docket"); });
         document.getElementById("navWorkspace").addEventListener("click", (e) => { e.preventDefault(); showPage("workspace"); loadWorkspace(); });
+        document.getElementById("navLibrary").addEventListener("click", (e) => { e.preventDefault(); showPage("library"); });
 
         const API_BASE = "/judge/docket";
         let editingId = null;
@@ -392,13 +496,47 @@
             try {
                 const res = await fetch("/api/fir-records");
                 allFirs = await res.json();
-                const list = document.getElementById("firOptionsList");
-                list.innerHTML = allFirs.map(f =>
-                    `<option value="${escapeHtml(f.fir_no)}">${escapeHtml(f.complainant_name || '')} — ${escapeHtml(f.dist || '')}</option>`
-                ).join("");
             } catch (err) {
                 console.error("Failed to load FIR list:", err);
             }
+        }
+
+        function searchFirDropdown() {
+            const val = document.getElementById("caseIdInput").value.trim().toLowerCase();
+            const resultsEl = document.getElementById("firSearchResults");
+
+            if (!val) {
+                resultsEl.classList.add("hidden");
+                resultsEl.innerHTML = "";
+                return;
+            }
+
+            const matches = allFirs.filter(f =>
+                (f.fir_no || '').toLowerCase().includes(val) ||
+                (f.complainant_name || '').toLowerCase().includes(val) ||
+                (f.dist || '').toLowerCase().includes(val)
+            ).slice(0, 8);
+
+            if (!matches.length) {
+                resultsEl.innerHTML = `<div class="px-3 py-2 text-sm text-slate-400">No matching FIR found</div>`;
+                resultsEl.classList.remove("hidden");
+                return;
+            }
+
+            resultsEl.innerHTML = matches.map(f => `
+                <button type="button" onclick="selectFir('${escapeHtml(f.fir_no)}')"
+                    class="w-full text-left px-3 py-2 hover:bg-blue-50 border-b border-slate-100 last:border-0">
+                    <p class="text-sm font-mono font-semibold text-blue-700">${escapeHtml(f.fir_no)}</p>
+                    <p class="text-xs text-slate-400">${escapeHtml(f.complainant_name || '')} — ${escapeHtml(f.dist || '')}</p>
+                </button>
+            `).join("");
+            resultsEl.classList.remove("hidden");
+        }
+
+        function selectFir(firNo) {
+            document.getElementById("caseIdInput").value = firNo;
+            document.getElementById("firSearchResults").classList.add("hidden");
+            updateFirPreview();
         }
 
         function updateFirPreview() {
@@ -549,7 +687,17 @@
             loadDocket();
         }
 
-        document.getElementById("caseIdInput").addEventListener("input", updateFirPreview);
+        document.getElementById("caseIdInput").addEventListener("input", () => {
+            searchFirDropdown();
+            updateFirPreview();
+        });
+        document.addEventListener("click", (e) => {
+            const wrap = document.getElementById("caseIdInput");
+            const results = document.getElementById("firSearchResults");
+            if (!wrap.contains(e.target) && !results.contains(e.target)) {
+                results.classList.add("hidden");
+            }
+        });
         document.getElementById("addEntryBtn").addEventListener("click", () => openModal());
         document.getElementById("refreshBtn").addEventListener("click", loadDocket);
         document.getElementById("statusFilter").addEventListener("change", loadDocket);
@@ -628,18 +776,16 @@
             document.getElementById("wsCaseType").textContent = items[0]?.case_type || "General";
             document.getElementById("workspaceDetail").classList.remove("hidden");
 
-            // Timeline from docket entries
             const timelineEl = document.getElementById("wsTimeline");
             const sorted = [...items].sort((a, b) => new Date(a.hearing_date) - new Date(b.hearing_date));
             timelineEl.innerHTML = sorted.map(e => `
-                <div class="border-l-2 border-blue-200 pl-4 pb-3">
-                    <p class="text-sm font-semibold text-slate-700">${escapeHtml(e.hearing_date)}</p>
-                    <span class="inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-bold ${STATUS_PILL[e.status] || 'bg-slate-100 text-slate-600'}">${escapeHtml(e.status)}</span>
-                    <p class="text-xs text-slate-500 mt-1">${escapeHtml(e.remarks || 'No remarks')}</p>
+                <div class="border-l-2 border-blue-200 pl-4 pb-4">
+                    <p class="text-base font-semibold text-slate-700">${escapeHtml(e.hearing_date)}</p>
+                    <span class="inline-block mt-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${STATUS_PILL[e.status] || 'bg-slate-100 text-slate-600'}">${escapeHtml(e.status)}</span>
+                    <p class="text-sm text-slate-600 mt-2 leading-relaxed">${escapeHtml(e.remarks || 'No remarks')}</p>
                 </div>
             `).join("");
 
-            // FIR info (public endpoint, may 404 if this case_id isn't an actual FIR record)
             const firInfoEl = document.getElementById("wsFirInfo");
             firInfoEl.innerHTML = `<p class="text-slate-400">Loading…</p>`;
             try {
@@ -647,11 +793,11 @@
                 if (!res.ok) throw new Error("not found");
                 const fir = await res.json();
                 firInfoEl.innerHTML = `
-                    <p><span class="text-slate-400">Complainant:</span> ${escapeHtml(fir.complainant_name || '-')}</p>
-                    <p><span class="text-slate-400">District:</span> ${escapeHtml(fir.dist || '-')}</p>
-                    <p><span class="text-slate-400">Police Station:</span> ${escapeHtml(fir.ps || '-')}</p>
-                    <p><span class="text-slate-400">Act/Sections:</span> ${escapeHtml(fir.act_sections || '-')}</p>
-                    <p><span class="text-slate-400">Status:</span> ${escapeHtml(fir.status || '-')}</p>
+                    <p><span class="text-slate-400 text-sm">Complainant:</span> <span class="font-medium">${escapeHtml(fir.complainant_name || '-')}</span></p>
+                    <p><span class="text-slate-400 text-sm">District:</span> <span class="font-medium">${escapeHtml(fir.dist || '-')}</span></p>
+                    <p><span class="text-slate-400 text-sm">Police Station:</span> <span class="font-medium">${escapeHtml(fir.ps || '-')}</span></p>
+                    <p><span class="text-slate-400 text-sm">Act/Sections:</span> <span class="font-medium">${escapeHtml(fir.act_sections || '-')}</span></p>
+                    <p><span class="text-slate-400 text-sm">Status:</span> <span class="font-medium">${escapeHtml(fir.status || '-')}</span></p>
                 `;
             } catch {
                 firInfoEl.innerHTML = `<p class="text-slate-400">No linked FIR record found for this Case ID.</p>`;
@@ -663,6 +809,253 @@
         function closeWorkspaceDetail() {
             document.getElementById("workspaceDetail").classList.add("hidden");
         }
+
+        // ── Law Library ──
+        const ACT_LABELS = {
+            IPC: "Indian Penal Code",
+            CRPC: "Code of Criminal Procedure",
+            NIA: "Negotiable Instruments Act",
+            IEA: "Indian Evidence Act",
+            HMA: "Hindu Marriage Act",
+            CPC: "Code of Civil Procedure",
+            IDA: "Industrial Disputes Act",
+            MVA: "Motor Vehicles Act"
+        };
+
+        let currentAct = null;
+        let currentPage = 1;
+        let currentSectionSearch = "";
+        let sectionSearchTimer = null;
+        let sdCurrent = null;
+
+        function escapeLibHtml(str) {
+            if (str == null) return '';
+            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        const ACT_META = {
+            IPC: { label: "Indian Penal Code", status: "repealed", current: "BNS" },
+            CRPC: { label: "Code of Criminal Procedure", status: "repealed", current: "BNSS" },
+            IEA: { label: "Indian Evidence Act", status: "repealed", current: "BSA" },
+            NIA: { label: "Negotiable Instruments Act", status: "current" },
+            HMA: { label: "Hindu Marriage Act", status: "current" },
+            CPC: { label: "Code of Civil Procedure", status: "current" },
+            IDA: { label: "Industrial Disputes Act", status: "current" },
+            MVA: { label: "Motor Vehicles Act", status: "current" },
+        };
+
+        async function loadActs() {
+            const res = await fetch("/api/acts");
+            const acts = await res.json();
+            const listEl = document.getElementById("actsList");
+            listEl.innerHTML = acts.map(a => {
+                const meta = ACT_META[a] || { label: "", status: "current" };
+                const badge = meta.status === "repealed"
+                    ? `<span class="inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 text-orange-700">Repealed — see ${meta.current}</span>`
+                    : `<span class="inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-700">Current law</span>`;
+                const currentLink = meta.current
+                    ? `<button onclick="openBareAct('${meta.current}')" class="w-full text-left px-4 text-xs text-purple-600 hover:underline">Open Current Law (${meta.current}) ↗</button>`
+                    : "";
+                return `
+            <div class="border-b border-slate-100 last:border-0">
+                <button onclick="selectAct('${a}')" id="actBtn-${a}"
+                    class="w-full text-left px-4 py-3 rounded-lg hover:bg-blue-50 transition text-sm">
+                    <p class="font-semibold text-blue-900">${a}</p>
+                    <p class="text-xs text-slate-400">${ACT_LABELS[a] || ''}</p>
+                    ${badge}
+                </button>
+                <button onclick="openBareAct('${a}')" class="w-full text-left px-4 pb-1 text-xs text-blue-500 hover:underline">
+                    Open Bare Act (PDF) ↗
+                </button>
+                ${currentLink}
+            </div>`;
+            }).join("");
+        }
+        function openBareAct(act) {
+            window.open(`/open-bare-act/${act}`, "_blank");
+        }
+
+        function selectAct(act) {
+            currentAct = act;
+            currentPage = 1;
+            document.querySelectorAll('[id^="actBtn-"]').forEach(b => b.classList.remove("bg-blue-50"));
+            document.getElementById(`actBtn-${act}`).classList.add("bg-blue-50");
+            document.getElementById("sectionSearchInput").value = "";
+            currentSectionSearch = "";
+            loadSections();
+        }
+
+        document.getElementById("sectionSearchInput").addEventListener("input", (e) => {
+            clearTimeout(sectionSearchTimer);
+            currentSectionSearch = e.target.value.trim();
+            sectionSearchTimer = setTimeout(() => {
+                currentPage = 1;
+                if (currentAct) loadSections();
+            }, 350);
+        });
+
+        async function loadSections() {
+            const listEl = document.getElementById("sectionsList");
+            if (!currentAct) {
+                listEl.innerHTML = `<div class="px-6 py-8 text-center text-slate-400 text-sm">Select an act to browse its sections</div>`;
+                return;
+            }
+            listEl.innerHTML = `<div class="px-6 py-8 text-center text-slate-400 text-sm">Loading…</div>`;
+
+            const params = new URLSearchParams({ page: currentPage, limit: 15 });
+            if (currentSectionSearch) params.append("search", currentSectionSearch);
+
+            const res = await fetch(`/api/sections/${currentAct}?${params}`);
+            const data = await res.json();
+
+            if (!data.results || !data.results.length) {
+                listEl.innerHTML = `<div class="px-6 py-8 text-center text-slate-400 text-sm">No sections found</div>`;
+                document.getElementById("sectionsPagination").innerHTML = "";
+                return;
+            }
+
+            listEl.innerHTML = data.results.map(s => `
+                <button onclick='viewSectionDetail(${JSON.stringify({ act: currentAct, ...s })})'
+                    class="w-full text-left px-5 py-3.5 hover:bg-blue-50 transition flex items-start justify-between gap-3">
+                    <div>
+                        <p class="text-sm font-semibold text-blue-800">Section ${escapeLibHtml(s.section)}</p>
+                        <p class="text-sm text-slate-600 mt-0.5">${escapeLibHtml(s.title)}</p>
+                    </div>
+                    ${isBookmarked(currentAct, s.section) ? '<span class="text-yellow-500 text-lg">★</span>' : ''}
+                </button>
+            `).join("");
+
+            renderSectionsPagination(data.page, data.pages);
+        }
+
+        function renderSectionsPagination(page, pages) {
+            const el = document.getElementById("sectionsPagination");
+            if (pages <= 1) { el.innerHTML = ""; return; }
+            let html = "";
+            if (page > 1) html += `<button onclick="goToPage(${page - 1})" class="px-3 py-1.5 border border-slate-200 rounded-lg text-sm hover:bg-slate-50">Prev</button>`;
+            html += `<span class="px-3 py-1.5 text-sm text-slate-500">Page ${page} of ${pages}</span>`;
+            if (page < pages) html += `<button onclick="goToPage(${page + 1})" class="px-3 py-1.5 border border-slate-200 rounded-lg text-sm hover:bg-slate-50">Next</button>`;
+            el.innerHTML = html;
+        }
+
+        function goToPage(p) {
+            currentPage = p;
+            loadSections();
+        }
+
+        function viewSectionDetail(s) {
+            sdCurrent = s;
+            document.getElementById("sdTitle").textContent = `${s.act} § ${s.section} — ${s.title}`;
+            document.getElementById("sdDescription").textContent = s.description || "No description available.";
+            updateBookmarkBtn();
+            const modal = document.getElementById("sectionDetailModal");
+            modal.classList.remove("hidden");
+            modal.classList.add("flex");
+        }
+
+        function closeSectionDetail() {
+            const modal = document.getElementById("sectionDetailModal");
+            modal.classList.add("hidden");
+            modal.classList.remove("flex");
+        }
+
+        document.getElementById("sectionDetailModal").addEventListener("click", function (e) {
+            if (e.target === this) closeSectionDetail();
+        });
+
+        // Bookmarks — stored in this browser (localStorage), per judge
+        function getBookmarks() {
+            try { return JSON.parse(localStorage.getItem("nyayaai_judge_bookmarks") || "[]"); }
+            catch { return []; }
+        }
+        function isBookmarked(act, section) {
+            return getBookmarks().some(b => b.act === act && b.section === section);
+        }
+        function updateBookmarkBtn() {
+            const btn = document.getElementById("sdBookmarkBtn");
+            btn.textContent = isBookmarked(sdCurrent.act, sdCurrent.section) ? "★ Bookmarked" : "☆ Bookmark";
+        }
+        function toggleBookmarkFromModal() {
+            let bookmarks = getBookmarks();
+            const exists = bookmarks.find(b => b.act === sdCurrent.act && b.section === sdCurrent.section);
+            if (exists) {
+                bookmarks = bookmarks.filter(b => !(b.act === sdCurrent.act && b.section === sdCurrent.section));
+            } else {
+                bookmarks.push({ act: sdCurrent.act, section: sdCurrent.section, title: sdCurrent.title });
+            }
+            localStorage.setItem("nyayaai_judge_bookmarks", JSON.stringify(bookmarks));
+            updateBookmarkBtn();
+            loadSections();
+            renderBookmarks();
+        }
+        function renderBookmarks() {
+            const bookmarks = getBookmarks();
+            const el = document.getElementById("bookmarksList");
+            if (!bookmarks.length) {
+                el.innerHTML = `<div class="px-6 py-8 text-center text-slate-400 text-sm">No bookmarked sections yet</div>`;
+                return;
+            }
+            el.innerHTML = bookmarks.map(b => `
+                <div class="flex items-center justify-between px-5 py-3.5 hover:bg-blue-50 transition">
+                    <button onclick='openBookmark(${JSON.stringify(b)})' class="text-left">
+                        <p class="text-sm font-semibold text-blue-800">${b.act} § ${escapeLibHtml(b.section)}</p>
+                        <p class="text-sm text-slate-600 mt-0.5">${escapeLibHtml(b.title)}</p>
+                    </button>
+                    <button onclick='removeBookmark(${JSON.stringify(b)})' class="text-red-500 hover:underline text-xs font-semibold">Remove</button>
+                </div>
+            `).join("");
+        }
+        async function openBookmark(b) {
+            const res = await fetch(`/api/section-detail/${b.act}/${encodeURIComponent(b.section)}`);
+            const detail = await res.json();
+            viewSectionDetail({ act: b.act, ...detail });
+        }
+        function removeBookmark(b) {
+            let bookmarks = getBookmarks().filter(x => !(x.act === b.act && x.section === b.section));
+            localStorage.setItem("nyayaai_judge_bookmarks", JSON.stringify(bookmarks));
+            renderBookmarks();
+        }
+
+        function switchLibraryTab(tab) {
+            document.getElementById("libBrowseTab").classList.toggle("hidden", tab !== "browse");
+            document.getElementById("libResearchTab").classList.toggle("hidden", tab !== "research");
+            document.getElementById("libBookmarksTab").classList.toggle("hidden", tab !== "bookmarks");
+            ["libTabBrowse", "libTabResearch", "libTabBookmarks"].forEach(id => {
+                const active = (id === "libTabBrowse" && tab === "browse") ||
+                    (id === "libTabResearch" && tab === "research") ||
+                    (id === "libTabBookmarks" && tab === "bookmarks");
+                document.getElementById(id).classList.toggle("border-blue-600", active);
+                document.getElementById(id).classList.toggle("text-blue-900", active);
+                document.getElementById(id).classList.toggle("text-slate-500", !active);
+            });
+            if (tab === "bookmarks") renderBookmarks();
+        }
+
+        document.getElementById("researchBtn").addEventListener("click", async () => {
+            const query = document.getElementById("researchQuery").value.trim();
+            if (!query) return;
+            const btn = document.getElementById("researchBtn");
+            const resultEl = document.getElementById("researchResult");
+            btn.disabled = true;
+            btn.textContent = "Researching…";
+            resultEl.classList.remove("hidden");
+            resultEl.textContent = "Searching case law and statutes…";
+
+            try {
+                const res = await fetch("/judge/precedents", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ query })
+                });
+                const data = await res.json();
+                resultEl.textContent = data.answer || "No results found.";
+            } catch (err) {
+                resultEl.textContent = "Something went wrong. Please try again.";
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "Research";
+            }
+        });
 
         loadDocket();
         loadFirOptions();

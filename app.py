@@ -21,6 +21,7 @@ from functools import wraps
 from werkzeug.utils import secure_filename
 from flask import send_from_directory
 import subprocess
+import time 
 import json
 
 from dotenv import load_dotenv
@@ -871,20 +872,91 @@ def predict_outcome():
     html    = format_outcome_html(results)
     return jsonify({"prediction": html})
 
-BARE_ACTS_URLS = {
-    "IPC": "https://indiacode.nic.in/bitstream/123456789/2263/1/A1860-45.pdf",
-    "CRPC": "https://indiacode.nic.in/bitstream/123456789/1611/1/A1973-2.pdf",
-    "BNS": "https://indiacode.nic.in/bitstream/123456789/20062/1/a2023-45.pdf",
-    "BNSS": "https://indiacode.nic.in/bitstream/123456789/20064/1/a2023-46.pdf",
-    "IEA": "https://indiacode.nic.in/bitstream/123456789/2187/1/A1872-1.pdf",
+ 
+BARE_ACTS_INFO = {
+    "IPC":  {"label": "Indian Penal Code, 1860",
+             "type": "repealed", "current_equivalent": "BNS",
+             "primary_url": "https://www.indiacode.gov.in/handle/123456789/12850"},
+    "CRPC": {"label": "Code of Criminal Procedure, 1973",
+             "type": "repealed", "current_equivalent": "BNSS",
+             "primary_url": "https://www.indiacode.gov.in/handle/123456789/21613"},
+    "IEA":  {"label": "Indian Evidence Act, 1872",
+             "type": "repealed", "current_equivalent": "BSA",
+             "primary_url": "https://www.indiacode.gov.in/search?query=Indian+Evidence+Act+1872"},
+    "BNS":  {"label": "Bharatiya Nyaya Sanhita, 2023",
+             "type": "current",
+             "primary_url": "https://www.indiacode.gov.in/handle/123456789/20062"},
+    "BNSS": {"label": "Bharatiya Nagarik Suraksha Sanhita, 2023",
+             "type": "current",
+             "primary_url": "https://www.indiacode.gov.in/handle/123456789/20099"},
+    "BSA":  {"label": "Bharatiya Sakshya Adhiniyam, 2023",
+             "type": "current",
+             "primary_url": "https://www.indiacode.gov.in/search?query=Bharatiya+Sakshya+Adhiniyam"},
+    "NIA":  {"label": "Negotiable Instruments Act, 1881", "type": "current",
+             "primary_url": "https://www.indiacode.gov.in/search?query=Negotiable+Instruments+Act"},
+    "HMA":  {"label": "Hindu Marriage Act, 1955", "type": "current",
+             "primary_url": "https://www.indiacode.gov.in/search?query=Hindu+Marriage+Act"},
+    "CPC":  {"label": "Code of Civil Procedure, 1908", "type": "current",
+             "primary_url": "https://www.indiacode.gov.in/search?query=Code+of+Civil+Procedure"},
+    "IDA":  {"label": "Industrial Disputes Act, 1947", "type": "current",
+             "primary_url": "https://www.indiacode.gov.in/search?query=Industrial+Disputes+Act"},
+    "MVA":  {"label": "Motor Vehicles Act, 1988", "type": "current",
+             "primary_url": "https://www.indiacode.gov.in/search?query=Motor+Vehicles+Act"},
 }
+
+_URL_CHECK_CACHE = {}
+_URL_CHECK_TTL = 600  # seconds
+
+def _url_is_reachable(url, timeout=5):
+    """Live-check a URL so we never redirect the user to a known-dead link.
+    Cached briefly so repeated clicks don't hammer an external site."""
+    now = time.time()
+    cached = _URL_CHECK_CACHE.get(url)
+    if cached and (now - cached[1]) < _URL_CHECK_TTL:
+        return cached[0]
+    ok = False
+    try:
+        resp = requests.head(url, allow_redirects=True, timeout=timeout)
+        if resp.status_code >= 400:
+            resp = requests.get(url, allow_redirects=True, timeout=timeout, stream=True)
+        ok = resp.status_code < 400
+        resp.close()
+    except Exception as e:
+        print(f"Bare Act URL check failed for {url}: {e}")
+        ok = False
+    _URL_CHECK_CACHE[url] = (ok, now)
+    return ok
+
+BARE_ACT_UNAVAILABLE_HTML = """<!DOCTYPE html>
+<html><head><title>Bare Act Unavailable</title></head>
+<body style="font-family:Arial,sans-serif;max-width:600px;margin:80px auto;text-align:center;color:#334155;">
+  <h2 style="color:#1e3a8a;">Official Bare Act document is currently unavailable</h2>
+  <p>{{ message }}</p>
+  <p><a href="https://www.indiacode.gov.in" target="_blank" style="color:#2563eb;">Search India Code directly ↗</a></p>
+</body></html>"""
 
 @app.route('/open-bare-act/<act_code>')
 def open_bare_act(act_code):
-    url = BARE_ACTS_URLS.get(act_code.upper())
-    if not url:
-        return jsonify({"error": "Act not found"}), 404
-    return redirect(url)
+    info = BARE_ACTS_INFO.get(act_code.upper())
+    if not info:
+        return render_template_string(
+            BARE_ACT_UNAVAILABLE_HTML,
+            message=f"'{act_code}' is not a recognized act."
+        ), 404
+
+    primary = info["primary_url"]
+    if _url_is_reachable(primary):
+        return redirect(primary)
+
+    fallback = f"https://www.indiacode.gov.in/search?query={info['label'].replace(' ', '+')}"
+    if fallback != primary and _url_is_reachable(fallback):
+        return redirect(fallback)
+
+    return render_template_string(
+        BARE_ACT_UNAVAILABLE_HTML,
+        message=f"We could not reach a working copy of the {info['label']} right now. "
+                f"Please try again shortly or search India Code directly."
+    ), 503
 
 @app.route('/lawyer_dashboard')
 def lawyer_dashboard():
@@ -1110,7 +1182,164 @@ def lawyer_find_precedents():
         else:
             answer = "No matching legal sections found. Please refine your query."
 
-    return jsonify({"answer": answer})
+        return jsonify({"answer": answer})
+
+
+# ════════════════════════════════════
+# JUDGE PORTAL — LAW LIBRARY / PRECEDENT RESEARCH
+# ════════════════════════════════════
+
+# Hand-curated, verified legal reference data. Only entries here are ever
+# presented as "verified" — the LLM is explicitly forbidden from inventing
+# case names, citations, or section renumbering (see prompt below).
+VERIFIED_PRECEDENTS = [
+    {
+        "case": "Gurbaksh Singh Sibbia v. State of Punjab", "citation": "(1980) 2 SCC 565",
+        "court": "Supreme Court of India", "area": "Anticipatory Bail",
+        "statute_then": "Section 438, Code of Criminal Procedure, 1973",
+        "current_law_note": "Corresponding current provision: Section 482, Bharatiya Nagarik Suraksha Sanhita, 2023 (BNSS).",
+        "principle": "Anticipatory bail should be exercised liberally on a case-by-case basis and not fettered by rigid, statute-unsupported conditions.",
+        "keywords": ["anticipatory bail", "438", "482", "bnss", "crpc", "pre-arrest bail", "sibbia"]
+    },
+    {
+        "case": "Siddharam Satlingappa Mhetre v. State of Maharashtra", "citation": "(2011) 1 SCC 694",
+        "court": "Supreme Court of India", "area": "Anticipatory Bail",
+        "statute_then": "Section 438, Code of Criminal Procedure, 1973",
+        "current_law_note": "Corresponding current provision: Section 482, Bharatiya Nagarik Suraksha Sanhita, 2023 (BNSS).",
+        "principle": "Disapproved fixed time-limits on anticipatory bail; protection should ordinarily continue absent specific grounds for cancellation.",
+        "keywords": ["anticipatory bail", "438", "482", "bnss", "crpc", "duration", "mhetre"]
+    },
+    {
+        "case": "Sushila Aggarwal v. State (NCT of Delhi)", "citation": "(2020) 5 SCC 1",
+        "court": "Supreme Court of India", "area": "Anticipatory Bail",
+        "statute_then": "Section 438, Code of Criminal Procedure, 1973",
+        "current_law_note": "Corresponding current provision: Section 482, Bharatiya Nagarik Suraksha Sanhita, 2023 (BNSS).",
+        "principle": "A five-judge bench held anticipatory bail need not be time-bound and may, absent specific orders, continue till the end of trial.",
+        "keywords": ["anticipatory bail", "438", "482", "bnss", "crpc", "sushila aggarwal"]
+    },
+    {
+        "case": "Arnesh Kumar v. State of Bihar", "citation": "(2014) 8 SCC 273",
+        "court": "Supreme Court of India", "area": "Arrest procedure",
+        "statute_then": "Section 41, Code of Criminal Procedure, 1973",
+        "current_law_note": "Corresponding current provision: Section 35, Bharatiya Nagarik Suraksha Sanhita, 2023 (BNSS).",
+        "principle": "Police must record reasons before arresting for offences punishable up to seven years and satisfy statutory arrest conditions first.",
+        "keywords": ["arrest", "41", "35", "bnss", "crpc", "arnesh kumar", "casual arrest"]
+    },
+    {
+        "case": "Sanjay Chandra v. Central Bureau of Investigation", "citation": "(2012) 1 SCC 40",
+        "court": "Supreme Court of India", "area": "Regular Bail",
+        "statute_then": "Section 439, Code of Criminal Procedure, 1973",
+        "current_law_note": "Corresponding current provision: Section 483, Bharatiya Nagarik Suraksha Sanhita, 2023 (BNSS).",
+        "principle": "Bail is the rule, jail the exception; pre-trial detention should not be punitive.",
+        "keywords": ["bail", "439", "483", "bnss", "crpc", "sanjay chandra", "economic offence"]
+    },
+]
+
+SECTION_CORRESPONDENCE = {
+    "438 crpc": "Section 482, Bharatiya Nagarik Suraksha Sanhita, 2023 (BNSS) — Anticipatory bail",
+    "437 crpc": "Section 480, Bharatiya Nagarik Suraksha Sanhita, 2023 (BNSS) — Bail in non-bailable offences",
+    "439 crpc": "Section 483, Bharatiya Nagarik Suraksha Sanhita, 2023 (BNSS) — High Court/Sessions Court bail powers",
+    "41 crpc":  "Section 35, Bharatiya Nagarik Suraksha Sanhita, 2023 (BNSS) — Arrest without warrant",
+    "154 crpc": "Section 173, Bharatiya Nagarik Suraksha Sanhita, 2023 (BNSS) — Registration of FIR",
+    "156 crpc": "Section 175, Bharatiya Nagarik Suraksha Sanhita, 2023 (BNSS) — Police power to investigate",
+}
+
+def find_verified_precedents(query, limit=4):
+    q = query.lower()
+    scored = []
+    for p in VERIFIED_PRECEDENTS:
+        score = max(
+            fuzz.partial_ratio(q, p["case"].lower()),
+            max((fuzz.partial_ratio(q, kw) for kw in p["keywords"]), default=0)
+        )
+        if score >= 60:
+            scored.append((score, p))
+    scored.sort(key=lambda x: -x[0])
+    return [p for _, p in scored[:limit]]
+
+def find_section_correspondence(query):
+    q = query.lower()
+    return [
+        f"Section {old.split()[0].upper()} {old.split()[1].upper()} → {new}"
+        for old, new in SECTION_CORRESPONDENCE.items() if old in q
+    ]
+
+@app.route('/judge/precedents', methods=['POST'])
+def judge_find_precedents():
+    if 'user_id' not in session or session.get('role') != 'judge':
+        return jsonify({"error": "Unauthorized"}), 401
+
+    data = request.get_json()
+    query = (data.get('query') or '').strip()
+    if not query:
+        return jsonify({"answer": "Please enter a research query."}), 400
+
+    verified_cases = find_verified_precedents(query)
+    correspondence_notes = find_section_correspondence(query)
+
+    try:
+        rag_results = search_law(query)
+    except Exception as rag_err:
+        print(f"RAG failed: {rag_err}")
+        rag_results = None
+
+    sections = []
+
+    if verified_cases:
+        block = "### Verified Supreme Court Precedents\n\n"
+        for i, c in enumerate(verified_cases, 1):
+            block += (
+                f"{i}. {c['case']}\n"
+                f"   Citation: {c['citation']}\n"
+                f"   Court: {c['court']}\n"
+                f"   Area: {c['area']}\n"
+                f"   Statute discussed: {c['statute_then']}\n"
+                f"   Key principle: {c['principle']}\n"
+                f"   Current-law note: {c['current_law_note']}\n\n"
+            )
+        sections.append(block)
+    else:
+        sections.append(
+            "### Verified Supreme Court Precedents\n\n"
+            "No verified precedent in NyayaAI's curated database matched this query. "
+            "Source could not be verified — cross-check against SCC / SCC OnLine / the "
+            "Supreme Court's judgment portal before relying on any case law here.\n"
+        )
+
+    if rag_results:
+        block = "### Statute Sections (NyayaAI Legal Database)\n\n"
+        for r in rag_results[:4]:
+            block += f"- Section {r.get('section','')}: {r.get('title','')} — {(r.get('description','') or '')[:200]}\n"
+        sections.append(block)
+
+    if correspondence_notes:
+        sections.append("### Current-Law Correspondence (verified)\n\n" + "\n".join(f"- {n}" for n in correspondence_notes))
+
+    verified_block = "\n\n".join(sections)
+
+    groq_prompt = (
+        f"A judge is researching: \"{query}\"\n\n"
+        f"Below is VERIFIED material already confirmed by NyayaAI. Write a short neutral "
+        f"summary (120-180 words) of the legal position for judicial reference, in plain prose. "
+        f"Do not repeat the verified material verbatim.\n\n"
+        f"STRICT RULES:\n"
+        f"- Do NOT invent, rename, or 'translate' any section number into a different Act. "
+        f"Only use section numbers/Act names that appear in the verified material below.\n"
+        f"- Do NOT cite any case name, citation, or court not in the verified material below. "
+        f"You may describe general principles without attributing them to a specific case.\n"
+        f"- If the verified material is empty or insufficient, say so plainly instead of "
+        f"filling the gap.\n\n"
+        f"VERIFIED MATERIAL:\n{verified_block}"
+    )
+    ai_summary = ask_groq(groq_prompt, max_tokens=600, reasoning_effort="low")
+
+    final_answer = verified_block
+    if ai_summary:
+        final_answer += "\n\n### AI-Generated Explanation (for judicial reference only — verify independently)\n\n" + ai_summary
+    else:
+        final_answer += "\n\n### AI-Generated Explanation\n\nUnavailable right now — please rely on the verified material above."
+
+    return jsonify({"answer": final_answer})
 
 
 # ════════════════════════════════════
@@ -1277,18 +1506,22 @@ def search_sections():
     """
 
     ai_output = ask_ollama(prompt)
-
+    
+    ai_results = []
+    
     try:
         start = ai_output.find("[")
         end = ai_output.rfind("]") + 1
-        cleaned = ai_output[start:end]
-        ai_results = json.loads(cleaned)
-    except:
-        ai_results = [{
-        "act": "AI",
-        "section": "-",
-        "title": ai_output[:200]
-    }]
+        if start != -1 and end > start:
+            parsed = json.loads(ai_output[start:end])
+            if isinstance(parsed, list):
+                ai_results = [
+                    r for r in parsed
+                    if isinstance(r, dict) and r.get("act") and r.get("section") and r.get("title")
+                ]
+    except Exception as e:
+        print(f"AI search parse failed (ignored, no fake result injected): {e}")
+        ai_results = []
 
     # ---------------------------
     # MERGE RESULTS

@@ -21,6 +21,7 @@ from functools import wraps
 from werkzeug.utils import secure_filename
 from flask import send_from_directory
 import subprocess
+import time 
 import json
 
 from dotenv import load_dotenv
@@ -36,6 +37,8 @@ import re
 from datetime import datetime, timezone, timedelta
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from main.storage_service import upload_pdf, save_fir, get_all_firs, get_fir, fir_exists, assign_lawyer_to_fir, get_firs_by_lawyer, add_case_hearing, get_case_hearings, save_case_draft, get_case_drafts, delete_case_draft, get_case_drafts_for_firs,update_fir_status,update_next_hearing_date,add_case_deadline, get_case_deadlines, mark_deadline_complete, delete_case_deadline, get_upcoming_deadlines_for_firs,set_client_visibility,upload_profile_photo
+from main.judge_routes import judge_bp
 
 
 # ---------------- OLLAMA SETUP ----------------
@@ -86,6 +89,7 @@ def ask_ollama(prompt):
 app = Flask(__name__)
 app.secret_key = "nyaya_ai_ultra_secure_key"
 
+app.register_blueprint(judge_bp)
 
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
@@ -131,6 +135,98 @@ def validate_password(pw: str) -> str | None:
     if not re.search(r"[^A-Za-z0-9]", pw):
         return "Password must contain a special character."
     return None
+
+FIR_NO_RE = re.compile(r'^FIR[-/A-Za-z0-9]{2,25}$', re.IGNORECASE)
+NAME_RE = re.compile(r"^[A-Za-z\s\.\']{2,100}$")
+DATE_RE = re.compile(r'^\d{4}-\d{2}-\d{2}$')
+TIME_RE = re.compile(r'^\d{2}:\d{2}$')
+MIN_STATEMENT_LEN = 25
+
+def validate_fir_data(data):
+    """Returns list of error strings. Empty list = valid."""
+    errors = []
+    current_year = datetime.now().year
+
+    fir_no = (data.get('fir_no') or '').strip()
+    if not fir_no:
+        errors.append("FIR number is required.")
+    elif not FIR_NO_RE.match(fir_no):
+        errors.append("FIR number must start with 'FIR' (e.g. FIR-2026-001).")
+
+    dist = (data.get('dist') or '').strip()
+    if not dist:
+        errors.append("District is required.")
+    elif dist not in INDIAN_DISTRICTS:
+        errors.append("District must be selected from the list.")
+
+    if not (data.get('ps') or '').strip():
+        errors.append("Police Station is required.")
+
+    year = (data.get('year') or '').strip()
+    if not year.isdigit() or not (2000 <= int(year) <= current_year + 1):
+        errors.append(f"Year must be between 2000 and {current_year + 1}.")
+
+    fir_date = (data.get('fir_date') or '').strip()
+    fd = None
+    if not DATE_RE.match(fir_date):
+        errors.append("FIR date must be YYYY-MM-DD.")
+    else:
+        fd = datetime.strptime(fir_date, "%Y-%m-%d").date()
+        if fd > datetime.now().date():
+            errors.append("FIR date cannot be in the future.")
+
+    occ_date = (data.get('occurrence_date') or '').strip()
+    od = None
+    if occ_date:
+        if not DATE_RE.match(occ_date):
+            errors.append("Occurrence date must be YYYY-MM-DD.")
+        else:
+            od = datetime.strptime(occ_date, "%Y-%m-%d").date()
+            if fd and od > fd:
+                errors.append("Occurrence date cannot be after FIR date.")
+
+    info_date = (data.get('info_received_date') or '').strip()
+    if info_date:
+        if not DATE_RE.match(info_date):
+            errors.append("Info received date must be YYYY-MM-DD.")
+        elif od:
+            idt = datetime.strptime(info_date, "%Y-%m-%d").date()
+            if idt < od:
+                errors.append("Info received date cannot be before occurrence date.")
+
+    for tfield, label in [('occurrence_time', 'Occurrence time'), ('info_received_time', 'Info received time')]:
+        tval = (data.get(tfield) or '').strip()
+        if tval and not TIME_RE.match(tval):
+            errors.append(f"{label} must be HH:MM.")
+
+    comp_name = (data.get('complainant_name') or '').strip()
+    if not comp_name:
+        errors.append("Complainant name is required.")
+    elif not NAME_RE.match(comp_name):
+        errors.append("Complainant name must contain only letters/spaces.")
+
+    statement = (data.get('statement') or '').strip()
+    if not statement:
+        errors.append("Statement/narrative is required.")
+    elif len(statement) < MIN_STATEMENT_LEN:
+        errors.append(f"Statement must be at least {MIN_STATEMENT_LEN} characters.")
+
+    type_of_info = (data.get('type_of_information') or '').strip()
+    if type_of_info and type_of_info not in ('Written', 'Oral'):
+        errors.append("Type of information must be Written or Oral.")
+
+    act_sections = (data.get('act_sections') or '').strip()
+    if act_sections and not re.match(r'^[A-Za-z0-9,\s\.\-/]+$', act_sections):
+        errors.append("Act/Sections contains invalid characters.")
+
+    return errors
+
+def lawyer_owns_case(fir_no):
+    """Confirm the logged-in lawyer is actually assigned to this FIR."""
+    fir = get_fir(fir_no)
+    if not fir:
+        return False
+    return str(fir.get('assigned_lawyer_id')) == str(session.get('user_id'))
 
 # 2. DATABASE CONNECTIONS
 DB_PATH = os.path.join(app.root_path, "IndiaLaw.db")
@@ -526,8 +622,21 @@ def rights_chat():
         question = data.get('question', '').strip()
         if not question:
             return jsonify({"answer": "Please ask a question about your rights."}), 400
+        
+        GREETINGS = {
+            "hi", "hii", "hiii", "hello", "hey", "heya", "yo",
+            "good morning", "good afternoon", "good evening",
+            "thanks", "thank you", "ok", "okay", "bye"
+            }
+        
+        if question.lower().strip("!.? ") in GREETINGS:
+            
+            return jsonify({
+                "answer": "Hi! I'm NyayaAI's rights assistant. Ask me about arrest, "
+                "bail, filing an FIR, your right to a lawyer, or any other "
+                "legal rights question — I'll explain it in plain language."
+                })
 
-        # Step 1: RAG search for grounding
         try:
             results = search_law(question)
         except Exception as rag_err:
@@ -543,17 +652,19 @@ def rights_chat():
                     f"• Section {r.get('section', '')}: {r.get('title', '')} — "
                     f"{r.get('description', '')[:250]}\n"
                 )
-
-        groq_prompt = (
+                
+                groq_prompt = (
             f"A citizen asks about their rights under Indian law: {question}"
             f"{rag_context}\n\n"
             f"Answer in simple, plain language a non-lawyer can understand. "
-            f"Be concise (under 200 words). If the legal sections above are relevant, "
-            f"reference them naturally. End with: ⚠️ For official help call 15100."
-        )
+            f"STRICT LIMIT: under 150 words, 3-4 short points maximum — do not "
+            f"list every possibly-relevant section or provision. If the legal "
+            f"sections above are relevant, reference at most 1-2 of them naturally. "
+            f"End with: ⚠️ For official help call 15100."
+            )
 
         # Step 3: Try Groq
-        answer = ask_groq(groq_prompt, max_tokens=500)
+        answer = ask_groq(groq_prompt, max_tokens=1200)
 
         if answer:
             return jsonify({"answer": answer})
@@ -761,28 +872,102 @@ def predict_outcome():
     html    = format_outcome_html(results)
     return jsonify({"prediction": html})
 
-BARE_ACTS_URLS = {
-    "IPC": "https://indiacode.nic.in/bitstream/123456789/2263/1/A1860-45.pdf",
-    "CRPC": "https://indiacode.nic.in/bitstream/123456789/1611/1/A1973-2.pdf",
-    "BNS": "https://indiacode.nic.in/bitstream/123456789/20062/1/a2023-45.pdf",
-    "BNSS": "https://indiacode.nic.in/bitstream/123456789/20064/1/a2023-46.pdf",
-    "IEA": "https://indiacode.nic.in/bitstream/123456789/2187/1/A1872-1.pdf",
+ 
+BARE_ACTS_INFO = {
+    "IPC":  {"label": "Indian Penal Code, 1860",
+             "type": "repealed", "current_equivalent": "BNS",
+             "primary_url": "https://www.indiacode.gov.in/handle/123456789/12850"},
+    "CRPC": {"label": "Code of Criminal Procedure, 1973",
+             "type": "repealed", "current_equivalent": "BNSS",
+             "primary_url": "https://www.indiacode.gov.in/handle/123456789/21613"},
+    "IEA":  {"label": "Indian Evidence Act, 1872",
+             "type": "repealed", "current_equivalent": "BSA",
+             "primary_url": "https://www.indiacode.gov.in/search?query=Indian+Evidence+Act+1872"},
+    "BNS":  {"label": "Bharatiya Nyaya Sanhita, 2023",
+             "type": "current",
+             "primary_url": "https://www.indiacode.gov.in/handle/123456789/20062"},
+    "BNSS": {"label": "Bharatiya Nagarik Suraksha Sanhita, 2023",
+             "type": "current",
+             "primary_url": "https://www.indiacode.gov.in/handle/123456789/20099"},
+    "BSA":  {"label": "Bharatiya Sakshya Adhiniyam, 2023",
+             "type": "current",
+             "primary_url": "https://www.indiacode.gov.in/search?query=Bharatiya+Sakshya+Adhiniyam"},
+    "NIA":  {"label": "Negotiable Instruments Act, 1881", "type": "current",
+             "primary_url": "https://www.indiacode.gov.in/search?query=Negotiable+Instruments+Act"},
+    "HMA":  {"label": "Hindu Marriage Act, 1955", "type": "current",
+             "primary_url": "https://www.indiacode.gov.in/search?query=Hindu+Marriage+Act"},
+    "CPC":  {"label": "Code of Civil Procedure, 1908", "type": "current",
+             "primary_url": "https://www.indiacode.gov.in/search?query=Code+of+Civil+Procedure"},
+    "IDA":  {"label": "Industrial Disputes Act, 1947", "type": "current",
+             "primary_url": "https://www.indiacode.gov.in/search?query=Industrial+Disputes+Act"},
+    "MVA":  {"label": "Motor Vehicles Act, 1988", "type": "current",
+             "primary_url": "https://www.indiacode.gov.in/search?query=Motor+Vehicles+Act"},
 }
+
+_URL_CHECK_CACHE = {}
+_URL_CHECK_TTL = 600  # seconds
+
+def _url_is_reachable(url, timeout=5):
+    """Live-check a URL so we never redirect the user to a known-dead link.
+    Cached briefly so repeated clicks don't hammer an external site."""
+    now = time.time()
+    cached = _URL_CHECK_CACHE.get(url)
+    if cached and (now - cached[1]) < _URL_CHECK_TTL:
+        return cached[0]
+    ok = False
+    try:
+        resp = requests.head(url, allow_redirects=True, timeout=timeout)
+        if resp.status_code >= 400:
+            resp = requests.get(url, allow_redirects=True, timeout=timeout, stream=True)
+        ok = resp.status_code < 400
+        resp.close()
+    except Exception as e:
+        print(f"Bare Act URL check failed for {url}: {e}")
+        ok = False
+    _URL_CHECK_CACHE[url] = (ok, now)
+    return ok
+
+BARE_ACT_UNAVAILABLE_HTML = """<!DOCTYPE html>
+<html><head><title>Bare Act Unavailable</title></head>
+<body style="font-family:Arial,sans-serif;max-width:600px;margin:80px auto;text-align:center;color:#334155;">
+  <h2 style="color:#1e3a8a;">Official Bare Act document is currently unavailable</h2>
+  <p>{{ message }}</p>
+  <p><a href="https://www.indiacode.gov.in" target="_blank" style="color:#2563eb;">Search India Code directly ↗</a></p>
+</body></html>"""
 
 @app.route('/open-bare-act/<act_code>')
 def open_bare_act(act_code):
-    url = BARE_ACTS_URLS.get(act_code.upper())
-    if not url:
-        return jsonify({"error": "Act not found"}), 404
-    return redirect(url)
+    info = BARE_ACTS_INFO.get(act_code.upper())
+    if not info:
+        return render_template_string(
+            BARE_ACT_UNAVAILABLE_HTML,
+            message=f"'{act_code}' is not a recognized act."
+        ), 404
 
-@app.route('/lawyer-dashboard')
+    primary = info["primary_url"]
+    if _url_is_reachable(primary):
+        return redirect(primary)
+
+    fallback = f"https://www.indiacode.gov.in/search?query={info['label'].replace(' ', '+')}"
+    if fallback != primary and _url_is_reachable(fallback):
+        return redirect(fallback)
+
+    return render_template_string(
+        BARE_ACT_UNAVAILABLE_HTML,
+        message=f"We could not reach a working copy of the {info['label']} right now. "
+                f"Please try again shortly or search India Code directly."
+    ), 503
+
+@app.route('/lawyer_dashboard')
 def lawyer_dashboard():
     if 'user_id' not in session:
         return redirect(url_for('login'))
     if session.get('role') != 'lawyer':
         return redirect(url_for('home'))
-    return render_template('lawyer_dashboard.html')
+
+    cases = get_firs_by_lawyer(session['user_id'])
+    lawyer = {"name": session.get('fullname', 'Advocate')}
+    return render_template('lawyer_dashboard.html', cases=cases, lawyer=lawyer)
 
 # ── ADD THIS IMPORT at the top of app.py ──
 from groq import Groq
@@ -790,7 +975,7 @@ from groq import Groq
 # ── ADD THIS after load_dotenv() ──
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 
-def ask_groq(prompt, max_tokens=2000):
+def ask_groq(prompt, max_tokens=2000, reasoning_effort="low"):
     """Fast legal AI using Groq — 300-800 tokens/sec, free tier."""
     try:
         client_groq = Groq(api_key=GROQ_API_KEY)
@@ -802,7 +987,9 @@ def ask_groq(prompt, max_tokens=2000):
                         "You are an expert Indian criminal lawyer with 20 years of experience. "
                         "You draft precise, court-ready legal documents following Indian law. "
                         "Always reference BNSS (replacing CrPC), BNS (replacing IPC), and BSA (replacing Evidence Act) "
-                        "where applicable alongside old provisions. Be formal and thorough."
+                        "where applicable alongside old provisions. Be formal and thorough. "
+                        "Match your answer length to the question — a simple practice question "
+                        "deserves a direct, short answer, not an exhaustive treatise."
                     )
                 },
                 {
@@ -810,11 +997,22 @@ def ask_groq(prompt, max_tokens=2000):
                     "content": prompt
                 }
             ],
-            model="llama-3.3-70b-versatile",  # fastest + best quality on Groq free tier
+            model="openai/gpt-oss-120b",  # fastest + best quality on Groq free tier
             max_tokens=max_tokens,
             temperature=0.3,  # low temp = consistent legal language
+            reasoning_effort=reasoning_effort,  # "low" = less hidden reasoning, more room for the actual answer
         )
-        return chat_completion.choices[0].message.content.strip()
+        text = chat_completion.choices[0].message.content.strip()
+        finish_reason = chat_completion.choices[0].finish_reason
+
+        if finish_reason == "length":
+            text += (
+                "\n\n---\n*⚠️ This answer was cut short by the response length limit. "
+                "Ask a narrower question (e.g. focus on one act, or one aspect of the case) "
+                "to get a complete answer.*"
+            )
+
+        return text
     except Exception as e:
         print(f"Groq API Error: {e}")
         return None  # will fall back to RAG template
@@ -850,7 +1048,7 @@ def lawyer_draft_document():
     enhanced_prompt = prompt + rag_context
 
     # Try Groq first
-    text = ask_groq(enhanced_prompt, max_tokens=2000)
+    text = ask_groq(enhanced_prompt, max_tokens=3000)
 
     # Fallback to RAG template if Groq fails
     if not text:
@@ -885,7 +1083,7 @@ def lawyer_bail_draft():
     enhanced_prompt = prompt + rag_context
 
     # Try Groq
-    text = ask_groq(enhanced_prompt, max_tokens=2000)
+    text = ask_groq(enhanced_prompt, max_tokens=3000)
 
     # Fallback
     if not text:
@@ -907,7 +1105,8 @@ def lawyer_find_precedents():
     if not query:
         return jsonify({"answer": "Please enter a search query."}), 400
 
-    # RAG search first
+    # RAG search first (with the relevance threshold from rag_engine.py,
+    # this correctly returns None for procedural/off-topic queries)
     rag_results = search_law(query)
 
     rag_context = ""
@@ -919,24 +1118,62 @@ def lawyer_find_precedents():
                 f"{r.get('description', '')[:200]}\n"
             )
 
-    if search_type == 'outcome':
+    # ── Detect procedural / how-to queries ──
+    # Lawyers already know the law — what they actually search for is
+    # procedure, drafting, and filing steps, not "which section applies."
+    PROCEDURAL_TRIGGERS = [
+        'how to', 'how do i', 'steps to', 'procedure for', 'process for',
+        'format for', 'how is', 'how can i', 'draft a', 'file a', 'filing',
+        'vakalatnama', 'caveat', 'certified copy', 'stamp duty',
+        'court fee', 'application format'
+    ]
+    is_procedural = any(t in query.lower() for t in PROCEDURAL_TRIGGERS)
+    
+    
+    if is_procedural:
         groq_prompt = (
-            f"As an Indian legal expert, analyze this situation and predict likely case outcome "
-            f"with relevant Supreme Court and High Court precedents:\n\n{query}{rag_context}\n\n"
-            f"Give: 1) Likely outcome 2) Key precedents 3) Relevant sections 4) Advice"
+            f"As an Indian legal practice expert, answer this procedural "
+            f"question for a practicing lawyer:\n\n{query}{rag_context}\n\n"
+            f"Give a direct, practical answer. If the question is a simple "
+            f"'when/should I' practice question (like when to raise an "
+            f"objection), 3-5 short bullet points is enough — do not force "
+            f"a full procedure/document/court-fee breakdown onto a question "
+            f"that doesn't need one. Only go into procedure/format/fee detail "
+            f"if the question is actually asking how to file or draft "
+            f"something. Do not invent case citations. If you're not certain "
+            f"of a specific detail, say so rather than guessing."
+        )
+    elif search_type == 'outcome':
+        groq_prompt = (
+            f"As an Indian legal expert, analyze this situation and predict "
+            f"likely case outcome:\n\n{query}{rag_context}\n\n"
+            f"Give: 1) Likely outcome 2) Key precedents 3) Relevant sections "
+            f"4) Advice. Only cite specific case names/citations if you are "
+            f"confident they are real — otherwise describe the general "
+            f"principle without attributing it to a specific case. "
+            f"Keep the answer complete rather than exhaustive — cover the "        # ← added
+            f"most important 4-6 points fully rather than listing everything "     # ← added
+            f"and running out of room."                                            # ← added
         )
     else:
         groq_prompt = (
-            f"As an Indian legal expert, find all relevant law sections for:\n\n{query}"
-            f"{rag_context}\n\n"
+            f"As an Indian legal expert, find all relevant law sections "
+            f"for:\n\n{query}{rag_context}\n\n"
             f"Give: 1) Applicable IPC/BNS sections 2) CrPC/BNSS provisions "
-            f"3) Key Supreme Court judgments 4) Legal strategy"
+            f"3) Key Supreme Court judgments 4) Legal strategy. Only cite "
+            f"specific case names/citations if you are confident they are "
+            f"real — otherwise describe the general principle without "
+            f"attributing it to a specific case. If the query isn't "
+            f"actually a legal research question (e.g. too vague, off-"
+            f"topic, or unrelated to Indian law), say so directly instead "
+            f"of forcing an answer into this format. "
+            f"Keep the answer complete rather than exhaustive — cover the "        # ← added
+            f"most important 4-6 sections fully rather than listing every "        # ← added
+            f"possibly-relevant one and running out of room."                      # ← added
         )
-
-    answer = ask_groq(groq_prompt, max_tokens=1500)
+    answer = ask_groq(groq_prompt, max_tokens=3500)
 
     if not answer:
-        # Pure RAG fallback
         if rag_results:
             answer = "⚖️ RELEVANT LEGAL SECTIONS (NyayaAI Database):\n\n"
             for r in rag_results[:5]:
@@ -945,7 +1182,164 @@ def lawyer_find_precedents():
         else:
             answer = "No matching legal sections found. Please refine your query."
 
-    return jsonify({"answer": answer})
+        return jsonify({"answer": answer})
+
+
+# ════════════════════════════════════
+# JUDGE PORTAL — LAW LIBRARY / PRECEDENT RESEARCH
+# ════════════════════════════════════
+
+# Hand-curated, verified legal reference data. Only entries here are ever
+# presented as "verified" — the LLM is explicitly forbidden from inventing
+# case names, citations, or section renumbering (see prompt below).
+VERIFIED_PRECEDENTS = [
+    {
+        "case": "Gurbaksh Singh Sibbia v. State of Punjab", "citation": "(1980) 2 SCC 565",
+        "court": "Supreme Court of India", "area": "Anticipatory Bail",
+        "statute_then": "Section 438, Code of Criminal Procedure, 1973",
+        "current_law_note": "Corresponding current provision: Section 482, Bharatiya Nagarik Suraksha Sanhita, 2023 (BNSS).",
+        "principle": "Anticipatory bail should be exercised liberally on a case-by-case basis and not fettered by rigid, statute-unsupported conditions.",
+        "keywords": ["anticipatory bail", "438", "482", "bnss", "crpc", "pre-arrest bail", "sibbia"]
+    },
+    {
+        "case": "Siddharam Satlingappa Mhetre v. State of Maharashtra", "citation": "(2011) 1 SCC 694",
+        "court": "Supreme Court of India", "area": "Anticipatory Bail",
+        "statute_then": "Section 438, Code of Criminal Procedure, 1973",
+        "current_law_note": "Corresponding current provision: Section 482, Bharatiya Nagarik Suraksha Sanhita, 2023 (BNSS).",
+        "principle": "Disapproved fixed time-limits on anticipatory bail; protection should ordinarily continue absent specific grounds for cancellation.",
+        "keywords": ["anticipatory bail", "438", "482", "bnss", "crpc", "duration", "mhetre"]
+    },
+    {
+        "case": "Sushila Aggarwal v. State (NCT of Delhi)", "citation": "(2020) 5 SCC 1",
+        "court": "Supreme Court of India", "area": "Anticipatory Bail",
+        "statute_then": "Section 438, Code of Criminal Procedure, 1973",
+        "current_law_note": "Corresponding current provision: Section 482, Bharatiya Nagarik Suraksha Sanhita, 2023 (BNSS).",
+        "principle": "A five-judge bench held anticipatory bail need not be time-bound and may, absent specific orders, continue till the end of trial.",
+        "keywords": ["anticipatory bail", "438", "482", "bnss", "crpc", "sushila aggarwal"]
+    },
+    {
+        "case": "Arnesh Kumar v. State of Bihar", "citation": "(2014) 8 SCC 273",
+        "court": "Supreme Court of India", "area": "Arrest procedure",
+        "statute_then": "Section 41, Code of Criminal Procedure, 1973",
+        "current_law_note": "Corresponding current provision: Section 35, Bharatiya Nagarik Suraksha Sanhita, 2023 (BNSS).",
+        "principle": "Police must record reasons before arresting for offences punishable up to seven years and satisfy statutory arrest conditions first.",
+        "keywords": ["arrest", "41", "35", "bnss", "crpc", "arnesh kumar", "casual arrest"]
+    },
+    {
+        "case": "Sanjay Chandra v. Central Bureau of Investigation", "citation": "(2012) 1 SCC 40",
+        "court": "Supreme Court of India", "area": "Regular Bail",
+        "statute_then": "Section 439, Code of Criminal Procedure, 1973",
+        "current_law_note": "Corresponding current provision: Section 483, Bharatiya Nagarik Suraksha Sanhita, 2023 (BNSS).",
+        "principle": "Bail is the rule, jail the exception; pre-trial detention should not be punitive.",
+        "keywords": ["bail", "439", "483", "bnss", "crpc", "sanjay chandra", "economic offence"]
+    },
+]
+
+SECTION_CORRESPONDENCE = {
+    "438 crpc": "Section 482, Bharatiya Nagarik Suraksha Sanhita, 2023 (BNSS) — Anticipatory bail",
+    "437 crpc": "Section 480, Bharatiya Nagarik Suraksha Sanhita, 2023 (BNSS) — Bail in non-bailable offences",
+    "439 crpc": "Section 483, Bharatiya Nagarik Suraksha Sanhita, 2023 (BNSS) — High Court/Sessions Court bail powers",
+    "41 crpc":  "Section 35, Bharatiya Nagarik Suraksha Sanhita, 2023 (BNSS) — Arrest without warrant",
+    "154 crpc": "Section 173, Bharatiya Nagarik Suraksha Sanhita, 2023 (BNSS) — Registration of FIR",
+    "156 crpc": "Section 175, Bharatiya Nagarik Suraksha Sanhita, 2023 (BNSS) — Police power to investigate",
+}
+
+def find_verified_precedents(query, limit=4):
+    q = query.lower()
+    scored = []
+    for p in VERIFIED_PRECEDENTS:
+        score = max(
+            fuzz.partial_ratio(q, p["case"].lower()),
+            max((fuzz.partial_ratio(q, kw) for kw in p["keywords"]), default=0)
+        )
+        if score >= 60:
+            scored.append((score, p))
+    scored.sort(key=lambda x: -x[0])
+    return [p for _, p in scored[:limit]]
+
+def find_section_correspondence(query):
+    q = query.lower()
+    return [
+        f"Section {old.split()[0].upper()} {old.split()[1].upper()} → {new}"
+        for old, new in SECTION_CORRESPONDENCE.items() if old in q
+    ]
+
+@app.route('/judge/precedents', methods=['POST'])
+def judge_find_precedents():
+    if 'user_id' not in session or session.get('role') != 'judge':
+        return jsonify({"error": "Unauthorized"}), 401
+
+    data = request.get_json()
+    query = (data.get('query') or '').strip()
+    if not query:
+        return jsonify({"answer": "Please enter a research query."}), 400
+
+    verified_cases = find_verified_precedents(query)
+    correspondence_notes = find_section_correspondence(query)
+
+    try:
+        rag_results = search_law(query)
+    except Exception as rag_err:
+        print(f"RAG failed: {rag_err}")
+        rag_results = None
+
+    sections = []
+
+    if verified_cases:
+        block = "### Verified Supreme Court Precedents\n\n"
+        for i, c in enumerate(verified_cases, 1):
+            block += (
+                f"{i}. {c['case']}\n"
+                f"   Citation: {c['citation']}\n"
+                f"   Court: {c['court']}\n"
+                f"   Area: {c['area']}\n"
+                f"   Statute discussed: {c['statute_then']}\n"
+                f"   Key principle: {c['principle']}\n"
+                f"   Current-law note: {c['current_law_note']}\n\n"
+            )
+        sections.append(block)
+    else:
+        sections.append(
+            "### Verified Supreme Court Precedents\n\n"
+            "No verified precedent in NyayaAI's curated database matched this query. "
+            "Source could not be verified — cross-check against SCC / SCC OnLine / the "
+            "Supreme Court's judgment portal before relying on any case law here.\n"
+        )
+
+    if rag_results:
+        block = "### Statute Sections (NyayaAI Legal Database)\n\n"
+        for r in rag_results[:4]:
+            block += f"- Section {r.get('section','')}: {r.get('title','')} — {(r.get('description','') or '')[:200]}\n"
+        sections.append(block)
+
+    if correspondence_notes:
+        sections.append("### Current-Law Correspondence (verified)\n\n" + "\n".join(f"- {n}" for n in correspondence_notes))
+
+    verified_block = "\n\n".join(sections)
+
+    groq_prompt = (
+        f"A judge is researching: \"{query}\"\n\n"
+        f"Below is VERIFIED material already confirmed by NyayaAI. Write a short neutral "
+        f"summary (120-180 words) of the legal position for judicial reference, in plain prose. "
+        f"Do not repeat the verified material verbatim.\n\n"
+        f"STRICT RULES:\n"
+        f"- Do NOT invent, rename, or 'translate' any section number into a different Act. "
+        f"Only use section numbers/Act names that appear in the verified material below.\n"
+        f"- Do NOT cite any case name, citation, or court not in the verified material below. "
+        f"You may describe general principles without attributing them to a specific case.\n"
+        f"- If the verified material is empty or insufficient, say so plainly instead of "
+        f"filling the gap.\n\n"
+        f"VERIFIED MATERIAL:\n{verified_block}"
+    )
+    ai_summary = ask_groq(groq_prompt, max_tokens=600, reasoning_effort="low")
+
+    final_answer = verified_block
+    if ai_summary:
+        final_answer += "\n\n### AI-Generated Explanation (for judicial reference only — verify independently)\n\n" + ai_summary
+    else:
+        final_answer += "\n\n### AI-Generated Explanation\n\nUnavailable right now — please rely on the verified material above."
+
+    return jsonify({"answer": final_answer})
 
 
 # ════════════════════════════════════
@@ -1112,18 +1506,22 @@ def search_sections():
     """
 
     ai_output = ask_ollama(prompt)
-
+    
+    ai_results = []
+    
     try:
         start = ai_output.find("[")
         end = ai_output.rfind("]") + 1
-        cleaned = ai_output[start:end]
-        ai_results = json.loads(cleaned)
-    except:
-        ai_results = [{
-        "act": "AI",
-        "section": "-",
-        "title": ai_output[:200]
-    }]
+        if start != -1 and end > start:
+            parsed = json.loads(ai_output[start:end])
+            if isinstance(parsed, list):
+                ai_results = [
+                    r for r in parsed
+                    if isinstance(r, dict) and r.get("act") and r.get("section") and r.get("title")
+                ]
+    except Exception as e:
+        print(f"AI search parse failed (ignored, no fake result injected): {e}")
+        ai_results = []
 
     # ---------------------------
     # MERGE RESULTS
@@ -1166,8 +1564,6 @@ def ask_law():
 
     return jsonify({"answer": answer})
 
-
-# MongoDB connection
 
 fir_collection = db["fir_records"]
 evidence_collection = db["evidence_files"]
@@ -1227,6 +1623,15 @@ def log_evidence_view(fir_no, action, user):
         print(f"Failed to log evidence access: {e}")
 
 
+@app.route('/api/fir-records/<fir_no>/assign-lawyer', methods=['POST'])
+def assign_lawyer(fir_no):
+    if 'user_id' not in session or session.get('role') != 'lawyer':
+        return jsonify({"error": "Unauthorized"}), 401
+    fir_no = fir_no.strip()
+    if not assign_lawyer_to_fir(fir_no, session['user_id']):
+        return jsonify({"error": "FIR not found"}), 404
+    return jsonify({"message": "Case added to your dashboard", "fir_no": fir_no})
+
 # Folder to store generated PDFs
 PDF_FOLDER = "generated_firs"
 os.makedirs(PDF_FOLDER, exist_ok=True)
@@ -1263,6 +1668,14 @@ def get_fir_record(fir_no):
 def generate_fir():
 
     data = request.get_json()
+    if not data:
+        return jsonify({"error": "No JSON received"}), 400
+
+    errors = validate_fir_data(data)
+    if errors:
+        return jsonify({"error": "Validation failed", "details": errors}), 400
+
+    complaint_text = data.get("statement", "")
     
     if not data:
         return jsonify({"error": "No JSON received"}), 400
@@ -1828,6 +2241,243 @@ def seed_evidence_from_filesystem():
             seeded += 1
     if seeded:
         print(f"Evidence migration: seeded {seeded} file(s) into MongoDB.")
+        
+        
+
+@app.route('/api/case/<fir_no>/hearings', methods=['GET'])
+def get_hearings(fir_no):
+    if 'user_id' not in session or session.get('role') != 'lawyer':
+        return jsonify({"error": "Unauthorized"}), 401
+    if not lawyer_owns_case(fir_no):
+        return jsonify({"error": "Forbidden"}), 403
+    return jsonify(get_case_hearings(fir_no))
+
+@app.route('/api/case/<fir_no>/hearings', methods=['POST'])
+def add_hearing(fir_no):
+    if 'user_id' not in session or session.get('role') != 'lawyer':
+        return jsonify({"error": "Unauthorized"}), 401
+    if not lawyer_owns_case(fir_no):
+        return jsonify({"error": "Forbidden"}), 403
+    data = request.get_json()
+    hearing_date = data.get('hearing_date', '').strip()
+    note = data.get('note', '').strip()
+    if not hearing_date:
+        return jsonify({"error": "Hearing date required"}), 400
+    add_case_hearing(fir_no, hearing_date, note)
+
+    # Sync next_hearing_date to the earliest upcoming hearing for this case
+    all_hearings = get_case_hearings(fir_no)
+    today = datetime.now().strftime('%Y-%m-%d')
+    upcoming = sorted([h['hearing_date'] for h in all_hearings if h['hearing_date'] >= today])
+    if upcoming:
+        update_next_hearing_date(fir_no, upcoming[0])
+
+    return jsonify({"message": "Hearing added"}), 201
+
+
+@app.route('/api/case/<fir_no>/drafts', methods=['GET'])
+def get_drafts(fir_no):
+    if 'user_id' not in session or session.get('role') != 'lawyer':
+        return jsonify({"error": "Unauthorized"}), 401
+    if not lawyer_owns_case(fir_no):
+        return jsonify({"error": "Forbidden"}), 403
+    return jsonify(get_case_drafts(fir_no))
+
+@app.route('/api/case/<fir_no>/drafts', methods=['POST'])
+def save_draft(fir_no):
+    if 'user_id' not in session or session.get('role') != 'lawyer':
+        return jsonify({"error": "Unauthorized"}), 401
+    if not lawyer_owns_case(fir_no):
+        return jsonify({"error": "Forbidden"}), 403
+    data = request.get_json()
+    kind = data.get('kind', 'document').strip()
+    content = data.get('content', '').strip()
+    if not content:
+        return jsonify({"error": "Draft content required"}), 400
+    saved = save_case_draft(fir_no, kind, content)
+    return jsonify({"message": "Draft saved", "id": saved.get('id') if saved else None}), 201
+
+@app.route('/api/case/<fir_no>/drafts/<int:draft_id>', methods=['DELETE'])
+def delete_draft(fir_no, draft_id):
+    if 'user_id' not in session or session.get('role') != 'lawyer':
+        return jsonify({"error": "Unauthorized"}), 401
+    if not lawyer_owns_case(fir_no):
+        return jsonify({"error": "Forbidden"}), 403
+    delete_case_draft(fir_no, draft_id)
+    return jsonify({"message": "Draft deleted"})
+
+@app.route('/api/lawyer/drafts', methods=['GET'])
+def get_all_lawyer_drafts():
+    if 'user_id' not in session or session.get('role') != 'lawyer':
+        return jsonify({"error": "Unauthorized"}), 401
+
+    cases = get_firs_by_lawyer(session['user_id'])
+    fir_nos = [c.get('fir_no') for c in cases if c.get('fir_no')]
+    return jsonify(get_case_drafts_for_firs(fir_nos))
+    
+
+VALID_CASE_STATUSES = ['Investigation', 'Court Proceedings', 'Trial', 'Closed']
+
+@app.route('/api/case/<fir_no>/status', methods=['PATCH'])
+def update_case_status(fir_no):
+    if 'user_id' not in session or session.get('role') != 'lawyer':
+        return jsonify({"error": "Unauthorized"}), 401
+    if not lawyer_owns_case(fir_no):
+        return jsonify({"error": "Forbidden"}), 403
+    data = request.get_json()
+    status = data.get('status', '').strip()
+    if status not in VALID_CASE_STATUSES:
+        return jsonify({"error": "Invalid status"}), 400
+    if not update_fir_status(fir_no, status):
+        return jsonify({"error": "FIR not found"}), 404
+    return jsonify({"message": "Status updated", "status": status})
+
+
+DEADLINE_TYPES = [
+    'Chargesheet Filing', 'Bail Application', 'Appeal Limitation',
+    'Revision Petition', 'Discharge Application', 'Custom'
+]
+
+@app.route('/api/case/<fir_no>/deadlines', methods=['GET'])
+def get_deadlines(fir_no):
+    if 'user_id' not in session or session.get('role') != 'lawyer':
+        return jsonify({"error": "Unauthorized"}), 401
+    if not lawyer_owns_case(fir_no):
+        return jsonify({"error": "Forbidden"}), 403
+    return jsonify(get_case_deadlines(fir_no))
+
+@app.route('/api/case/<fir_no>/deadlines', methods=['POST'])
+def add_deadline(fir_no):
+    if 'user_id' not in session or session.get('role') != 'lawyer':
+        return jsonify({"error": "Unauthorized"}), 401
+    if not lawyer_owns_case(fir_no):
+        return jsonify({"error": "Forbidden"}), 403
+    data = request.get_json()
+    deadline_type = data.get('deadline_type', '').strip()
+    due_date = data.get('due_date', '').strip()
+    note = data.get('note', '').strip()
+    if not deadline_type or not due_date:
+        return jsonify({"error": "Deadline type and due date are required"}), 400
+    saved = add_case_deadline(fir_no, deadline_type, due_date, note)
+    return jsonify({"message": "Deadline added", "id": saved.get('id') if saved else None}), 201
+
+@app.route('/api/case/<fir_no>/deadlines/<int:deadline_id>', methods=['PATCH'])
+def update_deadline(fir_no, deadline_id):
+    if 'user_id' not in session or session.get('role') != 'lawyer':
+        return jsonify({"error": "Unauthorized"}), 401
+    if not lawyer_owns_case(fir_no):
+        return jsonify({"error": "Forbidden"}), 403
+    data = request.get_json()
+    completed = bool(data.get('completed', True))
+    mark_deadline_complete(fir_no, deadline_id, completed)
+    return jsonify({"message": "Deadline updated"})
+
+@app.route('/api/case/<fir_no>/deadlines/<int:deadline_id>', methods=['DELETE'])
+def remove_deadline(fir_no, deadline_id):
+    if 'user_id' not in session or session.get('role') != 'lawyer':
+        return jsonify({"error": "Unauthorized"}), 401
+    if not lawyer_owns_case(fir_no):
+        return jsonify({"error": "Forbidden"}), 403
+    delete_case_deadline(fir_no, deadline_id)
+    return jsonify({"message": "Deadline deleted"})
+
+@app.route('/api/lawyer/deadlines', methods=['GET'])
+def get_all_lawyer_deadlines():
+    """Across all of the lawyer's cases — for the Home widget."""
+    if 'user_id' not in session or session.get('role') != 'lawyer':
+        return jsonify({"error": "Unauthorized"}), 401
+    cases = get_firs_by_lawyer(session['user_id'])
+    fir_nos = [c.get('fir_no') for c in cases if c.get('fir_no')]
+    return jsonify(get_upcoming_deadlines_for_firs(fir_nos))
+
+@app.route('/api/case/<fir_no>/client-visibility', methods=['PATCH'])
+def update_client_visibility(fir_no):
+    if 'user_id' not in session or session.get('role') != 'lawyer':
+        return jsonify({"error": "Unauthorized"}), 401
+    if not lawyer_owns_case(fir_no):
+        return jsonify({"error": "Forbidden"}), 403
+    data = request.get_json()
+    visible = bool(data.get('visible', False))
+    note = data.get('note', '').strip()
+    try:
+        if not set_client_visibility(fir_no, visible, note):
+            return jsonify({"error": "FIR not found"}), 404
+    except Exception as e:
+        print(f"client-visibility update error: {e}")
+        return jsonify({"error": "Could not save. Check server logs."}), 500
+    return jsonify({"message": "Updated", "visible": visible})
+
+
+@app.route('/api/case/<fir_no>/client-status', methods=['GET'])
+def get_client_status(fir_no):
+    """Public — no login required, matches the citizen 'My Lawyer' lookup pattern."""
+    fir = get_fir(fir_no)
+    if not fir or not fir.get('visible_to_client'):
+        return jsonify({"error": "Status not available for this FIR"}), 404
+    return jsonify({
+        "fir_no": fir.get('fir_no'),
+        "status": fir.get('status'),
+        "next_hearing_date": fir.get('next_hearing_date'),
+        "client_note": fir.get('client_note') or "",
+        "client_note_updated_at": fir.get('client_note_updated_at')
+    })
+    
+
+@app.route('/api/lawyer/profile', methods=['GET'])
+def get_lawyer_profile():
+    if 'user_id' not in session or session.get('role') != 'lawyer':
+        return jsonify({"error": "Unauthorized"}), 401
+    user = users_collection.find_one({'_id': ObjectId(session['user_id'])})
+    if not user:
+        return jsonify({"error": "Not found"}), 404
+    return jsonify({
+        "fullname": user.get('fullname', ''),
+        "email": user.get('email', ''),
+        "unique_id": user.get('unique_id', ''),
+        "phone": user.get('phone', ''),
+        "office_address": user.get('office_address', ''),
+        "bio": user.get('bio', ''),
+        "years_experience": user.get('years_experience', ''),
+        "bar_enrollment_no": user.get('bar_enrollment_no', ''),
+        "practice_area": user.get('practice_area', ''),
+        "photo_url": user.get('photo_url', '')
+    })
+
+@app.route('/api/lawyer/profile', methods=['PATCH'])
+def update_lawyer_profile():
+    if 'user_id' not in session or session.get('role') != 'lawyer':
+        return jsonify({"error": "Unauthorized"}), 401
+    data = request.get_json()
+    allowed_fields = ['phone', 'office_address', 'bio', 'years_experience', 'bar_enrollment_no', 'practice_area']
+    update = {k: str(data.get(k, '')).strip() for k in allowed_fields if k in data}
+    if not update:
+        return jsonify({"error": "No fields to update"}), 400
+    users_collection.update_one({'_id': ObjectId(session['user_id'])}, {'$set': update})
+    return jsonify({"message": "Profile updated"})
+
+@app.route('/api/lawyer/profile/photo', methods=['POST'])
+def upload_lawyer_photo():
+    if 'user_id' not in session or session.get('role') != 'lawyer':
+        return jsonify({"error": "Unauthorized"}), 401
+    file = request.files.get('photo')
+    if not file or file.filename == '':
+        return jsonify({"error": "No photo provided"}), 400
+
+    temp_dir = os.path.join(app.root_path, 'static', 'uploads', 'temp_avatars')
+    os.makedirs(temp_dir, exist_ok=True)
+    ext = os.path.splitext(secure_filename(file.filename))[1] or '.jpg'
+    temp_path = os.path.join(temp_dir, f"{session['user_id']}{ext}")
+    file.save(temp_path)
+
+    try:
+        url = upload_profile_photo(temp_path, session['user_id'])
+    except Exception as e:
+        print(f"Profile photo upload error: {e}")
+        return jsonify({"error": "Upload failed"}), 500
+
+    users_collection.update_one({'_id': ObjectId(session['user_id'])}, {'$set': {'photo_url': url}})
+    return jsonify({"message": "Photo updated", "photo_url": url})
+
 
 if __name__ == '__main__':
     init_fir_table()

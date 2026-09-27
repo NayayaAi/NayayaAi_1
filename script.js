@@ -53,73 +53,19 @@ async function uploadProofsForFIR(firNo) {
     document.getElementById('proofFileList').innerHTML = '';
 }
 
-// Function to handle the actual upload
-async function handleEvidenceUpload(event) {
-    event.preventDefault(); // must be first — stops native submit no matter what happens after
-
-    const firNo = document.getElementById('evidenceFirNo')?.value
-               || event.target.querySelector('[name="fir_no"]')?.value;
-    const fileInput = document.getElementById('evidenceFileInput')
-               || event.target.querySelector('[name="file"]');
-
-    if (!firNo || !fileInput?.files?.length) {
-        alert("Please provide both an FIR number and a file.");
-        return false;
-    }
-
-    const formData = new FormData();
-    formData.append('fir_no', firNo);
-    formData.append('file', fileInput.files[0]);
-
-    try {
-        const response = await fetch('/upload-evidence', {
-            method: 'POST',
-            body: formData
-        });
-
-        const result = await response.json();
-
-        if (!response.ok) {
-            alert("Upload failed: " + (result.error || "Unknown error"));
-            return false;
-        }
-
-        alert("Evidence successfully secured in locker.");
-        fileInput.value = "";
-        const label = document.getElementById('selectedFileLabel');
-        if (label) label.classList.add('hidden');
-        loadEvidence();
-    } catch (error) {
-        console.error("Upload error:", error);
-        alert("Something went wrong uploading the file. Check the console for details.");
-    }
-
-    return false; // belt-and-braces, in case preventDefault didn't stick
-}
-
-
-function updateFileLabel(input) {
-    const label = document.getElementById('selectedFileLabel');
-    const nameSpan = document.getElementById('selectedFileName');
-    if (input.files.length > 0) {
-        nameSpan.textContent = input.files[0].name;
-        label.classList.remove('hidden');
-    } else {
-        label.classList.add('hidden');
-    }
-}
-
-function loadEvidenceGrid() {
-    return loadEvidence();
-}
-
+// NOTE: handleEvidenceUpload, updateFileLabel, loadEvidenceGrid, and loadEvidence
+// are intentionally NOT defined here anymore — they live in the inline <script>
+// block at the bottom of the HTML and are the versions actually wired to the
+// Evidence Locker UI (they're FIR-scoped via ?fir_no=...). Duplicate stub
+// versions previously here were dead code shadowed by the inline ones; removed
+// to avoid drift/bugs if script load order ever changes.
 
 function handleSearch() {
     const input = document.getElementById('userInput').value;
     if (input.trim() !== "") {
         // Here you would normally redirect or update the UI
         alert("Connecting to Nyaya AI for: " + input);
-        
+
         /* In a real app, you would use:
         window.location.href = `chat.html?query=${encodeURIComponent(input)}`;
         */
@@ -135,36 +81,195 @@ document.getElementById('userInput')?.addEventListener('keypress', function (e) 
     }
 });
 
-async function loadEvidence() {
+// ══════════════════════════════════════════════════════════════
+// Law Browser Modal — IPC / CrPC section browser
+// ══════════════════════════════════════════════════════════════
+let lbData = [];
+let lbFiltered = [];
+let lbCurrentAct = '';
+let lbPage = 1;
+const LB_PAGE_SIZE = 20;
+let lbSearchTimeout = null;
+
+async function openLawBrowser(act) {
+    lbCurrentAct = act;
+    lbPage = 1;
+
+    const searchEl = document.getElementById('lbSearch');
+    if (searchEl) searchEl.value = '';
+
+    document.getElementById('lbTitle').textContent =
+        act === 'IPC' ? 'Indian Penal Code' : 'Criminal Procedure Code';
+    document.getElementById('lbBadge').textContent = act;
+    document.getElementById('lbList').innerHTML =
+        '<div class="px-6 py-8 text-center text-slate-400">Loading…</div>';
+
+    const modal = document.getElementById('lawBrowserModal');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+
     try {
-        const res = await fetch('/api/evidence');
+        const res = await fetch(`/api/sections/${act}?limit=1000&all=true`);
+        if (!res.ok) throw new Error('Failed to load sections');
+        const raw = await res.json();
+
+        // Normalize whatever shape the API returns into a plain array
+        if (Array.isArray(raw)) {
+            lbData = raw;
+        } else if (Array.isArray(raw.sections)) {
+            lbData = raw.sections;
+        } else if (Array.isArray(raw.data)) {
+            lbData = raw.data;
+        } else if (Array.isArray(raw.results)) {
+            lbData = raw.results;
+        } else {
+            console.error('Unexpected /api/sections response shape:', raw);
+            throw new Error('Unexpected response shape from /api/sections');
+        }
+
+        lbFiltered = lbData;
+        lbRenderPage();
+    } catch (err) {
+        console.error('Law browser load error:', err);
+        document.getElementById('lbList').innerHTML =
+            '<div class="px-6 py-8 text-center text-red-500">Failed to load sections.</div>';
+    }
+}
+
+function closeLawBrowser() {
+    const modal = document.getElementById('lawBrowserModal');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+}
+
+function debouncedSearch() {
+    clearTimeout(lbSearchTimeout);
+    lbSearchTimeout = setTimeout(() => {
+        const q = (document.getElementById('lbSearch').value || '').trim().toLowerCase();
+        lbFiltered = !q
+            ? lbData
+            : lbData.filter(s =>
+                String(s.section).toLowerCase().includes(q) ||
+                (s.title || '').toLowerCase().includes(q)
+            );
+        lbPage = 1;
+        lbRenderPage();
+    }, 300);
+}
+
+function lbRenderPage() {
+    const listEl = document.getElementById('lbList');
+    const total = lbFiltered.length;
+    const totalPages = Math.max(1, Math.ceil(total / LB_PAGE_SIZE));
+    lbPage = Math.min(lbPage, totalPages);
+
+    const start = (lbPage - 1) * LB_PAGE_SIZE;
+    const pageItems = lbFiltered.slice(start, start + LB_PAGE_SIZE);
+
+    document.getElementById('lbTotal').textContent = `${total} sections`;
+
+    listEl.innerHTML = pageItems.length
+        ? pageItems.map(s => `
+            <div class="px-6 py-3 hover:bg-blue-50 cursor-pointer" onclick="lbShowDetail('${escapeHtml(String(s.section))}')">
+                <span class="font-bold text-blue-700">Section ${escapeHtml(String(s.section))}</span>
+                <span class="text-slate-600 ml-2">${escapeHtml(s.title || '')}</span>
+            </div>`).join('')
+        : '<div class="px-6 py-8 text-center text-slate-400">No matching sections.</div>';
+
+    document.getElementById('lbPageInfo').textContent = `Page ${lbPage} of ${totalPages}`;
+    document.getElementById('lbPrev').disabled = lbPage <= 1;
+    document.getElementById('lbNext').disabled = lbPage >= totalPages;
+}
+
+function lbChangePage(delta) {
+    lbPage += delta;
+    lbRenderPage();
+}
+
+async function lbShowDetail(section) {
+    const listEl = document.getElementById('lbList');
+    const footerPageInfo = document.getElementById('lbPageInfo');
+    const prevBtn = document.getElementById('lbPrev');
+    const nextBtn = document.getElementById('lbNext');
+    const searchEl = document.getElementById('lbSearch');
+
+    // Hide list controls while showing detail
+    if (searchEl) searchEl.parentElement.classList.add('hidden');
+    if (footerPageInfo) footerPageInfo.classList.add('hidden');
+    if (prevBtn) prevBtn.classList.add('hidden');
+    if (nextBtn) nextBtn.classList.add('hidden');
+
+    listEl.innerHTML = `
+        <div class="px-6 py-8 text-center text-slate-400">
+            <div class="inline-block w-6 h-6 border-2 border-blue-300 border-t-blue-600 rounded-full animate-spin"></div>
+            <p class="mt-3 text-sm">Loading section detail…</p>
+        </div>`;
+
+    try {
+        const res = await fetch(`/api/section-detail/${lbCurrentAct}/${encodeURIComponent(section)}`);
         const data = await res.json();
 
-        const grid = document.getElementById('evidenceGrid');
-        const empty = document.getElementById('evidenceEmptyState');
-
-        grid.innerHTML = '';
-
-        if (!data.length) {
-            empty.classList.remove('hidden');
+        if (!res.ok) {
+            listEl.innerHTML = `
+                <div class="px-6 py-8 text-center text-red-500">
+                    Could not load Section ${escapeHtml(section)}.
+                </div>
+                <div class="px-6 pb-6 text-center">
+                    <button onclick="lbBackToList()"
+                        class="px-4 py-2 text-sm font-semibold text-blue-600 hover:bg-blue-50 rounded-lg transition">
+                        ← Back to list
+                    </button>
+                </div>`;
             return;
         }
 
-        empty.classList.add('hidden');
-
-        data.forEach(file => {
-            grid.innerHTML += `
-                <div class="bg-slate-50 p-3 rounded border">
-                    <p class="text-xs truncate">${file.name}</p>
-                    <a href="${file.url}" target="_blank"
-                       class="text-blue-500 text-xs font-bold">
-                       VIEW
-                    </a>
+        listEl.innerHTML = `
+            <div class="px-6 py-6">
+                <button onclick="lbBackToList()"
+                    class="mb-4 text-sm font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1 transition">
+                    ← Back to list
+                </button>
+                <div class="bg-blue-50 border border-blue-100 rounded-xl p-5">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="text-xs font-bold bg-blue-600 text-white px-2 py-0.5 rounded-full">${escapeHtml(lbCurrentAct)}</span>
+                        <span class="font-bold text-blue-900 text-lg">Section ${escapeHtml(section)}</span>
+                    </div>
+                    <p class="font-semibold text-slate-800 mb-3">${escapeHtml(data.title || '')}</p>
+                    <p class="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">${escapeHtml(data.description || 'No description available.')}</p>
                 </div>
-            `;
-        });
-
+            </div>`;
     } catch (err) {
-        console.error("Failed to load evidence", err);
+        console.error('Section detail error:', err);
+        listEl.innerHTML = `
+            <div class="px-6 py-8 text-center text-red-500">
+                Failed to load section detail.
+            </div>
+            <div class="px-6 pb-6 text-center">
+                <button onclick="lbBackToList()"
+                    class="px-4 py-2 text-sm font-semibold text-blue-600 hover:bg-blue-50 rounded-lg transition">
+                    ← Back to list
+                </button>
+            </div>`;
     }
 }
+
+function lbBackToList() {
+    const footerPageInfo = document.getElementById('lbPageInfo');
+    const prevBtn = document.getElementById('lbPrev');
+    const nextBtn = document.getElementById('lbNext');
+    const searchEl = document.getElementById('lbSearch');
+
+    if (searchEl) searchEl.parentElement.classList.remove('hidden');
+    if (footerPageInfo) footerPageInfo.classList.remove('hidden');
+    if (prevBtn) prevBtn.classList.remove('hidden');
+    if (nextBtn) nextBtn.classList.remove('hidden');
+
+    lbRenderPage();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const modal = document.getElementById('lawBrowserModal');
+    modal?.addEventListener('click', function (e) {
+        if (e.target === this) closeLawBrowser();
+    });
+});

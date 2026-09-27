@@ -38,3 +38,178 @@ def fir_exists(fir_no):
     """Check if a FIR number already exists."""
     result = supabase.table("firs").select("fir_no").eq("fir_no", fir_no).execute()
     return len(result.data) > 0
+
+def assign_lawyer_to_fir(fir_no, lawyer_id):
+    """Assign a lawyer to a FIR by fir_no. Returns True if a row was updated."""
+    result = supabase.table("firs").update(
+        {"assigned_lawyer_id": lawyer_id}
+    ).eq("fir_no", fir_no).execute()
+    return len(result.data) > 0
+
+def get_firs_by_lawyer(lawyer_id):
+    """Fetch all FIRs assigned to a given lawyer."""
+    result = supabase.table("firs").select("*").eq("assigned_lawyer_id", lawyer_id).execute()
+    return result.data
+
+def add_case_hearing(fir_no, hearing_date, note):
+    """Add a hearing date for a case."""
+    result = supabase.table("case_hearings").insert({
+        "fir_no": fir_no,
+        "hearing_date": hearing_date,
+        "note": note
+    }).execute()
+    return result.data[0] if result.data else None
+
+def get_case_hearings(fir_no):
+    """Fetch all hearings for a case, oldest first."""
+    result = supabase.table("case_hearings").select("*").eq("fir_no", fir_no).order("hearing_date").execute()
+    return result.data
+
+def save_case_draft(fir_no, kind, content):
+    """Save a generated draft for a case."""
+    result = supabase.table("case_drafts").insert({
+        "fir_no": fir_no,
+        "kind": kind,
+        "content": content
+    }).execute()
+    return result.data[0] if result.data else None
+
+def get_case_drafts(fir_no):
+    """Fetch all saved drafts for a case, newest first."""
+    result = supabase.table("case_drafts").select("*").eq("fir_no", fir_no).order("created_at", desc=True).execute()
+    return result.data
+
+def delete_case_draft(fir_no, draft_id):
+    """Delete a specific draft. Returns True if a row was deleted."""
+    result = supabase.table("case_drafts").delete().eq("id", draft_id).eq("fir_no", fir_no).execute()
+    return len(result.data) > 0
+
+def get_case_drafts_for_firs(fir_nos):
+    """Fetch all drafts across a list of FIR numbers, newest first."""
+    if not fir_nos:
+        return []
+    result = supabase.table("case_drafts").select("*").in_("fir_no", fir_nos).order("created_at", desc=True).execute()
+    return result.data
+
+def update_fir_status(fir_no, status):
+    """Update the status field on a FIR. Returns True if a row was updated."""
+    result = supabase.table("firs").update({"status": status}).eq("fir_no", fir_no).execute()
+    return len(result.data) > 0
+
+def update_next_hearing_date(fir_no, hearing_date):
+    """Update the next_hearing_date field on a FIR record."""
+    result = supabase.table("firs").update({"next_hearing_date": hearing_date}).eq("fir_no", fir_no).execute()
+    return len(result.data) > 0
+
+def add_case_deadline(fir_no, deadline_type, due_date, note=""):
+    """Insert a new deadline for a case."""
+    result = supabase.table("case_deadlines").insert({
+        "fir_no": fir_no,
+        "deadline_type": deadline_type,
+        "due_date": due_date,
+        "note": note,
+        "completed": False
+    }).execute()
+    return result.data[0] if result.data else None
+
+def get_case_deadlines(fir_no):
+    """All deadlines for one case, soonest first."""
+    result = supabase.table("case_deadlines").select("*").eq("fir_no", fir_no).order("due_date").execute()
+    return result.data
+
+def mark_deadline_complete(fir_no, deadline_id, completed):
+    """Toggle a deadline's completed flag."""
+    result = supabase.table("case_deadlines").update({"completed": completed}).eq("id", deadline_id).eq("fir_no", fir_no).execute()
+    return len(result.data) > 0
+
+def delete_case_deadline(fir_no, deadline_id):
+    supabase.table("case_deadlines").delete().eq("id", deadline_id).eq("fir_no", fir_no).execute()
+
+def get_upcoming_deadlines_for_firs(fir_nos, days_ahead=14):
+    """Across all of a lawyer's cases: incomplete deadlines due within N days (includes overdue)."""
+    if not fir_nos:
+        return []
+    from datetime import datetime, timedelta
+    cutoff = (datetime.now() + timedelta(days=days_ahead)).strftime('%Y-%m-%d')
+    result = supabase.table("case_deadlines") \
+        .select("*") \
+        .in_("fir_no", fir_nos) \
+        .eq("completed", False) \
+        .lte("due_date", cutoff) \
+        .order("due_date") \
+        .execute()
+    return result.data
+
+def set_client_visibility(fir_no, visible, note):
+    from datetime import datetime, timezone
+    result = supabase.table("firs").update({
+        "visible_to_client": visible,
+        "client_note": note,
+        "client_note_updated_at": datetime.now(timezone.utc).isoformat()
+    }).eq("fir_no", fir_no).execute()
+    return len(result.data) > 0
+
+def upload_profile_photo(photo_path, user_id):
+    """Upload a lawyer's profile photo to Supabase Storage, return public URL."""
+    ext = os.path.splitext(photo_path)[1] or ".jpg"
+    with open(photo_path, "rb") as f:
+        supabase.storage.from_("avatars").upload(
+            f"{user_id}{ext}", f,
+            {"content-type": "image/jpeg", "upsert": "true"}
+        )
+    url = supabase.storage.from_("avatars").get_public_url(f"{user_id}{ext}")
+    os.remove(photo_path)
+    return url
+
+def add_docket_entry(judge_id, case_id, hearing_date, case_type="", urgency="normal", remarks=""):
+    result = supabase.table("case_docket").insert({
+        "judge_id": judge_id,
+        "case_id": case_id,
+        "hearing_date": hearing_date,
+        "case_type": case_type,
+        "urgency": urgency,
+        "status": "scheduled",
+        "remarks": remarks
+    }).execute()
+    return result.data[0] if result.data else None
+
+def get_docket_for_judge(judge_id, status=None, urgency=None):
+    query = supabase.table("case_docket").select("*").eq("judge_id", judge_id)
+    if status:
+        query = query.eq("status", status)
+    if urgency:
+        query = query.eq("urgency", urgency)
+    result = query.order("hearing_date").execute()
+    return result.data
+
+def get_docket_entry(entry_id):
+    result = supabase.table("case_docket").select("*").eq("id", entry_id).execute()
+    return result.data[0] if result.data else None
+
+def check_docket_conflict(judge_id, hearing_date, window_minutes=30, exclude_id=None):
+    from datetime import datetime, timedelta
+    dt = datetime.fromisoformat(hearing_date)
+    lower = (dt - timedelta(minutes=window_minutes)).isoformat()
+    upper = (dt + timedelta(minutes=window_minutes)).isoformat()
+
+    query = supabase.table("case_docket").select("*") \
+        .eq("judge_id", judge_id) \
+        .gte("hearing_date", lower) \
+        .lte("hearing_date", upper) \
+        .not_.in_("status", ["cancelled", "completed"])
+    result = query.execute()
+
+    conflicts = result.data
+    if exclude_id:
+        conflicts = [c for c in conflicts if c["id"] != exclude_id]
+    return conflicts[0] if conflicts else None
+
+def update_docket_entry(entry_id, judge_id, updates):
+    result = supabase.table("case_docket").update(updates) \
+        .eq("id", entry_id).eq("judge_id", judge_id).execute()
+    return len(result.data) > 0
+
+def delete_docket_entry(entry_id, judge_id):
+    result = supabase.table("case_docket").delete() \
+        .eq("id", entry_id).eq("judge_id", judge_id).execute()
+    return len(result.data) > 0

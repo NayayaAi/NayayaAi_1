@@ -1,21 +1,17 @@
 """
-case_outcome_rag.py
+case.py
 --------------------
 RAG engine specifically for Case Outcome Predictor.
-Uses case_outcome_dataset.csv — no Ollama, no external dependencies beyond pandas.
+Uses case.csv — no Ollama, no external dependencies beyond stdlib.
 
-Place this file in the same directory as app.py.
-Make sure case_outcome_dataset.csv is also in the same directory.
-
-Usage (in app.py):
-    from case_outcome_rag import search_case_outcome
-    results = search_case_outcome("bike stolen")
+Place this file in the same directory as app.py, named case.py
+(app.py does `from case import search_case_outcome, format_outcome_html`).
+Make sure case.csv is also in the same directory.
 """
 
 import csv
 import os
 import re
-from collections import defaultdict
 
 # ── Path to dataset ────────────────────────────────────────────────────────────
 DATASET_PATH = os.path.join(os.path.dirname(__file__), "case.csv")
@@ -25,6 +21,12 @@ _RECORDS: list[dict] = []
 _LOADED = False
 
 
+def _safe_str(value) -> str:
+    """csv.DictReader can hand back None for missing/ragged fields.
+    Every downstream .strip()/.lower() call assumes a string, so normalize here."""
+    return "" if value is None else str(value)
+
+
 def _load_dataset() -> None:
     """Load CSV into memory once."""
     global _RECORDS, _LOADED
@@ -32,21 +34,26 @@ def _load_dataset() -> None:
         return
 
     if not os.path.exists(DATASET_PATH):
-        print(f"[case_outcome_rag] ERROR: Dataset not found at {DATASET_PATH}")
+        print(f"[case.py] ERROR: Dataset not found at {DATASET_PATH}")
         _LOADED = True
         return
 
-    with open(DATASET_PATH, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            # Parse keyword list from comma-separated string
-            raw_kw = row.get("keywords", "")
-            # Remove surrounding quotes if present
-            raw_kw = raw_kw.strip().strip('"')
-            row["_keyword_list"] = [k.strip().lower() for k in raw_kw.split(",") if k.strip()]
-            _RECORDS.append(row)
+    try:
+        with open(DATASET_PATH, newline="", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                # Normalize every field to a string up front so nothing
+                # downstream has to guard against None individually.
+                row = {k: _safe_str(v) for k, v in row.items()}
 
-    print(f"[case_outcome_rag] Loaded {len(_RECORDS)} entries from dataset.")
+                raw_kw = row.get("keywords", "").strip().strip('"')
+                row["_keyword_list"] = [k.strip().lower() for k in raw_kw.split(",") if k.strip()]
+                _RECORDS.append(row)
+    except Exception as e:
+        print(f"[case.py] ERROR loading dataset: {e}")
+        _RECORDS = []
+
+    print(f"[case.py] Loaded {len(_RECORDS)} entries from dataset.")
     _LOADED = True
 
 
@@ -69,10 +76,10 @@ def _score_record(record: dict, query_tokens: list[str]) -> float:
     score = 0.0
     query_str = " ".join(query_tokens)
 
-    kw_list   = record["_keyword_list"]
-    crime     = record.get("crime_type", "").lower()
-    title     = record.get("title", "").lower()
-    desc      = record.get("description", "").lower()
+    kw_list   = record.get("_keyword_list", [])
+    crime     = _safe_str(record.get("crime_type", "")).lower()
+    title     = _safe_str(record.get("title", "")).lower()
+    desc      = _safe_str(record.get("description", "")).lower()
 
     for kw in kw_list:
         if kw in query_str:
@@ -98,18 +105,8 @@ def search_case_outcome(query: str, top_n: int = 5) -> list[dict]:
     """
     Search the dataset for relevant IPC sections given a plain-language query.
 
-    Parameters
-    ----------
-    query   : plain-language crime description (e.g. "bike stolen near market")
-    top_n   : number of top results to return (default 5)
-
-    Returns
-    -------
-    List of dicts with keys:
-        section, act, title, description, punishment,
-        bns_equivalent, sentencing_range, cognizable,
-        bailable, outcome_note, score
-    Returns empty list if nothing matches (score == 0).
+    Returns empty list if nothing matches, or if the dataset failed to load,
+    or if the query is empty -- never raises for those cases.
     """
     _load_dataset()
 
@@ -122,7 +119,12 @@ def search_case_outcome(query: str, top_n: int = 5) -> list[dict]:
 
     scored = []
     for record in _RECORDS:
-        s = _score_record(record, query_tokens)
+        try:
+            s = _score_record(record, query_tokens)
+        except Exception as e:
+            # One malformed row should never take down the whole search.
+            print(f"[case.py] Skipping malformed record: {e}")
+            continue
         if s > 0:
             scored.append((s, record))
 
@@ -137,17 +139,17 @@ def search_case_outcome(query: str, top_n: int = 5) -> list[dict]:
         if sec_key not in seen_sections:
             seen_sections.add(sec_key)
             results.append({
-                "section":        rec.get("section", ""),
-                "act":            rec.get("act", "IPC"),
-                "title":          rec.get("title", ""),
-                "description":    rec.get("description", ""),
-                "punishment":     rec.get("punishment", ""),
-                "bns_equivalent": rec.get("bns_equivalent", ""),
+                "section":          rec.get("section", ""),
+                "act":              rec.get("act", "IPC") or "IPC",
+                "title":            rec.get("title", ""),
+                "description":      rec.get("description", ""),
+                "punishment":       rec.get("punishment", ""),
+                "bns_equivalent":   rec.get("bns_equivalent", ""),
                 "sentencing_range": rec.get("sentencing_range", ""),
-                "cognizable":     rec.get("cognizable", ""),
-                "bailable":       rec.get("bailable", ""),
-                "outcome_note":   rec.get("outcome_note", ""),
-                "score":          round(score, 2),
+                "cognizable":       rec.get("cognizable", ""),
+                "bailable":         rec.get("bailable", ""),
+                "outcome_note":     rec.get("outcome_note", ""),
+                "score":            round(score, 2),
             })
 
         if len(results) >= top_n:
@@ -159,7 +161,7 @@ def search_case_outcome(query: str, top_n: int = 5) -> list[dict]:
 def format_outcome_html(results: list[dict]) -> str:
     """
     Convert search results into ready-to-display HTML for the frontend.
-    Returns an HTML string suitable for innerHTML injection.
+    Never raises -- falls back to an empty-state message on any bad data.
     """
     if not results:
         return (
@@ -171,45 +173,48 @@ def format_outcome_html(results: list[dict]) -> str:
     html = "<div class='space-y-3'>"
     html += "<p class='font-bold text-purple-800 text-sm mb-2'>⚖️ Relevant Legal Sections Found:</p>"
 
-    # Group by crime type implied by first keyword match
     for r in results:
-        act_label = r["act"] if r["act"] not in ("IPC",) else "IPC"
+        act_label = r.get("act") or "IPC"
+
+        cognizable_val = _safe_str(r.get("cognizable")).strip().lower()
+        bailable_val   = _safe_str(r.get("bailable")).strip().lower()
+
         cognizable_badge = (
             "<span class='text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-semibold'>Cognizable</span>"
-            if r["cognizable"].strip().lower() == "yes"
+            if cognizable_val == "yes"
             else "<span class='text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full font-semibold'>Non-Cognizable</span>"
         )
         bailable_badge = (
             "<span class='text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-semibold'>Bailable</span>"
-            if r["bailable"].strip().lower() == "yes"
+            if bailable_val == "yes"
             else "<span class='text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-semibold'>Non-Bailable</span>"
         )
 
-        desc_short = r["description"][:250] + ("…" if len(r["description"]) > 250 else "")
-        bns = r["bns_equivalent"]
+        description = _safe_str(r.get("description"))
+        desc_short = description[:250] + ("…" if len(description) > 250 else "")
+        bns = _safe_str(r.get("bns_equivalent"))
         bns_line = f"<p class='text-xs text-blue-600 mt-1'>🔄 New Law: {bns}</p>" if bns else ""
 
         html += f"""
         <div class='border border-purple-200 rounded-lg p-3 bg-purple-50'>
             <div class='flex items-center gap-2 flex-wrap mb-1'>
-                <span class='font-bold text-purple-900 text-sm'>📘 {act_label} § {r['section']}</span>
+                <span class='font-bold text-purple-900 text-sm'>📘 {act_label} § {r.get('section','')}</span>
                 {cognizable_badge}
                 {bailable_badge}
             </div>
-            <p class='font-semibold text-slate-800 text-sm'>{r['title']}</p>
+            <p class='font-semibold text-slate-800 text-sm'>{r.get('title','')}</p>
             <p class='text-xs text-slate-600 mt-1 leading-relaxed'>{desc_short}</p>
             <div class='mt-2 bg-white border border-purple-100 rounded p-2 text-xs'>
                 <span class='font-semibold text-purple-700'>⚖️ Punishment: </span>
-                <span class='text-slate-700'>{r['punishment']}</span>
+                <span class='text-slate-700'>{r.get('punishment','')}</span>
             </div>
             <div class='mt-1 text-xs text-slate-500'>
-                <span class='font-semibold'>📅 Sentencing Range: </span>{r['sentencing_range']}
+                <span class='font-semibold'>📅 Sentencing Range: </span>{r.get('sentencing_range','')}
             </div>
             {bns_line}
         </div>
         """
 
-    # Outcome note from top result
     if results and results[0].get("outcome_note"):
         html += f"""
         <div class='bg-blue-50 border border-blue-200 rounded-lg p-3 mt-2 text-xs text-blue-800'>
@@ -229,7 +234,6 @@ def format_outcome_html(results: list[dict]) -> str:
     return html
 
 
-# ── Quick CLI test ─────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     test_queries = [
         "bike stolen from parking",

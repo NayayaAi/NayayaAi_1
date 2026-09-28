@@ -1,4 +1,14 @@
-from flask import Flask, request, jsonify, render_template, render_template_string, redirect, url_for, flash, session
+from flask import (
+    Flask,
+    request,
+    jsonify,
+    render_template,
+    render_template_string,
+    redirect,
+    url_for,
+    flash,
+    session,
+)
 import sqlite3
 import os
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -12,7 +22,7 @@ from reportlab.lib.styles import getSampleStyleSheet
 from ai_engine import analyze_complaint_for_sections
 from rag_engine import search_law
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-from flask import  jsonify
+from flask import jsonify
 import jwt
 from authlib.integrations.flask_client import OAuth
 from urllib.parse import urlencode
@@ -21,10 +31,11 @@ from functools import wraps
 from werkzeug.utils import secure_filename
 from flask import send_from_directory
 import subprocess
-import time 
+import time
 import json
 
 from dotenv import load_dotenv
+
 load_dotenv()
 
 # Import missing person routes
@@ -37,14 +48,37 @@ import re
 from datetime import datetime, timezone, timedelta
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-from main.storage_service import upload_pdf, save_fir, get_all_firs, get_fir, fir_exists, assign_lawyer_to_fir, get_firs_by_lawyer, add_case_hearing, get_case_hearings, save_case_draft, get_case_drafts, delete_case_draft, get_case_drafts_for_firs,update_fir_status,update_next_hearing_date,add_case_deadline, get_case_deadlines, mark_deadline_complete, delete_case_deadline, get_upcoming_deadlines_for_firs,set_client_visibility,upload_profile_photo
+from main.storage_service import (
+    upload_pdf,
+    save_fir,
+    get_all_firs,
+    get_fir,
+    fir_exists,
+    assign_lawyer_to_fir,
+    get_firs_by_lawyer,
+    add_case_hearing,
+    get_case_hearings,
+    save_case_draft,
+    get_case_drafts,
+    delete_case_draft,
+    get_case_drafts_for_firs,
+    update_fir_status,
+    update_next_hearing_date,
+    add_case_deadline,
+    get_case_deadlines,
+    mark_deadline_complete,
+    delete_case_deadline,
+    get_upcoming_deadlines_for_firs,
+    set_client_visibility,
+    upload_profile_photo,
+)
 from main.judge_routes import judge_bp
-
 
 # ---------------- OLLAMA SETUP ----------------
 import requests
 
 OLLAMA_URL = "http://localhost:11434/api/generate"
+
 
 def ask_ollama(prompt):
     try:
@@ -54,11 +88,9 @@ def ask_ollama(prompt):
                 "model": "phi3",
                 "prompt": prompt,
                 "stream": False,
-                "options": {
-                    "num_predict": 150
-                    }
-                }
-            )
+                "options": {"num_predict": 150},
+            },
+        )
 
         # Check if request was successful
         if response.status_code != 200:
@@ -86,6 +118,7 @@ def ask_ollama(prompt):
         print("Unexpected Ollama Error:", e)
         return "AI response unavailable"
 
+
 app = Flask(__name__)
 app.secret_key = "nyaya_ai_ultra_secure_key"
 
@@ -105,6 +138,7 @@ ALLOWED_ORIGINS = {
     "http://127.0.0.1:5000",
 }
 
+
 def require_same_origin(view):
     @wraps(view)
     def wrapped(*args, **kwargs):
@@ -116,12 +150,15 @@ def require_same_origin(view):
             if origin_root not in ALLOWED_ORIGINS:
                 return jsonify({"error": "Request rejected."}), 403
         return view(*args, **kwargs)
+
     return wrapped
+
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 MIN_PASSWORD_LEN = 10
 MAX_FAILED_ATTEMPTS = 5
 LOCKOUT_SECONDS = 15 * 60
+
 
 def validate_password(pw: str) -> str | None:
     if len(pw) < MIN_PASSWORD_LEN:
@@ -136,37 +173,39 @@ def validate_password(pw: str) -> str | None:
         return "Password must contain a special character."
     return None
 
-FIR_NO_RE = re.compile(r'^FIR[-/A-Za-z0-9]{2,25}$', re.IGNORECASE)
+
+FIR_NO_RE = re.compile(r"^FIR[-/A-Za-z0-9]{2,25}$", re.IGNORECASE)
 NAME_RE = re.compile(r"^[A-Za-z\s\.\']{2,100}$")
-DATE_RE = re.compile(r'^\d{4}-\d{2}-\d{2}$')
-TIME_RE = re.compile(r'^\d{2}:\d{2}$')
+DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+TIME_RE = re.compile(r"^\d{2}:\d{2}$")
 MIN_STATEMENT_LEN = 25
+
 
 def validate_fir_data(data):
     """Returns list of error strings. Empty list = valid."""
     errors = []
     current_year = datetime.now().year
 
-    fir_no = (data.get('fir_no') or '').strip()
+    fir_no = (data.get("fir_no") or "").strip()
     if not fir_no:
         errors.append("FIR number is required.")
     elif not FIR_NO_RE.match(fir_no):
         errors.append("FIR number must start with 'FIR' (e.g. FIR-2026-001).")
 
-    dist = (data.get('dist') or '').strip()
+    dist = (data.get("dist") or "").strip()
     if not dist:
         errors.append("District is required.")
     elif dist not in INDIAN_DISTRICTS:
         errors.append("District must be selected from the list.")
 
-    if not (data.get('ps') or '').strip():
+    if not (data.get("ps") or "").strip():
         errors.append("Police Station is required.")
 
-    year = (data.get('year') or '').strip()
+    year = (data.get("year") or "").strip()
     if not year.isdigit() or not (2000 <= int(year) <= current_year + 1):
         errors.append(f"Year must be between 2000 and {current_year + 1}.")
 
-    fir_date = (data.get('fir_date') or '').strip()
+    fir_date = (data.get("fir_date") or "").strip()
     fd = None
     if not DATE_RE.match(fir_date):
         errors.append("FIR date must be YYYY-MM-DD.")
@@ -175,7 +214,7 @@ def validate_fir_data(data):
         if fd > datetime.now().date():
             errors.append("FIR date cannot be in the future.")
 
-    occ_date = (data.get('occurrence_date') or '').strip()
+    occ_date = (data.get("occurrence_date") or "").strip()
     od = None
     if occ_date:
         if not DATE_RE.match(occ_date):
@@ -185,7 +224,7 @@ def validate_fir_data(data):
             if fd and od > fd:
                 errors.append("Occurrence date cannot be after FIR date.")
 
-    info_date = (data.get('info_received_date') or '').strip()
+    info_date = (data.get("info_received_date") or "").strip()
     if info_date:
         if not DATE_RE.match(info_date):
             errors.append("Info received date must be YYYY-MM-DD.")
@@ -194,39 +233,44 @@ def validate_fir_data(data):
             if idt < od:
                 errors.append("Info received date cannot be before occurrence date.")
 
-    for tfield, label in [('occurrence_time', 'Occurrence time'), ('info_received_time', 'Info received time')]:
-        tval = (data.get(tfield) or '').strip()
+    for tfield, label in [
+        ("occurrence_time", "Occurrence time"),
+        ("info_received_time", "Info received time"),
+    ]:
+        tval = (data.get(tfield) or "").strip()
         if tval and not TIME_RE.match(tval):
             errors.append(f"{label} must be HH:MM.")
 
-    comp_name = (data.get('complainant_name') or '').strip()
+    comp_name = (data.get("complainant_name") or "").strip()
     if not comp_name:
         errors.append("Complainant name is required.")
     elif not NAME_RE.match(comp_name):
         errors.append("Complainant name must contain only letters/spaces.")
 
-    statement = (data.get('statement') or '').strip()
+    statement = (data.get("statement") or "").strip()
     if not statement:
         errors.append("Statement/narrative is required.")
     elif len(statement) < MIN_STATEMENT_LEN:
         errors.append(f"Statement must be at least {MIN_STATEMENT_LEN} characters.")
 
-    type_of_info = (data.get('type_of_information') or '').strip()
-    if type_of_info and type_of_info not in ('Written', 'Oral'):
+    type_of_info = (data.get("type_of_information") or "").strip()
+    if type_of_info and type_of_info not in ("Written", "Oral"):
         errors.append("Type of information must be Written or Oral.")
 
-    act_sections = (data.get('act_sections') or '').strip()
-    if act_sections and not re.match(r'^[A-Za-z0-9,\s\.\-/]+$', act_sections):
+    act_sections = (data.get("act_sections") or "").strip()
+    if act_sections and not re.match(r"^[A-Za-z0-9,\s\.\-/]+$", act_sections):
         errors.append("Act/Sections contains invalid characters.")
 
     return errors
+
 
 def lawyer_owns_case(fir_no):
     """Confirm the logged-in lawyer is actually assigned to this FIR."""
     fir = get_fir(fir_no)
     if not fir:
         return False
-    return str(fir.get('assigned_lawyer_id')) == str(session.get('user_id'))
+    return str(fir.get("assigned_lawyer_id")) == str(session.get("user_id"))
+
 
 # 2. DATABASE CONNECTIONS
 DB_PATH = os.path.join(app.root_path, "IndiaLaw.db")
@@ -235,15 +279,15 @@ try:
     client = MongoClient("mongodb://127.0.0.1:27017/", serverSelectionTimeoutMS=2000)
     db = client["NyayaAI_DB"]
     users_collection = db["users"]
-    client.server_info() 
+    client.server_info()
 except Exception as e:
     print(f"ERROR: MongoDB connection failed: {e}")
-
 
 
 # Optional CORS support
 try:
     from flask_cors import CORS
+
     CORS(app)
 except ModuleNotFoundError:
     print("Warning: flask_cors not installed. API will still work from same origin.")
@@ -256,47 +300,83 @@ app.register_blueprint(missing_person_bp)
 init_missing_person_tables(DB_PATH)
 
 # Set upload folder
-app.config['UPLOAD_FOLDER'] = os.path.join(app.root_path, 'static', 'uploads')
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+app.config["UPLOAD_FOLDER"] = os.path.join(app.root_path, "static", "uploads")
+os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 
-@app.route('/missing_persons')
+
+@app.route("/missing_persons")
 def missing_persons_page():
-    return render_template('missing_persons.html')
+    return render_template("missing_persons.html")
 
-@app.route('/script.js')
+
+@app.route("/script.js")
 def serve_script():
-    return send_from_directory(app.root_path, 'script.js')
+    return send_from_directory(app.root_path, "script.js")
 
 
-@app.route('/missing_persons_template')
+@app.route("/missing_persons_template")
 def missing_persons_template():
-    return render_template('missing_persons_fragment.html')
+    return render_template("missing_persons_fragment.html")
+
 
 # Indian Districts and Police Stations
 INDIAN_DISTRICTS = [
-    "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa",
-    "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala",
-    "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland",
-    "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura",
-    "Uttar Pradesh", "Uttarakhand", "West Bengal", "Delhi", "Puducherry", "Chandigarh"
+    "Andhra Pradesh",
+    "Arunachal Pradesh",
+    "Assam",
+    "Bihar",
+    "Chhattisgarh",
+    "Goa",
+    "Gujarat",
+    "Haryana",
+    "Himachal Pradesh",
+    "Jharkhand",
+    "Karnataka",
+    "Kerala",
+    "Madhya Pradesh",
+    "Maharashtra",
+    "Manipur",
+    "Meghalaya",
+    "Mizoram",
+    "Nagaland",
+    "Odisha",
+    "Punjab",
+    "Rajasthan",
+    "Sikkim",
+    "Tamil Nadu",
+    "Telangana",
+    "Tripura",
+    "Uttar Pradesh",
+    "Uttarakhand",
+    "West Bengal",
+    "Delhi",
+    "Puducherry",
+    "Chandigarh",
 ]
 
 SAMPLE_POLICE_STATIONS = {
-    "Delhi": ["North Delhi PS", "South Delhi PS", "East Delhi PS", "West Delhi PS", "Central Delhi PS"],
+    "Delhi": [
+        "North Delhi PS",
+        "South Delhi PS",
+        "East Delhi PS",
+        "West Delhi PS",
+        "Central Delhi PS",
+    ],
     "Maharashtra": ["Mumbai North PS", "Mumbai South PS", "Pune PS", "Nagpur PS"],
     "Karnataka": ["Bangalore PS", "Mysore PS", "Hubli PS"],
     "Tamil Nadu": ["Chennai PS", "Coimbatore PS", "Madurai PS"],
-    "Uttar Pradesh": ["Lucknow PS", "Kanpur PS", "Varanasi PS"]
+    "Uttar Pradesh": ["Lucknow PS", "Kanpur PS", "Varanasi PS"],
 }
 
 LEGAL_ACTS = ["IPC", "CRPC", "NIA", "IEA", "HMA", "CPC", "IDA", "MVA"]
+
 
 def init_fir_table():
     """Initialize FIR records table if it doesn't exist."""
     try:
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
-        cursor.execute('''
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS fir_records (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 fir_no TEXT UNIQUE NOT NULL,
@@ -329,19 +409,20 @@ def init_fir_table():
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 status TEXT DEFAULT 'Active'
             )
-        ''')
+        """)
         conn.commit()
         conn.close()
         print("FIR records table initialized successfully.")
     except Exception as e:
         print(f"Error initializing FIR table: {e}")
 
+
 def init_user_table():
     """Initialize users table if it doesn't exist."""
     try:
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
-        cursor.execute('''
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT UNIQUE NOT NULL,
@@ -350,18 +431,19 @@ def init_user_table():
                 role TEXT DEFAULT 'police',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
-        ''')
+        """)
         conn.commit()
         conn.close()
         print("Users table initialized successfully.")
     except Exception as e:
         print(f"Error initializing users table: {e}")
-        
+
+
 def init_evidence_table():
     """Create a table to store paths to uploaded evidence files."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    cursor.execute('''
+    cursor.execute("""
 CREATE TABLE IF NOT EXISTS evidence_files (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     fir_no TEXT NOT NULL,
@@ -370,20 +452,24 @@ CREATE TABLE IF NOT EXISTS evidence_files (
     uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (fir_no) REFERENCES fir_records (fir_no)
     )
-    ''')
+    """)
     conn.commit()
     conn.close()
 
+
 # Call this in your if __name__ == '__main__': block
-        
- # Default to simple hurt if nothing matches
+
+# Default to simple hurt if nothing matches
+
 
 def get_sections_for_act(act_code):
     """Get all sections for a specific act from database."""
     try:
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
-        cursor.execute(f"SELECT Section, section_title FROM {act_code} ORDER BY Section LIMIT 50")
+        cursor.execute(
+            f"SELECT Section, section_title FROM {act_code} ORDER BY Section LIMIT 50"
+        )
         rows = cursor.fetchall()
         conn.close()
         return [{"section": row[0], "title": row[1]} for row in rows]
@@ -391,47 +477,54 @@ def get_sections_for_act(act_code):
         print(f"Error getting sections for act {act_code}: {e}")
         return []
 
-@app.route('/', methods=['GET'])
-def home():
-    if 'user_id' in session:
-        role = session.get('role')
-        if role == 'judge':
-            return redirect(url_for('judge_dashboard'))
-        if role == 'citizen':
-            return redirect(url_for('citizen_dashboard'))
-        if role == 'lawyer':
-            return redirect(url_for('lawyer_dashboard'))
-        return render_template('index.html')
-    return render_template('landing.html')   
 
-@app.route('/health', methods=['GET'])
+@app.route("/", methods=["GET"])
+def home():
+    if "user_id" in session:
+        role = session.get("role")
+        if role == "judge":
+            return redirect(url_for("judge_dashboard"))
+        if role == "citizen":
+            return redirect(url_for("citizen_dashboard"))
+        if role == "lawyer":
+            return redirect(url_for("lawyer_dashboard"))
+        return render_template("index.html")
+    return render_template("landing.html")
+
+
+@app.route("/health", methods=["GET"])
 def health():
     return jsonify({"status": "ok", "message": "Nyaya AI engine reachable"}), 200
 
-@app.route('/api/districts', methods=['GET'])
+
+@app.route("/api/districts", methods=["GET"])
 def get_districts():
     """Return list of Indian districts."""
     return jsonify(sorted(INDIAN_DISTRICTS))
 
-@app.route('/api/police-stations/<district>', methods=['GET'])
+
+@app.route("/api/police-stations/<district>", methods=["GET"])
 def get_police_stations(district):
     """Return police stations for a district."""
     stations = SAMPLE_POLICE_STATIONS.get(district, [f"{district} PS"])
     return jsonify(stations)
 
-@app.route('/api/acts', methods=['GET'])
+
+@app.route("/api/acts", methods=["GET"])
 def get_acts():
     """Return available legal acts."""
     return jsonify(LEGAL_ACTS)
 
+
 # ==================== CITIZEN COMPLAINTS ====================
 import uuid
+
 
 def init_complaints_table():
     """Create complaints table for citizen-filed complaints."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    cursor.execute('''
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS citizen_complaints (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             tracking_id TEXT UNIQUE NOT NULL,
@@ -448,37 +541,47 @@ def init_complaints_table():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
-    ''')
-    existing_cols = [row[1] for row in cursor.execute("PRAGMA table_info(citizen_complaints)").fetchall()]
-    if 'category' not in existing_cols:
-        cursor.execute("ALTER TABLE citizen_complaints ADD COLUMN category TEXT DEFAULT 'Other / Needs Review'")
-    if 'is_cognizable' not in existing_cols:
-        cursor.execute("ALTER TABLE citizen_complaints ADD COLUMN is_cognizable INTEGER DEFAULT 0")
+    """)
+    existing_cols = [
+        row[1]
+        for row in cursor.execute("PRAGMA table_info(citizen_complaints)").fetchall()
+    ]
+    if "category" not in existing_cols:
+        cursor.execute(
+            "ALTER TABLE citizen_complaints ADD COLUMN category TEXT DEFAULT 'Other / Needs Review'"
+        )
+    if "is_cognizable" not in existing_cols:
+        cursor.execute(
+            "ALTER TABLE citizen_complaints ADD COLUMN is_cognizable INTEGER DEFAULT 0"
+        )
     conn.commit()
     conn.close()
 
-@app.route('/citizen-dashboard')
+
+@app.route("/citizen-dashboard")
 def citizen_dashboard():
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
-    if session.get('role') != 'citizen':
-        return redirect(url_for('home'))
-    return render_template('citizen_dashboard.html')
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+    if session.get("role") != "citizen":
+        return redirect(url_for("home"))
+    return render_template("citizen_dashboard.html")
 
-@app.route('/judge-dashboard')
+
+@app.route("/judge-dashboard")
 def judge_dashboard():
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
-    if session.get('role') not in ['judge', 'admin']:
-        return redirect('/')
-    return render_template('judge_dashboard.html')
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+    if session.get("role") not in ["judge", "admin"]:
+        return redirect("/")
+    return render_template("judge_dashboard.html")
 
-@app.route('/api/complaint', methods=['POST'])
+
+@app.route("/api/complaint", methods=["POST"])
 def file_complaint():
     """Citizen files a new complaint. Category is auto-detected — never entered by the citizen."""
     data = request.get_json()
-    name = data.get('full_name', '').strip()
-    description = data.get('incident_description', '').strip()
+    name = data.get("full_name", "").strip()
+    description = data.get("incident_description", "").strip()
     if not name or not description:
         return jsonify({"error": "Name and incident description are required"}), 400
 
@@ -490,87 +593,103 @@ def file_complaint():
     try:
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
-        cursor.execute('''
+        cursor.execute(
+            """
             INSERT INTO citizen_complaints
               (tracking_id, full_name, phone, incident_description, incident_date, location, category, is_cognizable)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (
-            tracking_id,
-            name,
-            data.get('phone', ''),
-            description,
-            data.get('incident_date', ''),
-            data.get('location', ''),
-            result["category"],
-            1 if result["is_cognizable"] else 0
-        ))
+        """,
+            (
+                tracking_id,
+                name,
+                data.get("phone", ""),
+                description,
+                data.get("incident_date", ""),
+                data.get("location", ""),
+                result["category"],
+                1 if result["is_cognizable"] else 0,
+            ),
+        )
         conn.commit()
         conn.close()
-        return jsonify({
-            "tracking_id": tracking_id,
-            "status": "Pending",
-            "category": result["category"],
-            "can_file_fir": result["can_file_fir"]
-        }), 201
+        return (
+            jsonify(
+                {
+                    "tracking_id": tracking_id,
+                    "status": "Pending",
+                    "category": result["category"],
+                    "can_file_fir": result["can_file_fir"],
+                }
+            ),
+            201,
+        )
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-    
-    
-@app.route('/api/complaints/all', methods=['GET'])
+
+
+@app.route("/api/complaints/all", methods=["GET"])
 def get_all_complaints():
     """Police: get all citizen complaints."""
     try:
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
-        cursor.execute('''
+        cursor.execute("""
             SELECT tracking_id, full_name, phone, incident_description,
                    incident_date, location, status, fir_no, officer_notes,
                    created_at, updated_at, category, is_cognizable
             FROM citizen_complaints
             ORDER BY created_at DESC
-        ''')
+        """)
         rows = cursor.fetchall()
         conn.close()
-        return jsonify([{
-            "tracking_id":          r[0],
-            "full_name":            r[1],
-            "phone":                r[2],
-            "incident_description": r[3],
-            "incident_date":        r[4],
-            "location":             r[5],
-            "status":               r[6],
-            "fir_no":               r[7],
-            "officer_notes":        r[8],
-            "created_at":           r[9],
-            "updated_at":           r[10],
-            "category":             r[11] or "Other / Needs Review",
-            "is_cognizable":        bool(r[12])
-        } for r in rows])
+        return jsonify(
+            [
+                {
+                    "tracking_id": r[0],
+                    "full_name": r[1],
+                    "phone": r[2],
+                    "incident_description": r[3],
+                    "incident_date": r[4],
+                    "location": r[5],
+                    "status": r[6],
+                    "fir_no": r[7],
+                    "officer_notes": r[8],
+                    "created_at": r[9],
+                    "updated_at": r[10],
+                    "category": r[11] or "Other / Needs Review",
+                    "is_cognizable": bool(r[12]),
+                }
+                for r in rows
+            ]
+        )
     except Exception as e:
         return jsonify({"error": str(e)}), 500
- 
- 
-@app.route('/api/complaints/<tracking_id>', methods=['PATCH'])
+
+
+@app.route("/api/complaints/<tracking_id>", methods=["PATCH"])
 def update_complaint(tracking_id):
     """Police: update complaint status, FIR number, notes."""
-    data       = request.get_json()
-    new_status = data.get('status')
-    fir_no     = data.get('fir_no')
-    notes      = data.get('officer_notes')
- 
-    valid_statuses = ['Pending', 'Under Review', 'FIR Filed', 'Closed']
+    data = request.get_json()
+    new_status = data.get("status")
+    fir_no = data.get("fir_no")
+    notes = data.get("officer_notes")
+
+    valid_statuses = ["Pending", "Under Review", "FIR Filed", "Closed"]
     if new_status not in valid_statuses:
         return jsonify({"error": "Invalid status"}), 400
- 
+
     try:
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
-        cursor.execute('''
+        cursor.execute(
+            """
             UPDATE citizen_complaints
             SET status = ?, fir_no = ?, officer_notes = ?,
                 updated_at = CURRENT_TIMESTAMP
             WHERE tracking_id = ?
-        ''', (new_status, fir_no, notes, tracking_id.upper()))
+        """,
+            (new_status, fir_no, notes, tracking_id.upper()),
+        )
         if cursor.rowcount == 0:
             conn.close()
             return jsonify({"error": "Complaint not found"}), 404
@@ -580,62 +699,86 @@ def update_complaint(tracking_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@app.route('/api/complaint/<tracking_id>', methods=['GET'])
+
+@app.route("/api/complaint/<tracking_id>", methods=["GET"])
 def track_complaint(tracking_id):
     """Track a complaint by its tracking ID."""
     try:
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
-        cursor.execute('''
+        cursor.execute(
+            """
             SELECT tracking_id, full_name, incident_description, incident_date,
                    location, status, fir_no, officer_notes, created_at, updated_at,
                    category, is_cognizable
             FROM citizen_complaints WHERE tracking_id = ?
-        ''', (tracking_id.upper(),))
+        """,
+            (tracking_id.upper(),),
+        )
         row = cursor.fetchone()
         conn.close()
         if not row:
-            return jsonify({"error": "Complaint not found. Check your tracking ID."}), 404
-        return jsonify({
-            "tracking_id": row[0],
-            "full_name": row[1],
-            "incident_description": row[2],
-            "incident_date": row[3],
-            "location": row[4],
-            "status": row[5],
-            "fir_no": row[6],
-            "officer_notes": row[7],
-            "created_at": row[8],
-            "updated_at": row[9],
-            "category": row[10] or "Other / Needs Review",
-            "is_cognizable": bool(row[11])
-        })
+            return (
+                jsonify({"error": "Complaint not found. Check your tracking ID."}),
+                404,
+            )
+        return jsonify(
+            {
+                "tracking_id": row[0],
+                "full_name": row[1],
+                "incident_description": row[2],
+                "incident_date": row[3],
+                "location": row[4],
+                "status": row[5],
+                "fir_no": row[6],
+                "officer_notes": row[7],
+                "created_at": row[8],
+                "updated_at": row[9],
+                "category": row[10] or "Other / Needs Review",
+                "is_cognizable": bool(row[11]),
+            }
+        )
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@app.route('/api/rights-chat', methods=['POST'])
+
+@app.route("/api/rights-chat", methods=["POST"])
 def rights_chat():
     try:
         data = request.get_json()
         if not data:
             return jsonify({"answer": "Invalid request."}), 400
-        question = data.get('question', '').strip()
+        question = data.get("question", "").strip()
         if not question:
             return jsonify({"answer": "Please ask a question about your rights."}), 400
-        
+
         GREETINGS = {
-            "hi", "hii", "hiii", "hello", "hey", "heya", "yo",
-            "good morning", "good afternoon", "good evening",
-            "thanks", "thank you", "ok", "okay", "bye"
-            }
-        
+            "hi",
+            "hii",
+            "hiii",
+            "hello",
+            "hey",
+            "heya",
+            "yo",
+            "good morning",
+            "good afternoon",
+            "good evening",
+            "thanks",
+            "thank you",
+            "ok",
+            "okay",
+            "bye",
+        }
+
         if question.lower().strip("!.? ") in GREETINGS:
-            
-            return jsonify({
-                "answer": "Hi! I'm NyayaAI's rights assistant. Ask me about arrest, "
-                "bail, filing an FIR, your right to a lawyer, or any other "
-                "legal rights question — I'll explain it in plain language."
-                })
+
+            return jsonify(
+                {
+                    "answer": "Hi! I'm NyayaAI's rights assistant. Ask me about arrest, "
+                    "bail, filing an FIR, your right to a lawyer, or any other "
+                    "legal rights question — I'll explain it in plain language."
+                }
+            )
 
         try:
             results = search_law(question)
@@ -652,16 +795,16 @@ def rights_chat():
                     f"• Section {r.get('section', '')}: {r.get('title', '')} — "
                     f"{r.get('description', '')[:250]}\n"
                 )
-                
+
                 groq_prompt = (
-            f"A citizen asks about their rights under Indian law: {question}"
-            f"{rag_context}\n\n"
-            f"Answer in simple, plain language a non-lawyer can understand. "
-            f"STRICT LIMIT: under 150 words, 3-4 short points maximum — do not "
-            f"list every possibly-relevant section or provision. If the legal "
-            f"sections above are relevant, reference at most 1-2 of them naturally. "
-            f"End with: ⚠️ For official help call 15100."
-            )
+                    f"A citizen asks about their rights under Indian law: {question}"
+                    f"{rag_context}\n\n"
+                    f"Answer in simple, plain language a non-lawyer can understand. "
+                    f"STRICT LIMIT: under 150 words, 3-4 short points maximum — do not "
+                    f"list every possibly-relevant section or provision. If the legal "
+                    f"sections above are relevant, reference at most 1-2 of them naturally. "
+                    f"End with: ⚠️ For official help call 15100."
+                )
 
         # Step 3: Try Groq
         answer = ask_groq(groq_prompt, max_tokens=1200)
@@ -678,11 +821,16 @@ def rights_chat():
 
     except Exception as e:
         print(f"rights_chat error: {e}")
-        return jsonify({"answer": build_keyword_fallback(
-            request.get_json(silent=True, force=True).get('question', '')
-        )}), 200
-        
-    
+        return (
+            jsonify(
+                {
+                    "answer": build_keyword_fallback(
+                        request.get_json(silent=True, force=True).get("question", "")
+                    )
+                }
+            ),
+            200,
+        )
 
 
 def format_rights_answer(results, question):
@@ -691,15 +839,15 @@ def format_rights_answer(results, question):
     lines = []
 
     for item in top:
-        section = item.get('section', '')
-        title   = item.get('title', '')
-        desc    = item.get('description', '') or ''
+        section = item.get("section", "")
+        title = item.get("title", "")
+        desc = item.get("description", "") or ""
 
         # Trim description to first 2 sentences for speed + readability
-        sentences = desc.replace('.\n', '. ').split('. ')
-        short_desc = '. '.join(sentences[:3]).strip()
-        if short_desc and not short_desc.endswith('.'):
-            short_desc += '.'
+        sentences = desc.replace(".\n", ". ").split(". ")
+        short_desc = ". ".join(sentences[:3]).strip()
+        if short_desc and not short_desc.endswith("."):
+            short_desc += "."
 
         if section and title:
             lines.append(f"📘 Section {section} — {title}\n{short_desc}")
@@ -789,19 +937,20 @@ def format_rights_answer(results, question):
 #             "Try asking about: arrest rights, bail, FIR filing, lawyer rights, women's rights, or cyber crime."
 #         )
 
-@app.route('/api/sections/<act>', methods=['GET'])
+
+@app.route("/api/sections/<act>", methods=["GET"])
 def get_sections(act):
     """Return sections with optional search and pagination."""
     if act not in LEGAL_ACTS:
         return jsonify({"error": "Invalid act"}), 400
 
-    search = request.args.get('search', '').strip().lower()
-    page   = max(1, int(request.args.get('page', 1)))
-    limit  = int(request.args.get('limit', 20))
+    search = request.args.get("search", "").strip().lower()
+    page = max(1, int(request.args.get("page", 1)))
+    limit = int(request.args.get("limit", 20))
     offset = (page - 1) * limit
 
     try:
-        conn   = sqlite3.connect(DB_PATH)
+        conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
 
         # Build WHERE clause
@@ -809,7 +958,7 @@ def get_sections(act):
             where = "WHERE lower(Section) LIKE ? OR lower(section_title) LIKE ? OR lower(section_desc) LIKE ?"
             params = (f"%{search}%", f"%{search}%", f"%{search}%")
         else:
-            where  = ""
+            where = ""
             params = ()
 
         # Total count
@@ -819,93 +968,130 @@ def get_sections(act):
         # Paginated rows — fetch description too
         cursor.execute(
             f"SELECT Section, section_title, section_desc FROM {act} {where} ORDER BY rowid LIMIT ? OFFSET ?",
-            params + (limit, offset)
+            params + (limit, offset),
         )
         rows = cursor.fetchall()
         conn.close()
 
-        return jsonify({
-            "act":     act,
-            "total":   total,
-            "page":    page,
-            "limit":   limit,
-            "pages":   max(1, (total + limit - 1) // limit),
-            "results": [
-                {"section": r[0], "title": r[1], "description": r[2] or ""}
-                for r in rows
-            ]
-        })
+        return jsonify(
+            {
+                "act": act,
+                "total": total,
+                "page": page,
+                "limit": limit,
+                "pages": max(1, (total + limit - 1) // limit),
+                "results": [
+                    {"section": r[0], "title": r[1], "description": r[2] or ""}
+                    for r in rows
+                ],
+            }
+        )
 
     except Exception as e:
         print(f"Sections error for {act}: {e}")
         return jsonify({"error": str(e)}), 500
-    
+
     # ── Section Detail (for comparison tool) ──────────────────────
-@app.route('/api/section-detail/<act>/<section_no>', methods=['GET'])
+
+
+@app.route("/api/section-detail/<act>/<section_no>", methods=["GET"])
 def get_section_detail(act, section_no):
     if act not in LEGAL_ACTS:
         return jsonify({"error": "Invalid act"}), 400
     try:
-        conn   = sqlite3.connect(DB_PATH)
+        conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         cursor.execute(
             f"SELECT Section, section_title, section_desc FROM {act} WHERE Section = ? LIMIT 1",
-            (section_no,)
+            (section_no,),
         )
         row = cursor.fetchone()
         conn.close()
         if not row:
             return jsonify({"error": "Section not found"}), 404
-        return jsonify({"section": row[0], "title": row[1], "description": row[2] or ""})
+        return jsonify(
+            {"section": row[0], "title": row[1], "description": row[2] or ""}
+        )
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
 # ── Case Outcome Predictor ─────────────────────────────────────
-@app.route('/api/predict-outcome', methods=['POST'])
+@app.route("/api/predict-outcome", methods=["POST"])
 def predict_outcome():
     data = request.get_json()
-    situation = data.get('situation', '').strip()
+    situation = data.get("situation", "").strip()
     if not situation:
         return jsonify({"prediction": "❌ Please describe the situation."}), 400
     results = search_case_outcome(situation, top_n=5)
-    html    = format_outcome_html(results)
+    html = format_outcome_html(results)
     return jsonify({"prediction": html})
 
- 
+
 BARE_ACTS_INFO = {
-    "IPC":  {"label": "Indian Penal Code, 1860",
-             "type": "repealed", "current_equivalent": "BNS",
-             "primary_url": "https://www.indiacode.gov.in/handle/123456789/12850"},
-    "CRPC": {"label": "Code of Criminal Procedure, 1973",
-             "type": "repealed", "current_equivalent": "BNSS",
-             "primary_url": "https://www.indiacode.gov.in/handle/123456789/21613"},
-    "IEA":  {"label": "Indian Evidence Act, 1872",
-             "type": "repealed", "current_equivalent": "BSA",
-             "primary_url": "https://www.indiacode.gov.in/search?query=Indian+Evidence+Act+1872"},
-    "BNS":  {"label": "Bharatiya Nyaya Sanhita, 2023",
-             "type": "current",
-             "primary_url": "https://www.indiacode.gov.in/handle/123456789/20062"},
-    "BNSS": {"label": "Bharatiya Nagarik Suraksha Sanhita, 2023",
-             "type": "current",
-             "primary_url": "https://www.indiacode.gov.in/handle/123456789/20099"},
-    "BSA":  {"label": "Bharatiya Sakshya Adhiniyam, 2023",
-             "type": "current",
-             "primary_url": "https://www.indiacode.gov.in/search?query=Bharatiya+Sakshya+Adhiniyam"},
-    "NIA":  {"label": "Negotiable Instruments Act, 1881", "type": "current",
-             "primary_url": "https://www.indiacode.gov.in/search?query=Negotiable+Instruments+Act"},
-    "HMA":  {"label": "Hindu Marriage Act, 1955", "type": "current",
-             "primary_url": "https://www.indiacode.gov.in/search?query=Hindu+Marriage+Act"},
-    "CPC":  {"label": "Code of Civil Procedure, 1908", "type": "current",
-             "primary_url": "https://www.indiacode.gov.in/search?query=Code+of+Civil+Procedure"},
-    "IDA":  {"label": "Industrial Disputes Act, 1947", "type": "current",
-             "primary_url": "https://www.indiacode.gov.in/search?query=Industrial+Disputes+Act"},
-    "MVA":  {"label": "Motor Vehicles Act, 1988", "type": "current",
-             "primary_url": "https://www.indiacode.gov.in/search?query=Motor+Vehicles+Act"},
+    "IPC": {
+        "label": "Indian Penal Code, 1860",
+        "type": "repealed",
+        "current_equivalent": "BNS",
+        "primary_url": "https://www.indiacode.gov.in/handle/123456789/12850",
+    },
+    "CRPC": {
+        "label": "Code of Criminal Procedure, 1973",
+        "type": "repealed",
+        "current_equivalent": "BNSS",
+        "primary_url": "https://www.indiacode.gov.in/handle/123456789/21613",
+    },
+    "IEA": {
+        "label": "Indian Evidence Act, 1872",
+        "type": "repealed",
+        "current_equivalent": "BSA",
+        "primary_url": "https://www.indiacode.gov.in/search?query=Indian+Evidence+Act+1872",
+    },
+    "BNS": {
+        "label": "Bharatiya Nyaya Sanhita, 2023",
+        "type": "current",
+        "primary_url": "https://www.indiacode.gov.in/handle/123456789/20062",
+    },
+    "BNSS": {
+        "label": "Bharatiya Nagarik Suraksha Sanhita, 2023",
+        "type": "current",
+        "primary_url": "https://www.indiacode.gov.in/handle/123456789/20099",
+    },
+    "BSA": {
+        "label": "Bharatiya Sakshya Adhiniyam, 2023",
+        "type": "current",
+        "primary_url": "https://www.indiacode.gov.in/search?query=Bharatiya+Sakshya+Adhiniyam",
+    },
+    "NIA": {
+        "label": "Negotiable Instruments Act, 1881",
+        "type": "current",
+        "primary_url": "https://www.indiacode.gov.in/search?query=Negotiable+Instruments+Act",
+    },
+    "HMA": {
+        "label": "Hindu Marriage Act, 1955",
+        "type": "current",
+        "primary_url": "https://www.indiacode.gov.in/search?query=Hindu+Marriage+Act",
+    },
+    "CPC": {
+        "label": "Code of Civil Procedure, 1908",
+        "type": "current",
+        "primary_url": "https://www.indiacode.gov.in/search?query=Code+of+Civil+Procedure",
+    },
+    "IDA": {
+        "label": "Industrial Disputes Act, 1947",
+        "type": "current",
+        "primary_url": "https://www.indiacode.gov.in/search?query=Industrial+Disputes+Act",
+    },
+    "MVA": {
+        "label": "Motor Vehicles Act, 1988",
+        "type": "current",
+        "primary_url": "https://www.indiacode.gov.in/search?query=Motor+Vehicles+Act",
+    },
 }
 
 _URL_CHECK_CACHE = {}
 _URL_CHECK_TTL = 600  # seconds
+
 
 def _url_is_reachable(url, timeout=5):
     """Live-check a URL so we never redirect the user to a known-dead link.
@@ -927,6 +1113,7 @@ def _url_is_reachable(url, timeout=5):
     _URL_CHECK_CACHE[url] = (ok, now)
     return ok
 
+
 BARE_ACT_UNAVAILABLE_HTML = """<!DOCTYPE html>
 <html><head><title>Bare Act Unavailable</title></head>
 <body style="font-family:Arial,sans-serif;max-width:600px;margin:80px auto;text-align:center;color:#334155;">
@@ -935,45 +1122,57 @@ BARE_ACT_UNAVAILABLE_HTML = """<!DOCTYPE html>
   <p><a href="https://www.indiacode.gov.in" target="_blank" style="color:#2563eb;">Search India Code directly ↗</a></p>
 </body></html>"""
 
-@app.route('/open-bare-act/<act_code>')
+
+@app.route("/open-bare-act/<act_code>")
 def open_bare_act(act_code):
     info = BARE_ACTS_INFO.get(act_code.upper())
     if not info:
-        return render_template_string(
-            BARE_ACT_UNAVAILABLE_HTML,
-            message=f"'{act_code}' is not a recognized act."
-        ), 404
+        return (
+            render_template_string(
+                BARE_ACT_UNAVAILABLE_HTML,
+                message=f"'{act_code}' is not a recognized act.",
+            ),
+            404,
+        )
 
     primary = info["primary_url"]
     if _url_is_reachable(primary):
         return redirect(primary)
 
-    fallback = f"https://www.indiacode.gov.in/search?query={info['label'].replace(' ', '+')}"
+    fallback = (
+        f"https://www.indiacode.gov.in/search?query={info['label'].replace(' ', '+')}"
+    )
     if fallback != primary and _url_is_reachable(fallback):
         return redirect(fallback)
 
-    return render_template_string(
-        BARE_ACT_UNAVAILABLE_HTML,
-        message=f"We could not reach a working copy of the {info['label']} right now. "
-                f"Please try again shortly or search India Code directly."
-    ), 503
+    return (
+        render_template_string(
+            BARE_ACT_UNAVAILABLE_HTML,
+            message=f"We could not reach a working copy of the {info['label']} right now. "
+            f"Please try again shortly or search India Code directly.",
+        ),
+        503,
+    )
 
-@app.route('/lawyer_dashboard')
+
+@app.route("/lawyer_dashboard")
 def lawyer_dashboard():
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
-    if session.get('role') != 'lawyer':
-        return redirect(url_for('home'))
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+    if session.get("role") != "lawyer":
+        return redirect(url_for("home"))
 
-    cases = get_firs_by_lawyer(session['user_id'])
-    lawyer = {"name": session.get('fullname', 'Advocate')}
-    return render_template('lawyer_dashboard.html', cases=cases, lawyer=lawyer)
+    cases = get_firs_by_lawyer(session["user_id"])
+    lawyer = {"name": session.get("fullname", "Advocate")}
+    return render_template("lawyer_dashboard.html", cases=cases, lawyer=lawyer)
+
 
 # ── ADD THIS IMPORT at the top of app.py ──
 from groq import Groq
 
 # ── ADD THIS after load_dotenv() ──
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+
 
 def ask_groq(prompt, max_tokens=2000, reasoning_effort="low"):
     """Fast legal AI using Groq — 300-800 tokens/sec, free tier."""
@@ -990,12 +1189,9 @@ def ask_groq(prompt, max_tokens=2000, reasoning_effort="low"):
                         "where applicable alongside old provisions. Be formal and thorough. "
                         "Match your answer length to the question — a simple practice question "
                         "deserves a direct, short answer, not an exhaustive treatise."
-                    )
+                    ),
                 },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
+                {"role": "user", "content": prompt},
             ],
             model="openai/gpt-oss-120b",  # fastest + best quality on Groq free tier
             max_tokens=max_tokens,
@@ -1022,13 +1218,14 @@ def ask_groq(prompt, max_tokens=2000, reasoning_effort="low"):
 # LAWYER PORTAL — AI ENDPOINTS (Groq powered)
 # ════════════════════════════════════════════
 
-@app.route('/api/lawyer/draft-document', methods=['POST'])
+
+@app.route("/api/lawyer/draft-document", methods=["POST"])
 def lawyer_draft_document():
-    if 'user_id' not in session or session.get('role') != 'lawyer':
+    if "user_id" not in session or session.get("role") != "lawyer":
         return jsonify({"error": "Unauthorized"}), 401
 
     data = request.get_json()
-    prompt = data.get('prompt', '').strip()
+    prompt = data.get("prompt", "").strip()
     if not prompt:
         return jsonify({"error": "Prompt required"}), 400
 
@@ -1057,13 +1254,13 @@ def lawyer_draft_document():
     return jsonify({"text": text})
 
 
-@app.route('/api/lawyer/bail-draft', methods=['POST'])
+@app.route("/api/lawyer/bail-draft", methods=["POST"])
 def lawyer_bail_draft():
-    if 'user_id' not in session or session.get('role') != 'lawyer':
+    if "user_id" not in session or session.get("role") != "lawyer":
         return jsonify({"error": "Unauthorized"}), 401
 
     data = request.get_json()
-    prompt = data.get('prompt', '').strip()
+    prompt = data.get("prompt", "").strip()
     if not prompt:
         return jsonify({"error": "Prompt required"}), 400
 
@@ -1093,14 +1290,14 @@ def lawyer_bail_draft():
 
 
 # ── Precedent Finder also uses Groq ──
-@app.route('/api/lawyer/find-precedents', methods=['POST'])
+@app.route("/api/lawyer/find-precedents", methods=["POST"])
 def lawyer_find_precedents():
-    if 'user_id' not in session or session.get('role') != 'lawyer':
+    if "user_id" not in session or session.get("role") != "lawyer":
         return jsonify({"error": "Unauthorized"}), 401
 
     data = request.get_json()
-    query = data.get('query', '').strip()
-    search_type = data.get('type', 'laws')
+    query = data.get("query", "").strip()
+    search_type = data.get("type", "laws")
 
     if not query:
         return jsonify({"answer": "Please enter a search query."}), 400
@@ -1122,14 +1319,26 @@ def lawyer_find_precedents():
     # Lawyers already know the law — what they actually search for is
     # procedure, drafting, and filing steps, not "which section applies."
     PROCEDURAL_TRIGGERS = [
-        'how to', 'how do i', 'steps to', 'procedure for', 'process for',
-        'format for', 'how is', 'how can i', 'draft a', 'file a', 'filing',
-        'vakalatnama', 'caveat', 'certified copy', 'stamp duty',
-        'court fee', 'application format'
+        "how to",
+        "how do i",
+        "steps to",
+        "procedure for",
+        "process for",
+        "format for",
+        "how is",
+        "how can i",
+        "draft a",
+        "file a",
+        "filing",
+        "vakalatnama",
+        "caveat",
+        "certified copy",
+        "stamp duty",
+        "court fee",
+        "application format",
     ]
     is_procedural = any(t in query.lower() for t in PROCEDURAL_TRIGGERS)
-    
-    
+
     if is_procedural:
         groq_prompt = (
             f"As an Indian legal practice expert, answer this procedural "
@@ -1143,7 +1352,7 @@ def lawyer_find_precedents():
             f"something. Do not invent case citations. If you're not certain "
             f"of a specific detail, say so rather than guessing."
         )
-    elif search_type == 'outcome':
+    elif search_type == "outcome":
         groq_prompt = (
             f"As an Indian legal expert, analyze this situation and predict "
             f"likely case outcome:\n\n{query}{rag_context}\n\n"
@@ -1151,9 +1360,9 @@ def lawyer_find_precedents():
             f"4) Advice. Only cite specific case names/citations if you are "
             f"confident they are real — otherwise describe the general "
             f"principle without attributing it to a specific case. "
-            f"Keep the answer complete rather than exhaustive — cover the "        # ← added
-            f"most important 4-6 points fully rather than listing everything "     # ← added
-            f"and running out of room."                                            # ← added
+            f"Keep the answer complete rather than exhaustive — cover the "  # ← added
+            f"most important 4-6 points fully rather than listing everything "  # ← added
+            f"and running out of room."  # ← added
         )
     else:
         groq_prompt = (
@@ -1167,10 +1376,11 @@ def lawyer_find_precedents():
             f"actually a legal research question (e.g. too vague, off-"
             f"topic, or unrelated to Indian law), say so directly instead "
             f"of forcing an answer into this format. "
-            f"Keep the answer complete rather than exhaustive — cover the "        # ← added
-            f"most important 4-6 sections fully rather than listing every "        # ← added
-            f"possibly-relevant one and running out of room."                      # ← added
+            f"Keep the answer complete rather than exhaustive — cover the "
+            f"most important 4-6 sections fully rather than listing every "
+            f"possibly-relevant one and running out of room."
         )
+
     answer = ask_groq(groq_prompt, max_tokens=3500)
 
     if not answer:
@@ -1182,193 +1392,600 @@ def lawyer_find_precedents():
         else:
             answer = "No matching legal sections found. Please refine your query."
 
-        return jsonify({"answer": answer})
+    return jsonify({"answer": answer})
 
 
 # ════════════════════════════════════
 # JUDGE PORTAL — LAW LIBRARY / PRECEDENT RESEARCH
 # ════════════════════════════════════
+# Reusable, topic-based research architecture. Everything under "Verified"
+# comes from CURRENT_LAW_MAP / VERIFIED_PRECEDENTS below — the LLM only
+# writes the synthesis paragraph and is forbidden from adding case names,
+# citations, sections, or holdings not present in this data.
 
-# Hand-curated, verified legal reference data. Only entries here are ever
-# presented as "verified" — the LLM is explicitly forbidden from inventing
-# case names, citations, or section renumbering (see prompt below).
-VERIFIED_PRECEDENTS = [
+# ── SINGLE SOURCE OF TRUTH for section mappings — nothing else in the app
+# duplicates this. classify_topic, build_statutory_sections, and the
+# synthesis prompt all read from here. ──
+SECTION_MAPPINGS = [
     {
-        "case": "Gurbaksh Singh Sibbia v. State of Punjab", "citation": "(1980) 2 SCC 565",
-        "court": "Supreme Court of India", "area": "Anticipatory Bail",
-        "statute_then": "Section 438, Code of Criminal Procedure, 1973",
-        "current_law_note": "Corresponding current provision: Section 482, Bharatiya Nagarik Suraksha Sanhita, 2023 (BNSS).",
-        "principle": "Anticipatory bail should be exercised liberally on a case-by-case basis and not fettered by rigid, statute-unsupported conditions.",
-        "keywords": ["anticipatory bail", "438", "482", "bnss", "crpc", "pre-arrest bail", "sibbia"]
+        "topic": "anticipatory_bail",
+        "topic_label": "Anticipatory Bail",
+        "keywords": [
+            "anticipatory bail",
+            "pre-arrest bail",
+            "apprehending arrest",
+            "438 crpc",
+            "482 bnss",
+        ],
+        "current": {
+            "act": "BNSS",
+            "act_full": "Bharatiya Nagarik Suraksha Sanhita, 2023",
+            "section": "482",
+            "subject": "Direction for grant of bail to person apprehending arrest",
+        },
+        "historical": {
+            "act": "CrPC",
+            "act_full": "Code of Criminal Procedure, 1973",
+            "section": "438",
+            "subject": "Direction for grant of bail to person apprehending arrest",
+        },
     },
     {
-        "case": "Siddharam Satlingappa Mhetre v. State of Maharashtra", "citation": "(2011) 1 SCC 694",
-        "court": "Supreme Court of India", "area": "Anticipatory Bail",
-        "statute_then": "Section 438, Code of Criminal Procedure, 1973",
-        "current_law_note": "Corresponding current provision: Section 482, Bharatiya Nagarik Suraksha Sanhita, 2023 (BNSS).",
-        "principle": "Disapproved fixed time-limits on anticipatory bail; protection should ordinarily continue absent specific grounds for cancellation.",
-        "keywords": ["anticipatory bail", "438", "482", "bnss", "crpc", "duration", "mhetre"]
+        "topic": "regular_bail",
+        "topic_label": "Regular Bail",
+        "keywords": [
+            "regular bail",
+            "non-bailable",
+            "439 crpc",
+            "483 bnss",
+            "special powers",
+            "pre-trial detention",
+        ],
+        "current": {
+            "act": "BNSS",
+            "act_full": "Bharatiya Nagarik Suraksha Sanhita, 2023",
+            "section": "483",
+            "subject": "Special powers of High Court or Court of Session regarding bail",
+        },
+        "historical": {
+            "act": "CrPC",
+            "act_full": "Code of Criminal Procedure, 1973",
+            "section": "439",
+            "subject": "Special powers of High Court or Court of Session regarding bail",
+        },
     },
     {
-        "case": "Sushila Aggarwal v. State (NCT of Delhi)", "citation": "(2020) 5 SCC 1",
-        "court": "Supreme Court of India", "area": "Anticipatory Bail",
-        "statute_then": "Section 438, Code of Criminal Procedure, 1973",
-        "current_law_note": "Corresponding current provision: Section 482, Bharatiya Nagarik Suraksha Sanhita, 2023 (BNSS).",
-        "principle": "A five-judge bench held anticipatory bail need not be time-bound and may, absent specific orders, continue till the end of trial.",
-        "keywords": ["anticipatory bail", "438", "482", "bnss", "crpc", "sushila aggarwal"]
-    },
-    {
-        "case": "Arnesh Kumar v. State of Bihar", "citation": "(2014) 8 SCC 273",
-        "court": "Supreme Court of India", "area": "Arrest procedure",
-        "statute_then": "Section 41, Code of Criminal Procedure, 1973",
-        "current_law_note": "Corresponding current provision: Section 35, Bharatiya Nagarik Suraksha Sanhita, 2023 (BNSS).",
-        "principle": "Police must record reasons before arresting for offences punishable up to seven years and satisfy statutory arrest conditions first.",
-        "keywords": ["arrest", "41", "35", "bnss", "crpc", "arnesh kumar", "casual arrest"]
-    },
-    {
-        "case": "Sanjay Chandra v. Central Bureau of Investigation", "citation": "(2012) 1 SCC 40",
-        "court": "Supreme Court of India", "area": "Regular Bail",
-        "statute_then": "Section 439, Code of Criminal Procedure, 1973",
-        "current_law_note": "Corresponding current provision: Section 483, Bharatiya Nagarik Suraksha Sanhita, 2023 (BNSS).",
-        "principle": "Bail is the rule, jail the exception; pre-trial detention should not be punitive.",
-        "keywords": ["bail", "439", "483", "bnss", "crpc", "sanjay chandra", "economic offence"]
+        "topic": "arrest_procedure",
+        "topic_label": "Arrest Procedure",
+        "keywords": [
+            "arrest",
+            "casual arrest",
+            "41 crpc",
+            "35 bnss",
+            "arrest without warrant",
+        ],
+        "current": {
+            "act": "BNSS",
+            "act_full": "Bharatiya Nagarik Suraksha Sanhita, 2023",
+            "section": "35",
+            "subject": "Arrest without warrant — conditions and safeguards",
+        },
+        "historical": {
+            "act": "CrPC",
+            "act_full": "Code of Criminal Procedure, 1973",
+            "section": "41",
+            "subject": "When police may arrest without warrant",
+        },
     },
 ]
 
-SECTION_CORRESPONDENCE = {
-    "438 crpc": "Section 482, Bharatiya Nagarik Suraksha Sanhita, 2023 (BNSS) — Anticipatory bail",
-    "437 crpc": "Section 480, Bharatiya Nagarik Suraksha Sanhita, 2023 (BNSS) — Bail in non-bailable offences",
-    "439 crpc": "Section 483, Bharatiya Nagarik Suraksha Sanhita, 2023 (BNSS) — High Court/Sessions Court bail powers",
-    "41 crpc":  "Section 35, Bharatiya Nagarik Suraksha Sanhita, 2023 (BNSS) — Arrest without warrant",
-    "154 crpc": "Section 173, Bharatiya Nagarik Suraksha Sanhita, 2023 (BNSS) — Registration of FIR",
-    "156 crpc": "Section 175, Bharatiya Nagarik Suraksha Sanhita, 2023 (BNSS) — Police power to investigate",
+SECTION_MAP_BY_TOPIC = {m["topic"]: m for m in SECTION_MAPPINGS}
+
+# CrPC/IPC section number → (act, current section) — used both by the
+# statute-number extractor AND to sanity-check that no case's statute_then
+# disagrees with the authoritative table (validation, not display logic).
+HISTORICAL_TO_CURRENT = {
+    (m["historical"]["act"], m["historical"]["section"]): m["current"]
+    for m in SECTION_MAPPINGS
 }
 
-def find_verified_precedents(query, limit=4):
-    q = query.lower()
-    scored = []
-    for p in VERIFIED_PRECEDENTS:
-        score = max(
-            fuzz.partial_ratio(q, p["case"].lower()),
-            max((fuzz.partial_ratio(q, kw) for kw in p["keywords"]), default=0)
-        )
-        if score >= 60:
-            scored.append((score, p))
-    scored.sort(key=lambda x: -x[0])
-    return [p for _, p in scored[:limit]]
+# Topics commonly discussed together — drives RELATED (not mixed-in) results.
+COMPARISON_TRIGGERS = [
+    "compare",
+    "comparison",
+    "versus",
+    " vs ",
+    "difference between",
+    "distinguish",
+    "distinction between",
+    "as opposed to",
+]
 
-def find_section_correspondence(query):
+
+def wants_cross_topic_comparison(query):
     q = query.lower()
-    return [
-        f"Section {old.split()[0].upper()} {old.split()[1].upper()} → {new}"
-        for old, new in SECTION_CORRESPONDENCE.items() if old in q
+    return any(t in q for t in COMPARISON_TRIGGERS)
+
+
+# Only used when comparison is explicitly requested.
+COMPARISON_PAIRS = {
+    "anticipatory_bail": ["regular_bail"],
+    "regular_bail": ["anticipatory_bail"],
+}
+
+VERIFIED_PRECEDENTS = [
+    {
+        "id": "sibbia",
+        "case": "Gurbaksh Singh Sibbia v. State of Punjab",
+        "citation": "(1980) 2 SCC 565",
+        "court": "Supreme Court of India",
+        "bench": "Constitution Bench",
+        "year": 1980,
+        "topic": "anticipatory_bail",
+        "statute_then": {"act": "CrPC", "section": "438"},
+        "key_holding": "The discretion to grant anticipatory bail under Section 438 CrPC is to be exercised judicially, on the facts and circumstances of each case, without rigid restrictions unsupported by the statute.",
+        "why_relevant": "Foundational authority on the scope and exercise of anticipatory bail under Section 438 CrPC.",
+        "source_url": "https://indiankanoon.org/doc/548421/",
+        "later_development": None,
+    },
+    {
+        "id": "mhetre",
+        "case": "Siddharam Satlingappa Mhetre v. State of Maharashtra",
+        "citation": "(2011) 1 SCC 694",
+        "court": "Supreme Court of India",
+        "bench": None,
+        "year": 2011,
+        "topic": "anticipatory_bail",
+        "statute_then": {"act": "CrPC", "section": "438"},
+        "key_holding": "Discussed the duration and governing principles of anticipatory bail.",
+        "why_relevant": "Addressed how long anticipatory bail protection should last and the grounds for cancellation.",
+        "source_url": "https://indiankanoon.org/doc/1926803/",
+        "later_development": {
+            "case_id": "sushila_aggarwal",
+            "note": "Sushila Aggarwal subsequently clarified the duration of anticipatory bail and overruled Mhetre only to the extent Mhetre suggested no conditions could ever be imposed.",
+        },
+    },
+    {
+        "id": "sushila_aggarwal",
+        "case": "Sushila Aggarwal v. State (NCT of Delhi)",
+        "citation": "(2020) 5 SCC 1",
+        "court": "Supreme Court of India",
+        "bench": "Constitution Bench (5 judges)",
+        "year": 2020,
+        "topic": "anticipatory_bail",
+        "statute_then": {"act": "CrPC", "section": "438"},
+        "key_holding": "Held that anticipatory bail need not be time-bound and may, absent a specific order to the contrary, continue until the conclusion of trial.",
+        "why_relevant": "Authoritatively settled the duration of anticipatory bail, clarifying the position left open after Mhetre.",
+        "source_url": "https://indiankanoon.org/doc/47239352/",
+        "later_development": None,
+    },
+    {
+        "id": "arnesh_kumar",
+        "case": "Arnesh Kumar v. State of Bihar",
+        "citation": "(2014) 8 SCC 273",
+        "court": "Supreme Court of India",
+        "bench": None,
+        "year": 2014,
+        "topic": "arrest_procedure",
+        "statute_then": {"act": "CrPC", "section": "41"},
+        "key_holding": "Police must record reasons before arresting for offences punishable up to seven years and must satisfy statutory arrest conditions first.",
+        "why_relevant": "Guards against routine/casual arrest and is frequently invoked alongside bail applications.",
+        "source_url": "https://indiankanoon.org/doc/117501822/",
+        "later_development": None,
+    },
+    {
+        "id": "sanjay_chandra",
+        "case": "Sanjay Chandra v. Central Bureau of Investigation",
+        "citation": "(2012) 1 SCC 40",
+        "court": "Supreme Court of India",
+        "bench": None,
+        "year": 2012,
+        "topic": "regular_bail",
+        "statute_then": {"act": "CrPC", "section": "439"},
+        "key_holding": "Bail is the rule, jail the exception; pre-trial detention should not be punitive.",
+        "why_relevant": "Concerns regular bail rather than anticipatory bail — included only for its discussion of pre-trial detention principles.",
+        "source_url": "https://indiankanoon.org/doc/1969296/",
+        "later_development": None,
+    },
+]
+
+LEGAL_PRINCIPLES = {
+    "anticipatory_bail": [
+        {
+            "principle": "Nature and purpose of anticipatory bail",
+            "explanation": "A protective, pre-arrest direction exercised liberally on the facts of each case rather than through rigid, judge-made conditions.",
+            "case_id": "sibbia",
+        },
+        {
+            "principle": "Duration of protection",
+            "explanation": "Protection need not be time-bound and may continue till the end of trial absent a specific order limiting it.",
+            "case_id": "sushila_aggarwal",
+        },
+        {
+            "principle": "Cancellation or modification of anticipatory bail",
+            "explanation": "An anticipatory-bail order may be modified or cancelled where legally recognised grounds are established, including violation of conditions, misuse of protection, or relevant subsequent circumstances.",
+            "case_id": "mhetre",
+        },
+    ],
+    "regular_bail": [
+        {
+            "principle": "Bail as the norm in pre-trial detention",
+            "explanation": "Bail is the rule and jail the exception; detention pending trial should not be used punitively.",
+            "case_id": "sanjay_chandra",
+        },
+    ],
+    "arrest_procedure": [
+        {
+            "principle": "Conditions precedent to arrest",
+            "explanation": "For offences punishable up to seven years, police must record reasons and satisfy statutory conditions before arresting.",
+            "case_id": "arnesh_kumar",
+        },
+    ],
+}
+
+SECTION_RE = re.compile(
+    r"section\s+(\d+[a-z]?)\s*,?\s*(ipc|crpc|bnss|bns|bsa|iea|nia|hma|cpc|ida|mva)",
+    re.IGNORECASE,
+)
+ACT_CODE_MAP = {
+    "ipc": "IPC",
+    "crpc": "CRPC",
+    "bnss": "BNSS",
+    "bns": "BNS",
+    "bsa": "BSA",
+    "iea": "IEA",
+    "nia": "NIA",
+    "hma": "HMA",
+    "cpc": "CPC",
+    "ida": "IDA",
+    "mva": "MVA",
+}
+
+
+def _validate_precedent(p):
+    """Validation layer — required fields + a real source before a case is labeled Verified."""
+    required = [
+        "case",
+        "citation",
+        "court",
+        "topic",
+        "statute_then",
+        "key_holding",
+        "why_relevant",
     ]
+    if any(not p.get(f) for f in required) or not p.get("source_url"):
+        return "Unverified"
+    return "Verified"
 
-@app.route('/judge/precedents', methods=['POST'])
+
+def _validate_case_statute_against_mapping():
+    """Startup check — a case's statute_then must match SECTION_MAPPINGS for
+    its topic, or fail loudly rather than silently disagree with the
+    Current Law card."""
+    for p in VERIFIED_PRECEDENTS:
+        m = SECTION_MAP_BY_TOPIC.get(p["topic"])
+        if not m:
+            raise ValueError(
+                f"{p['case']}: topic '{p['topic']}' has no SECTION_MAPPINGS entry"
+            )
+        if (
+            p["statute_then"]["act"] != m["historical"]["act"]
+            or p["statute_then"]["section"] != m["historical"]["section"]
+        ):
+            raise ValueError(
+                f"{p['case']}: statute_then disagrees with SECTION_MAPPINGS for topic {p['topic']}"
+            )
+
+
+_validate_case_statute_against_mapping()
+
+
+def classify_topic(query):
+    """Word-level fuzzy match against each topic's label + keywords.
+    token_set_ratio (not partial_ratio) so "439" never fuzzy-matches "438" —
+    partial_ratio scores near-identical numeric strings too highly."""
+    q = query.lower()
+    best_topic, best_score = None, 0
+    for m in SECTION_MAPPINGS:
+        candidates = [m["topic_label"].lower()] + m["keywords"]
+        score = max(fuzz.token_set_ratio(q, c) for c in candidates)
+        if score > best_score:
+            best_topic, best_score = m["topic"], score
+    if best_score < 65:
+        return None
+    return best_topic
+
+
+def find_direct_and_related(primary_topic, query):
+    direct, related = [], []
+    if not primary_topic:
+        return direct, related
+    cross_topics = (
+        set(COMPARISON_PAIRS.get(primary_topic, []))
+        if wants_cross_topic_comparison(query)
+        else set()
+    )
+    for p in VERIFIED_PRECEDENTS:
+        entry = {**p, "verification_status": _validate_precedent(p)}
+        if p["topic"] == primary_topic:
+            direct.append(entry)
+        elif p["topic"] in cross_topics:
+            related.append(entry)
+    return direct, related
+
+
+def extract_section_reference(query):
+    m = SECTION_RE.search(query)
+    if not m:
+        return None
+    return (m.group(2).upper(), m.group(1))
+
+
+def build_statutory_sections(primary_topic, explicit_section):
+    sections = []
+    if primary_topic:
+        meta = SECTION_MAP_BY_TOPIC[primary_topic]
+        sections.append({**meta["current"], "status": "Current"})
+        sections.append(
+            {**meta["historical"], "status": "Historical/previous procedural provision"}
+        )
+    if explicit_section:
+        act_code, num = explicit_section
+        if not any(s["act"] == act_code and s["section"] == num for s in sections):
+            try:
+                conn = sqlite3.connect(DB_PATH)
+                cursor = conn.cursor()
+                cursor.execute(
+                    f"SELECT section_title FROM {act_code} WHERE Section = ? LIMIT 1",
+                    (num,),
+                )
+                row = cursor.fetchone()
+                conn.close()
+                if row:
+                    sections.append(
+                        {
+                            "act": act_code,
+                            "act_full": ACT_CODE_MAP.get(act_code.lower(), act_code),
+                            "section": num,
+                            "subject": row[0],
+                            "status": (
+                                "Current"
+                                if act_code in ("BNS", "BNSS", "BSA")
+                                else "Historical"
+                            ),
+                        }
+                    )
+            except Exception as e:
+                print(f"Section lookup error for {act_code} {num}: {e}")
+    return sections
+
+
+def build_synthesis_prompt(query, current_law, direct, related, principles):
+    verified_text = (
+        f"Current law: {current_law}\n"
+        if current_law
+        else "Current law: not identified for this query.\n"
+    )
+    verified_text += (
+        "Directly relevant precedents:\n"
+        + "\n".join(
+            f"- {c['case']} {c['citation']}: {c['key_holding']}" for c in direct
+        )
+        if direct
+        else "Directly relevant precedents: none in curated database.\n"
+    )
+    if related:
+        verified_text += "\nRelated authorities:\n" + "\n".join(
+            f"- {c['case']} {c['citation']}: {c['key_holding']}" for c in related
+        )
+    if principles:
+        verified_text += "\nPrinciples:\n" + "\n".join(
+            f"- {p['principle']}: {p['explanation']}" for p in principles
+        )
+
+    mapping_facts = "\n".join(
+        f"- {m['historical']['act']} §{m['historical']['section']} ({m['topic_label']}) → "
+        f"{m['current']['act']} §{m['current']['section']}"
+        for m in SECTION_MAPPINGS
+    )
+
+    return (
+        f'A judge is researching: "{query}"\n\n'
+        f"AUTHORITATIVE SECTION MAPPING (ground truth — never contradict this):\n{mapping_facts}\n\n"
+        f"Below is VERIFIED material already confirmed by NyayaAI. Write a short structured synthesis "
+        f"for judicial reference in exactly this format:\n"
+        f"Research Summary: 3-6 concise bullet points.\n"
+        f"Current-law position: one short paragraph.\n"
+        f"Historical-law position: one short paragraph, only if relevant.\n"
+        f"Important qualification: limitations or later developments, only if relevant.\n\n"
+        f"STRICT RULES:\n"
+        f"- Do NOT invent, rename, or 'translate' any section number into a different Act. "
+        f"Only use section numbers/Act names in the verified material or mapping above.\n"
+        f"- Do NOT cite any case name, citation, or court not in the verified material below.\n"
+        f"- Do NOT attribute a legal subject to a section that the mapping above assigns to a "
+        f"different topic (e.g. never describe Section 439 CrPC / 483 BNSS as anticipatory bail).\n"
+        f"- Do NOT use absolute words ('must', 'always', 'only', 'automatically', 'entirely overruled') "
+        f"unless that exact certainty is present in the verified material below. Prefer measured "
+        f"language ('may', 'ordinarily', 'to the extent that').\n"
+        f"- Do NOT draw a conclusion about one topic from a holding about a different topic "
+        f"(e.g. do not use an anticipatory-bail duration holding to conclude something about "
+        f"regular bail, or vice versa).\n"
+        f"- Do NOT repeat the precedent list verbatim — synthesize, don't restate.\n"
+        f"- Plain text only. No markdown (no **bold**, no asterisks, no headers). "
+        f"Cite a case inline as (Case Name, Year) using normal parentheses — never full-width "
+        f"brackets or other symbols.\n"
+        f"- If the verified material is empty or insufficient, say so plainly instead of filling the gap.\n\n"
+        f"VERIFIED MATERIAL:\n{verified_text}"
+    )
+
+
+def clean_llm_text(text):
+    """Strip markdown bold/italic and normalize full-width citation brackets
+    the model sometimes emits despite instructions."""
+    if not text:
+        return text
+    text = text.replace("【", "(").replace("】", ")")
+    text = re.sub(r"\*\*(.*?)\*\*", r"\1", text)  # **bold** -> bold
+    text = re.sub(r"\*(.*?)\*", r"\1", text)  # *italic* -> italic
+    return text.strip()
+
+
+def parse_synthesis(raw_text):
+    if not raw_text:
+        return None
+    pattern = re.compile(
+        r"Research Summary:(.*?)(?:Current-law position:|$)"
+        r"(?:Current-law position:(.*?)(?:Historical-law position:|Important qualification:|$))?"
+        r"(?:Historical-law position:(.*?)(?:Important qualification:|$))?"
+        r"(?:Important qualification:(.*))?",
+        re.IGNORECASE | re.DOTALL,
+    )
+    m = pattern.search(raw_text)
+    parts = {
+        "summary": "",
+        "current_position": "",
+        "historical_position": "",
+        "qualification": "",
+    }
+    if m:
+        parts["summary"] = clean_llm_text(m.group(1))
+        parts["current_position"] = clean_llm_text(m.group(2))
+        parts["historical_position"] = clean_llm_text(m.group(3))
+        parts["qualification"] = clean_llm_text(m.group(4))
+    else:
+        parts["summary"] = clean_llm_text(raw_text)
+    return parts
+
+
+@app.route("/judge/precedents", methods=["POST"])
 def judge_find_precedents():
-    if 'user_id' not in session or session.get('role') != 'judge':
+    if "user_id" not in session or session.get("role") != "judge":
         return jsonify({"error": "Unauthorized"}), 401
 
     data = request.get_json()
-    query = (data.get('query') or '').strip()
+    query = (data.get("query") or "").strip()
     if not query:
-        return jsonify({"answer": "Please enter a research query."}), 400
+        return jsonify({"error": "Please enter a research query."}), 400
 
-    verified_cases = find_verified_precedents(query)
-    correspondence_notes = find_section_correspondence(query)
+    primary_topic = classify_topic(query)
+    explicit_section = extract_section_reference(query)
+    direct, related = find_direct_and_related(primary_topic, query)
+    principles = LEGAL_PRINCIPLES.get(primary_topic, []) if primary_topic else []
+    statutory_sections = build_statutory_sections(primary_topic, explicit_section)
 
-    try:
-        rag_results = search_law(query)
-    except Exception as rag_err:
-        print(f"RAG failed: {rag_err}")
-        rag_results = None
-
-    sections = []
-
-    if verified_cases:
-        block = "### Verified Supreme Court Precedents\n\n"
-        for i, c in enumerate(verified_cases, 1):
-            block += (
-                f"{i}. {c['case']}\n"
-                f"   Citation: {c['citation']}\n"
-                f"   Court: {c['court']}\n"
-                f"   Area: {c['area']}\n"
-                f"   Statute discussed: {c['statute_then']}\n"
-                f"   Key principle: {c['principle']}\n"
-                f"   Current-law note: {c['current_law_note']}\n\n"
-            )
-        sections.append(block)
-    else:
-        sections.append(
-            "### Verified Supreme Court Precedents\n\n"
-            "No verified precedent in NyayaAI's curated database matched this query. "
-            "Source could not be verified — cross-check against SCC / SCC OnLine / the "
-            "Supreme Court's judgment portal before relying on any case law here.\n"
+    # ── Off-topic guard — nothing legal identified at all, don't ask the
+    # LLM to fabricate a legal answer for it. ──
+    if not primary_topic and not explicit_section and not statutory_sections:
+        return jsonify(
+            {
+                "current_law": None,
+                "directly_relevant": [],
+                "related_authorities": [],
+                "principles": [],
+                "statutory_sections": [],
+                "synthesis": None,
+                "sources": [],
+                "no_result_notice": "This does not appear to be an Indian legal research query — "
+                "no statutory provision or legal topic could be identified.",
+                "ai_notice": None,
+            }
         )
 
-    if rag_results:
-        block = "### Statute Sections (NyayaAI Legal Database)\n\n"
-        for r in rag_results[:4]:
-            block += f"- Section {r.get('section','')}: {r.get('title','')} — {(r.get('description','') or '')[:200]}\n"
-        sections.append(block)
+    current_law = None
+    if primary_topic:
+        meta = SECTION_MAP_BY_TOPIC[primary_topic]
+        current_law = {
+            "topic_label": meta["topic_label"],
+            "current": meta["current"],
+            "historical": meta["historical"],
+        }
+    id_to_case = {p["id"]: p["case"] for p in VERIFIED_PRECEDENTS}
+    for c in direct:
+        ld = c.get("later_development")
+        c["later_development_text"] = (
+            f"Later clarified by {id_to_case.get(ld['case_id'], '')} — {ld['note']}"
+            if ld
+            else None
+        )
 
-    if correspondence_notes:
-        sections.append("### Current-Law Correspondence (verified)\n\n" + "\n".join(f"- {n}" for n in correspondence_notes))
-
-    verified_block = "\n\n".join(sections)
-
-    groq_prompt = (
-        f"A judge is researching: \"{query}\"\n\n"
-        f"Below is VERIFIED material already confirmed by NyayaAI. Write a short neutral "
-        f"summary (120-180 words) of the legal position for judicial reference, in plain prose. "
-        f"Do not repeat the verified material verbatim.\n\n"
-        f"STRICT RULES:\n"
-        f"- Do NOT invent, rename, or 'translate' any section number into a different Act. "
-        f"Only use section numbers/Act names that appear in the verified material below.\n"
-        f"- Do NOT cite any case name, citation, or court not in the verified material below. "
-        f"You may describe general principles without attributing them to a specific case.\n"
-        f"- If the verified material is empty or insufficient, say so plainly instead of "
-        f"filling the gap.\n\n"
-        f"VERIFIED MATERIAL:\n{verified_block}"
+    prompt = build_synthesis_prompt(query, current_law, direct, related, principles)
+    synthesis = parse_synthesis(
+        ask_groq(prompt, max_tokens=600, reasoning_effort="low")
     )
-    ai_summary = ask_groq(groq_prompt, max_tokens=600, reasoning_effort="low")
 
-    final_answer = verified_block
-    if ai_summary:
-        final_answer += "\n\n### AI-Generated Explanation (for judicial reference only — verify independently)\n\n" + ai_summary
-    else:
-        final_answer += "\n\n### AI-Generated Explanation\n\nUnavailable right now — please rely on the verified material above."
+    sources = [
+        {
+            "case": c["case"],
+            "citation": c["citation"],
+            "source_url": c.get("source_url"),
+            "verification_status": c["verification_status"],
+        }
+        for c in direct + related
+    ]
 
-    return jsonify({"answer": final_answer})
+    no_result_notice = None
+    if not direct and not related:
+        no_result_notice = (
+            "Authority could not be verified — no case in NyayaAI's curated database matched "
+            "this query. Cross-check against SCC / SCC OnLine / the Supreme Court's judgment portal."
+        )
+
+    return jsonify(
+        {
+            "current_law": current_law,
+            "directly_relevant": direct,
+            "related_authorities": related,
+            "principles": principles,
+            "statutory_sections": statutory_sections,
+            "synthesis": synthesis,
+            "sources": sources,
+            "no_result_notice": no_result_notice,
+            "ai_notice": (
+                "AI-generated summary based on the authorities identified above. "
+                "Verify the original judgment and current statute before relying on this "
+                "information for legal proceedings."
+            ),
+        }
+    )
 
 
 # ════════════════════════════════════
 # RAG FALLBACK DOCUMENT GENERATOR
 # ════════════════════════════════════
 
+
 def generate_rag_document_lawyer(prompt, rag_results):
     """Builds a structured legal document from RAG results when Groq is unavailable."""
     from datetime import datetime
+
     today = datetime.now().strftime("%d %B %Y")
 
     # Extract fields from prompt
     accused = court = case_no = sections = facts = custody = bail_type = ps = ""
-    for line in prompt.split('\n'):
+    for line in prompt.split("\n"):
         line = line.strip()
-        if 'Accused:' in line:        accused    = line.split('Accused:')[-1].strip()
-        if 'Court:' in line:          court      = line.split('Court:')[-1].strip()
-        if 'FIR' in line and ':' in line: case_no = line.split(':')[-1].strip()
-        if 'Section' in line and 'Charged' in line: sections = line.split(':')[-1].strip()
-        if 'Grounds' in line:         facts      = line.split(':')[-1].strip()
-        if 'Custody' in line:         custody    = line.split(':')[-1].strip()
-        if 'Bail Type' in line:       bail_type  = line.split(':')[-1].strip()
-        if 'Police Station' in line:  ps         = line.split(':')[-1].strip()
+        if "Accused:" in line:
+            accused = line.split("Accused:")[-1].strip()
+        if "Court:" in line:
+            court = line.split("Court:")[-1].strip()
+        if "FIR" in line and ":" in line:
+            case_no = line.split(":")[-1].strip()
+        if "Section" in line and "Charged" in line:
+            sections = line.split(":")[-1].strip()
+        if "Grounds" in line:
+            facts = line.split(":")[-1].strip()
+        if "Custody" in line:
+            custody = line.split(":")[-1].strip()
+        if "Bail Type" in line:
+            bail_type = line.split(":")[-1].strip()
+        if "Police Station" in line:
+            ps = line.split(":")[-1].strip()
 
-    accused    = accused or "The Applicant"
-    court      = court or "SESSIONS COURT"
-    case_no    = case_no or "___"
-    sections   = sections or "___"
-    custody    = custody or "some days"
+    accused = accused or "The Applicant"
+    court = court or "SESSIONS COURT"
+    case_no = case_no or "___"
+    sections = sections or "___"
+    custody = custody or "some days"
 
     # Build citations from RAG
     rag_citations = ""
@@ -1449,9 +2066,10 @@ Date:  {today}
                                    Bar Enrolment No.: ______
                                    Bar Council of ________"""
 
-@app.route('/api/search-sections', methods=['GET'])
+
+@app.route("/api/search-sections", methods=["GET"])
 def search_sections():
-    query = request.args.get('q', '').strip()
+    query = request.args.get("q", "").strip()
 
     if not query or len(query) < 2:
         return jsonify([])
@@ -1473,16 +2091,12 @@ def search_sections():
                 OR lower(section_desc) LIKE ?
                 LIMIT 5
                 """,
-                (f"%{query.lower()}%", f"%{query.lower()}%")
+                (f"%{query.lower()}%", f"%{query.lower()}%"),
             )
             rows = cursor.fetchall()
 
             for row in rows:
-                db_results.append({
-                    "act": act,
-                    "section": row[0],
-                    "title": row[1]
-                })
+                db_results.append({"act": act, "section": row[0], "title": row[1]})
 
             conn.close()
 
@@ -1506,9 +2120,9 @@ def search_sections():
     """
 
     ai_output = ask_ollama(prompt)
-    
+
     ai_results = []
-    
+
     try:
         start = ai_output.find("[")
         end = ai_output.rfind("]") + 1
@@ -1516,8 +2130,12 @@ def search_sections():
             parsed = json.loads(ai_output[start:end])
             if isinstance(parsed, list):
                 ai_results = [
-                    r for r in parsed
-                    if isinstance(r, dict) and r.get("act") and r.get("section") and r.get("title")
+                    r
+                    for r in parsed
+                    if isinstance(r, dict)
+                    and r.get("act")
+                    and r.get("section")
+                    and r.get("title")
                 ]
     except Exception as e:
         print(f"AI search parse failed (ignored, no fake result injected): {e}")
@@ -1529,7 +2147,9 @@ def search_sections():
     final_results = db_results + ai_results
 
     return jsonify(final_results[:20])
-@app.route('/api/ask-law', methods=['POST'])
+
+
+@app.route("/api/ask-law", methods=["POST"])
 def ask_law():
     data = request.get_json()
     question = data.get("question", "").strip()
@@ -1548,8 +2168,8 @@ def ask_law():
     answer += "═══════════════════════════════\n\n"
 
     for item in results:
-        section     = item.get("section", "N/A")
-        title       = item.get("title", "N/A")
+        section = item.get("section", "N/A")
+        title = item.get("title", "N/A")
         description = item.get("description", "N/A")
 
         answer += f"📘 IPC Section {section}\n"
@@ -1568,22 +2188,23 @@ def ask_law():
 fir_collection = db["fir_records"]
 evidence_collection = db["evidence_files"]
 
-@app.route('/api/fir-records/<fir_no>/assign-lawyer', methods=['POST'])
+
+@app.route("/api/fir-records/<fir_no>/assign-lawyer", methods=["POST"])
 def assign_lawyer(fir_no):
-    if 'user_id' not in session or session.get('role') != 'lawyer':
+    if "user_id" not in session or session.get("role") != "lawyer":
         return jsonify({"error": "Unauthorized"}), 401
     fir_no = fir_no.strip()
-    if not assign_lawyer_to_fir(fir_no, session['user_id']):
+    if not assign_lawyer_to_fir(fir_no, session["user_id"]):
         return jsonify({"error": "FIR not found"}), 404
     return jsonify({"message": "Case added to your dashboard", "fir_no": fir_no})
+
 
 # Folder to store generated PDFs
 PDF_FOLDER = "generated_firs"
 os.makedirs(PDF_FOLDER, exist_ok=True)
 
 
-
-@app.route('/api/fir-records', methods=['GET'])
+@app.route("/api/fir-records", methods=["GET"])
 def get_fir_records():
     """Get all FIR records"""
     try:
@@ -1591,10 +2212,13 @@ def get_fir_records():
         return jsonify(fir_records)
 
     except Exception as e:
-        return jsonify({"error": "Failed to retrieve FIR records", "details": str(e)}), 500
+        return (
+            jsonify({"error": "Failed to retrieve FIR records", "details": str(e)}),
+            500,
+        )
 
 
-@app.route('/api/fir-records/<fir_no>', methods=['GET'])
+@app.route("/api/fir-records/<fir_no>", methods=["GET"])
 def get_fir_record(fir_no):
     """Get specific FIR"""
     try:
@@ -1606,10 +2230,13 @@ def get_fir_record(fir_no):
             return jsonify({"error": f"FIR record {fir_no} not found"}), 404
 
     except Exception as e:
-        return jsonify({"error": "Failed to retrieve FIR record", "details": str(e)}), 500
+        return (
+            jsonify({"error": "Failed to retrieve FIR record", "details": str(e)}),
+            500,
+        )
 
 
-@app.route('/generate_fir', methods=['POST'])
+@app.route("/generate_fir", methods=["POST"])
 def generate_fir():
 
     data = request.get_json()
@@ -1621,7 +2248,7 @@ def generate_fir():
         return jsonify({"error": "Validation failed", "details": errors}), 400
 
     complaint_text = data.get("statement", "")
-    
+
     if not data:
         return jsonify({"error": "No JSON received"}), 400
     complaint_text = data.get("statement", "")
@@ -1685,16 +2312,14 @@ MESSAGE: FIR has been successfully registered and saved to police records.
         elements = []
 
         for line in formatted_fir.split("\n"):
-            elements.append(Paragraph(line, styles['Normal']))
+            elements.append(Paragraph(line, styles["Normal"]))
             elements.append(Spacer(1, 5))
 
         pdf = SimpleDocTemplate(pdf_path)
         pdf.build(elements)
-        pdf_url= upload_pdf(pdf_path, fir_id)
-    
+        pdf_url = upload_pdf(pdf_path, fir_id)
 
-        fir_document={
-
+        fir_document = {
             "fir_id": fir_id,
             "fir_no": data.get("fir_no", ""),
             "dist": data.get("dist", ""),
@@ -1725,62 +2350,73 @@ MESSAGE: FIR has been successfully registered and saved to police records.
             "statement": data.get("statement", ""),
             "pdf_url": pdf_url,
             "created_at": datetime.now(timezone.utc).isoformat(),
-            "status": "Saved to Police Records"
+            "status": "Saved to Police Records",
         }
-       
+
         save_fir(fir_document)
 
-       
-    
         fir_response = fir_document.copy()
         fir_response.pop("_id", None)
         fir_response["created_at"] = str(fir_response["created_at"])
         fir_response["formatted_fir"] = formatted_fir.strip()
-        fir_response["message"] = "FIR has been successfully registered and saved to police records."
+        fir_response["message"] = (
+            "FIR has been successfully registered and saved to police records."
+        )
 
         return jsonify(fir_response)
 
     except Exception as e:
-        return jsonify({"error": "Failed to save FIR to database", "details": str(e)}), 500
+        return (
+            jsonify({"error": "Failed to save FIR to database", "details": str(e)}),
+            500,
+        )
+
+
 import os
 from werkzeug.utils import secure_filename
 
 # Configuration
-UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', 'uploads', 'evidence')
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-os.makedirs(UPLOAD_FOLDER, exist_ok=True) # Creates folder automatically
+UPLOAD_FOLDER = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "static", "uploads", "evidence"
+)
+app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)  # Creates folder automatically
 
-@app.route('/upload_evidence/<fir_no>', methods=['POST'])
+
+@app.route("/upload_evidence/<fir_no>", methods=["POST"])
 def upload_evidence(fir_no):
-    if 'file' not in request.files:
+    if "file" not in request.files:
         return jsonify({"error": "No file part"}), 400
-    
-    file = request.files['file']
-    if file.filename == '':
+
+    file = request.files["file"]
+    if file.filename == "":
         return jsonify({"error": "No selected file"}), 400
     # Secure the filename and save it
     filename = secure_filename(f"{fir_no}_{file.filename}")
-    file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
     file.save(file_path)
     # Return success response
-    return jsonify({"message": f"Evidence uploaded successfully for FIR {fir_no}", "file_path": file_path})
+    return jsonify(
+        {
+            "message": f"Evidence uploaded successfully for FIR {fir_no}",
+            "file_path": file_path,
+        }
+    )
+
 
 def generate_unique_id(role):
     """Generate unique ID based on role."""
-    role_prefixes = {
-        'police': 'POL',
-        'citizen': 'CIT',
-        'lawyer': 'LAW',
-        'judge': 'JUD'
-    }
-    prefix = role_prefixes.get(role, 'USR')
-    
+    role_prefixes = {"police": "POL", "citizen": "CIT", "lawyer": "LAW", "judge": "JUD"}
+    prefix = role_prefixes.get(role, "USR")
+
     # Find the highest existing ID for this role
     try:
-        existing_users = users_collection.find({'role': role}).sort('unique_id', -1).limit(1)
+        existing_users = (
+            users_collection.find({"role": role}).sort("unique_id", -1).limit(1)
+        )
         last_user = list(existing_users)
         if last_user:
-            last_id = last_user[0]['unique_id']
+            last_id = last_user[0]["unique_id"]
             # Extract number and increment
             try:
                 num = int(last_id[3:]) + 1
@@ -1790,178 +2426,227 @@ def generate_unique_id(role):
             num = 1
     except:
         num = 1
-    
+
     return f"{prefix}{num:03d}"
 
-@app.route('/signup', methods=['GET', 'POST'])
+
+@app.route("/signup", methods=["GET", "POST"])
 @require_same_origin
 @limiter.limit("5 per hour")
 def signup():
-    if request.method == 'POST':
+    if request.method == "POST":
         data = request.get_json()
-        fullname = (data.get('fullname') or '').strip()
-        email = (data.get('email') or '').strip().lower()
-        password = data.get('password')
-        role = data.get('role')
-        
+        fullname = (data.get("fullname") or "").strip()
+        email = (data.get("email") or "").strip().lower()
+        password = data.get("password")
+        role = data.get("role")
+
         if not all([fullname, email, password, role]):
             return jsonify({"error": "All fields are required"}), 400
-        
+
         if not EMAIL_RE.match(email):
             return jsonify({"error": "Invalid email address"}), 400
-        
-        if role not in ['police', 'citizen', 'lawyer', 'judge']:
+
+        if role not in ["police", "citizen", "lawyer", "judge"]:
             return jsonify({"error": "Invalid role"}), 400
-        
+
         pw_error = validate_password(password)
         if pw_error:
             return jsonify({"error": pw_error}), 400
-        
+
         # Check if user already exists
-        if users_collection.find_one({'email': email}):
-            return jsonify({"message": "If eligible, your account has been created."}), 200
-        
+        if users_collection.find_one({"email": email}):
+            return (
+                jsonify({"message": "If eligible, your account has been created."}),
+                200,
+            )
+
         # Hash password
-        password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+        password_hash = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt())
 
         # Unique ID handling by role
-        if role in ['police', 'lawyer', 'judge']:
-            unique_id = data.get('unique_id', '').strip().upper()
+        if role in ["police", "lawyer", "judge"]:
+            unique_id = data.get("unique_id", "").strip().upper()
             if not unique_id:
-                return jsonify({"error": "Unique ID is required for police, lawyer, or judge"}), 400
+                return (
+                    jsonify(
+                        {"error": "Unique ID is required for police, lawyer, or judge"}
+                    ),
+                    400,
+                )
 
             # Prefix must match role rule
-            role_prefixes = {'police': 'POL', 'lawyer': 'LAW', 'judge': 'JUD'}
+            role_prefixes = {"police": "POL", "lawyer": "LAW", "judge": "JUD"}
             expected_prefix = role_prefixes[role]
             if not unique_id.startswith(expected_prefix):
-                return jsonify({"error": f"Unique ID for {role} must start with {expected_prefix}"}), 400
+                return (
+                    jsonify(
+                        {
+                            "error": f"Unique ID for {role} must start with {expected_prefix}"
+                        }
+                    ),
+                    400,
+                )
 
             # Unique ID should not already exist
-            if users_collection.find_one({'unique_id': unique_id}):
+            if users_collection.find_one({"unique_id": unique_id}):
                 return jsonify({"error": "Unique ID already registered"}), 400
         else:
             unique_id = generate_unique_id(role)
 
         # Create user document
         user = {
-            'fullname': fullname,
-            'email': email,
-            'password_hash': password_hash,
-            'role': role,
-            'unique_id': unique_id,
-            'created_at': datetime.utcnow(),
-            'failed_attempts': 0,
-            'locked_until': None,
+            "fullname": fullname,
+            "email": email,
+            "password_hash": password_hash,
+            "role": role,
+            "unique_id": unique_id,
+            "created_at": datetime.utcnow(),
+            "failed_attempts": 0,
+            "locked_until": None,
         }
-        
+
         try:
             users_collection.insert_one(user)
-            return jsonify({
-                "message": "User registered successfully",
-                "unique_id": unique_id,
-                "role": role
-            }), 201
+            return (
+                jsonify(
+                    {
+                        "message": "User registered successfully",
+                        "unique_id": unique_id,
+                        "role": role,
+                    }
+                ),
+                201,
+            )
         except Exception as e:
             return jsonify({"error": f"Registration failed: {str(e)}"}), 500
-    
-    return render_template('signup.html')
 
-@app.route('/login', methods=['GET', 'POST'])
+    return render_template("signup.html")
+
+
+@app.route("/login", methods=["GET", "POST"])
 @require_same_origin
 @limiter.limit("10 per 15 minutes")
 def login():
-    if request.method == 'POST':
+    if request.method == "POST":
         data = request.get_json()
-        email = (data.get('email') or '').strip().lower()
-        password = data.get('password')
-        
+        email = (data.get("email") or "").strip().lower()
+        password = data.get("password")
+
         if not all([email, password]):
             return jsonify({"error": "Email and password are required"}), 400
-        
-        user = users_collection.find_one({'email': email})
+
+        user = users_collection.find_one({"email": email})
 
         if not user:
-            bcrypt.checkpw(password.encode('utf-8'), bcrypt.hashpw(b"dummy", bcrypt.gensalt()))
+            bcrypt.checkpw(
+                password.encode("utf-8"), bcrypt.hashpw(b"dummy", bcrypt.gensalt())
+            )
             return jsonify({"error": "Invalid credentials"}), 401
 
-        locked_until = user.get('locked_until')
+        locked_until = user.get("locked_until")
         if locked_until and locked_until > datetime.utcnow():
-            return jsonify({"error": "Account temporarily locked. Try again later."}), 423
+            return (
+                jsonify({"error": "Account temporarily locked. Try again later."}),
+                423,
+            )
 
-        if not bcrypt.checkpw(password.encode('utf-8'), user['password_hash']):
-            failed = user.get('failed_attempts', 0) + 1
-            update = {'failed_attempts': failed}
+        if not bcrypt.checkpw(password.encode("utf-8"), user["password_hash"]):
+            failed = user.get("failed_attempts", 0) + 1
+            update = {"failed_attempts": failed}
             if failed >= MAX_FAILED_ATTEMPTS:
-                update['locked_until'] = datetime.utcnow() + timedelta(seconds=LOCKOUT_SECONDS)
-                update['failed_attempts'] = 0
-            users_collection.update_one({'_id': user['_id']}, {'$set': update})
+                update["locked_until"] = datetime.utcnow() + timedelta(
+                    seconds=LOCKOUT_SECONDS
+                )
+                update["failed_attempts"] = 0
+            users_collection.update_one({"_id": user["_id"]}, {"$set": update})
             return jsonify({"error": "Invalid credentials"}), 401
 
         users_collection.update_one(
-            {'_id': user['_id']},
-            {'$set': {'failed_attempts': 0, 'locked_until': None, 'last_login': datetime.utcnow()}}
+            {"_id": user["_id"]},
+            {
+                "$set": {
+                    "failed_attempts": 0,
+                    "locked_until": None,
+                    "last_login": datetime.utcnow(),
+                }
+            },
         )
 
         session.clear()
         session.permanent = True
         # Store user in session
-        session['user_id'] = str(user['_id'])
-        session['role'] = user['role']
-        session['unique_id'] = user['unique_id']
-        session['fullname'] = user.get('fullname', 'Advocate')
-        
-        return jsonify({
-            "message": "Login successful",
-            "role": user['role'],
-            "unique_id": user['unique_id'],
-            "redirect": (
-                "/citizen-dashboard" if user['role'] == 'citizen'
-                else "/judge-dashboard" if user['role'] == 'judge'
-                else "/lawyer-dashboard" if user['role'] == 'lawyer'
-                else "/")  # ← UPDATED
-            }), 200
-    
-    return render_template('login.html')
+        session["user_id"] = str(user["_id"])
+        session["role"] = user["role"]
+        session["unique_id"] = user["unique_id"]
+        session["fullname"] = user.get("fullname", "Advocate")
+
+        return (
+            jsonify(
+                {
+                    "message": "Login successful",
+                    "role": user["role"],
+                    "unique_id": user["unique_id"],
+                    "redirect": (
+                        "/citizen-dashboard"
+                        if user["role"] == "citizen"
+                        else (
+                            "/judge-dashboard"
+                            if user["role"] == "judge"
+                            else (
+                                "/lawyer-dashboard" if user["role"] == "lawyer" else "/"
+                            )
+                        )
+                    ),  # ← UPDATED
+                }
+            ),
+            200,
+        )
+
+    return render_template("login.html")
 
 
-@app.route('/citizen_dashboard')
+@app.route("/citizen_dashboard")
 def citizen_dashboard_redirect():
-    return redirect(url_for('citizen_dashboard'))
+    return redirect(url_for("citizen_dashboard"))
 
-@app.route('/logout')
+
+@app.route("/logout")
 def logout():
     session.clear()
-    return redirect(url_for('home'))
+    return redirect(url_for("home"))
 
-@app.route('/dashboard')
+
+@app.route("/dashboard")
 def dashboard():
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
-    
-    user = users_collection.find_one({'_id': ObjectId(session['user_id'])})
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    user = users_collection.find_one({"_id": ObjectId(session["user_id"])})
     if not user:
         session.clear()
-        return redirect(url_for('login'))
-    
-    return render_template('dashboard.html', user=user)
-#password for locker access (can be used for admin features or sensitive data access)
-@app.route('/verify-locker-access', methods=['POST'])
+        return redirect(url_for("login"))
+
+    return render_template("dashboard.html", user=user)
+
+
+# password for locker access (can be used for admin features or sensitive data access)
+@app.route("/verify-locker-access", methods=["POST"])
 def verify_locker_access():
     data = request.json
     pin = data.get("pin")
 
     # match with your frontend PIN
-    if pin == "secure@123":   # or "1234" if you want simple
+    if pin == "secure@123":  # or "1234" if you want simple
         return jsonify({"success": True})
     else:
-        return jsonify({
-            "success": False,
-            "message": "Wrong Password ❌"
-        }), 401
+        return jsonify({"success": False, "message": "Wrong Password ❌"}), 401
 
-#upload evidence files related to a FIR (images, videos, documents)
 
-@app.route('/upload-evidence', methods=['POST'])
+# upload evidence files related to a FIR (images, videos, documents)
+
+
+@app.route("/upload-evidence", methods=["POST"])
 def upload_evidence_file():
     fir_no = request.form.get("fir_no")
     file = request.files.get("file")
@@ -1970,7 +2655,10 @@ def upload_evidence_file():
         return jsonify({"error": "Missing FIR or file"}), 400
 
     if not fir_exists(fir_no):
-        return jsonify({"error": "FIR number does not exist. Please enter a valid FIR."}), 400
+        return (
+            jsonify({"error": "FIR number does not exist. Please enter a valid FIR."}),
+            400,
+        )
 
     filename = secure_filename(file.filename)
 
@@ -1983,77 +2671,82 @@ def upload_evidence_file():
 
     # store metadata in MongoDB (skip if same FIR + filename already exists)
     if not evidence_collection.find_one({"fir_no": fir_no, "filename": filename}):
-        evidence_collection.insert_one({
-            "fir_no": fir_no,
-            "filename": filename,
-            "filepath": file_path,
-            "file_type": file.mimetype or "application/octet-stream",
-            "file_size": os.path.getsize(file_path),
-            "uploaded_at": datetime.utcnow()
-        })
+        evidence_collection.insert_one(
+            {
+                "fir_no": fir_no,
+                "filename": filename,
+                "filepath": file_path,
+                "file_type": file.mimetype or "application/octet-stream",
+                "file_size": os.path.getsize(file_path),
+                "uploaded_at": datetime.utcnow(),
+            }
+        )
 
-    return jsonify({
-        "message": "File uploaded successfully",
-        "file": filename,
-        "fir_no": fir_no
-    })
-#endpoint to list all evidence files for a FIR
-@app.route('/get-evidence/<fir_no>', methods=['GET'])
+    return jsonify(
+        {"message": "File uploaded successfully", "file": filename, "fir_no": fir_no}
+    )
+
+
+# endpoint to list all evidence files for a FIR
+@app.route("/get-evidence/<fir_no>", methods=["GET"])
 def get_evidence(fir_no):
     docs = evidence_collection.find({"fir_no": fir_no}, {"_id": 0, "filename": 1})
     return jsonify([doc["filename"] for doc in docs])
-#endpoint to serve evidence files
-@app.route('/evidence-file/<fir_no>/<filename>')
-def get_file(fir_no, filename):
-    return send_from_directory(
-        os.path.join(UPLOAD_FOLDER, fir_no),
-        filename
-    )
 
-@app.route('/api/evidence', methods=['GET'])
+
+# endpoint to serve evidence files
+@app.route("/evidence-file/<fir_no>/<filename>")
+def get_file(fir_no, filename):
+    return send_from_directory(os.path.join(UPLOAD_FOLDER, fir_no), filename)
+
+
+@app.route("/api/evidence", methods=["GET"])
 def api_get_evidence():
     """Get evidence files for a specific FIR number."""
-    fir_no = request.args.get('fir_no', '').strip()
+    fir_no = request.args.get("fir_no", "").strip()
     if not fir_no:
         return jsonify([])
-    
+
     docs = evidence_collection.find({"fir_no": fir_no}, {"_id": 0})
     result = []
     for doc in docs:
         filename = doc.get("filename", "")
         file_type = doc.get("file_type", "application/octet-stream")
-        
+
         # Determine category
-        ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
-        if ext in ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp']:
-            category = 'image'
-        elif ext in ['mp4', 'mov', 'avi', 'mkv', 'webm']:
-            category = 'video'
-        elif ext in ['mp3', 'wav', 'ogg', 'aac', 'flac', 'm4a']:
-            category = 'audio'
-        elif ext == 'pdf':
-            category = 'pdf'
+        ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+        if ext in ["jpg", "jpeg", "png", "gif", "webp", "bmp"]:
+            category = "image"
+        elif ext in ["mp4", "mov", "avi", "mkv", "webm"]:
+            category = "video"
+        elif ext in ["mp3", "wav", "ogg", "aac", "flac", "m4a"]:
+            category = "audio"
+        elif ext == "pdf":
+            category = "pdf"
         else:
-            category = 'other'
-        
-        result.append({
-            "fir_no": doc.get("fir_no", ""),
-            "filename": filename,
-            "file_type": category,
-            "file_url": f"/evidence-file/{fir_no}/{filename}",
-            "uploaded_at": str(doc.get("uploaded_at", ""))
-        })
-    
+            category = "other"
+
+        result.append(
+            {
+                "fir_no": doc.get("fir_no", ""),
+                "filename": filename,
+                "file_type": category,
+                "file_url": f"/evidence-file/{fir_no}/{filename}",
+                "uploaded_at": str(doc.get("uploaded_at", "")),
+            }
+        )
+
     return jsonify(result)
 
 
-@app.route('/api/evidence/log-access', methods=['POST'])
+@app.route("/api/evidence/log-access", methods=["POST"])
 def log_evidence_access():
     """Log evidence locker access (stub — returns 200 silently)."""
     # Optionally store to DB later; for now just acknowledge
     return jsonify({"logged": True}), 200
 
-@app.route('/get-all-evidence', methods=['GET'])
+
+@app.route("/get-all-evidence", methods=["GET"])
 def get_all_evidence():
     """Return all evidence grouped by FIR number from MongoDB."""
     result = {}
@@ -2062,14 +2755,16 @@ def get_all_evidence():
         result.setdefault(fir_no, []).append(doc["filename"])
     return jsonify(result)
 
-@app.route('/fir/view/<fir_no>', methods=['GET'])
+
+@app.route("/fir/view/<fir_no>", methods=["GET"])
 def view_fir(fir_no):
     """Render a FIR as a readable HTML page (opens in new tab)."""
     fir = get_fir(fir_no)
     if not fir:
         return f"<h2>FIR {fir_no} not found.</h2>", 404
     created_at = str(fir.get("created_at", ""))
-    return render_template_string("""<!DOCTYPE html>
+    return render_template_string(
+        """<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -2121,20 +2816,23 @@ def view_fir(fir_no):
   <div class="section"><span class="label">Created At:</span><span class="value">{{ created_at }}</span></div>
   <p class="disclaimer">Disclaimer: This is a system-generated draft. Must be verified by authorized personnel.</p>
 </body>
-</html>""", fir=fir, created_at=created_at)
+</html>""",
+        fir=fir,
+        created_at=created_at,
+    )
 
 
-@app.route('/fir/download/<fir_no>', methods=['GET'])
+@app.route("/fir/download/<fir_no>", methods=["GET"])
 def download_fir(fir_no):
     """Download the generated PDF for a FIR from Supabase."""
     try:
-    
+
         fir = get_fir(fir_no)
-        if not fir or not fir.get('pdf_url'):
+        if not fir or not fir.get("pdf_url"):
             return jsonify({"error": f"PDF for FIR {fir_no} not found"}), 404
-            
-        return redirect(fir.get('pdf_url'))
-        
+
+        return redirect(fir.get("pdf_url"))
+
     except Exception as e:
         return jsonify({"error": "Failed to download FIR", "details": str(e)}), 500
 
@@ -2154,102 +2852,113 @@ def seed_evidence_from_filesystem():
                 continue
             if evidence_collection.find_one({"fir_no": fir_no, "filename": filename}):
                 continue
-            evidence_collection.insert_one({
-                "fir_no": fir_no,
-                "filename": filename,
-                "filepath": full_path,
-                "file_type": "application/octet-stream",
-                "file_size": os.path.getsize(full_path),
-                "uploaded_at": datetime.utcnow()
-            })
+            evidence_collection.insert_one(
+                {
+                    "fir_no": fir_no,
+                    "filename": filename,
+                    "filepath": full_path,
+                    "file_type": "application/octet-stream",
+                    "file_size": os.path.getsize(full_path),
+                    "uploaded_at": datetime.utcnow(),
+                }
+            )
             seeded += 1
     if seeded:
         print(f"Evidence migration: seeded {seeded} file(s) into MongoDB.")
-        
-        
 
-@app.route('/api/case/<fir_no>/hearings', methods=['GET'])
+
+@app.route("/api/case/<fir_no>/hearings", methods=["GET"])
 def get_hearings(fir_no):
-    if 'user_id' not in session or session.get('role') != 'lawyer':
+    if "user_id" not in session or session.get("role") != "lawyer":
         return jsonify({"error": "Unauthorized"}), 401
     if not lawyer_owns_case(fir_no):
         return jsonify({"error": "Forbidden"}), 403
     return jsonify(get_case_hearings(fir_no))
 
-@app.route('/api/case/<fir_no>/hearings', methods=['POST'])
+
+@app.route("/api/case/<fir_no>/hearings", methods=["POST"])
 def add_hearing(fir_no):
-    if 'user_id' not in session or session.get('role') != 'lawyer':
+    if "user_id" not in session or session.get("role") != "lawyer":
         return jsonify({"error": "Unauthorized"}), 401
     if not lawyer_owns_case(fir_no):
         return jsonify({"error": "Forbidden"}), 403
     data = request.get_json()
-    hearing_date = data.get('hearing_date', '').strip()
-    note = data.get('note', '').strip()
+    hearing_date = data.get("hearing_date", "").strip()
+    note = data.get("note", "").strip()
     if not hearing_date:
         return jsonify({"error": "Hearing date required"}), 400
     add_case_hearing(fir_no, hearing_date, note)
 
     # Sync next_hearing_date to the earliest upcoming hearing for this case
     all_hearings = get_case_hearings(fir_no)
-    today = datetime.now().strftime('%Y-%m-%d')
-    upcoming = sorted([h['hearing_date'] for h in all_hearings if h['hearing_date'] >= today])
+    today = datetime.now().strftime("%Y-%m-%d")
+    upcoming = sorted(
+        [h["hearing_date"] for h in all_hearings if h["hearing_date"] >= today]
+    )
     if upcoming:
         update_next_hearing_date(fir_no, upcoming[0])
 
     return jsonify({"message": "Hearing added"}), 201
 
 
-@app.route('/api/case/<fir_no>/drafts', methods=['GET'])
+@app.route("/api/case/<fir_no>/drafts", methods=["GET"])
 def get_drafts(fir_no):
-    if 'user_id' not in session or session.get('role') != 'lawyer':
+    if "user_id" not in session or session.get("role") != "lawyer":
         return jsonify({"error": "Unauthorized"}), 401
     if not lawyer_owns_case(fir_no):
         return jsonify({"error": "Forbidden"}), 403
     return jsonify(get_case_drafts(fir_no))
 
-@app.route('/api/case/<fir_no>/drafts', methods=['POST'])
+
+@app.route("/api/case/<fir_no>/drafts", methods=["POST"])
 def save_draft(fir_no):
-    if 'user_id' not in session or session.get('role') != 'lawyer':
+    if "user_id" not in session or session.get("role") != "lawyer":
         return jsonify({"error": "Unauthorized"}), 401
     if not lawyer_owns_case(fir_no):
         return jsonify({"error": "Forbidden"}), 403
     data = request.get_json()
-    kind = data.get('kind', 'document').strip()
-    content = data.get('content', '').strip()
+    kind = data.get("kind", "document").strip()
+    content = data.get("content", "").strip()
     if not content:
         return jsonify({"error": "Draft content required"}), 400
     saved = save_case_draft(fir_no, kind, content)
-    return jsonify({"message": "Draft saved", "id": saved.get('id') if saved else None}), 201
+    return (
+        jsonify({"message": "Draft saved", "id": saved.get("id") if saved else None}),
+        201,
+    )
 
-@app.route('/api/case/<fir_no>/drafts/<int:draft_id>', methods=['DELETE'])
+
+@app.route("/api/case/<fir_no>/drafts/<int:draft_id>", methods=["DELETE"])
 def delete_draft(fir_no, draft_id):
-    if 'user_id' not in session or session.get('role') != 'lawyer':
+    if "user_id" not in session or session.get("role") != "lawyer":
         return jsonify({"error": "Unauthorized"}), 401
     if not lawyer_owns_case(fir_no):
         return jsonify({"error": "Forbidden"}), 403
     delete_case_draft(fir_no, draft_id)
     return jsonify({"message": "Draft deleted"})
 
-@app.route('/api/lawyer/drafts', methods=['GET'])
+
+@app.route("/api/lawyer/drafts", methods=["GET"])
 def get_all_lawyer_drafts():
-    if 'user_id' not in session or session.get('role') != 'lawyer':
+    if "user_id" not in session or session.get("role") != "lawyer":
         return jsonify({"error": "Unauthorized"}), 401
 
-    cases = get_firs_by_lawyer(session['user_id'])
-    fir_nos = [c.get('fir_no') for c in cases if c.get('fir_no')]
+    cases = get_firs_by_lawyer(session["user_id"])
+    fir_nos = [c.get("fir_no") for c in cases if c.get("fir_no")]
     return jsonify(get_case_drafts_for_firs(fir_nos))
-    
 
-VALID_CASE_STATUSES = ['Investigation', 'Court Proceedings', 'Trial', 'Closed']
 
-@app.route('/api/case/<fir_no>/status', methods=['PATCH'])
+VALID_CASE_STATUSES = ["Investigation", "Court Proceedings", "Trial", "Closed"]
+
+
+@app.route("/api/case/<fir_no>/status", methods=["PATCH"])
 def update_case_status(fir_no):
-    if 'user_id' not in session or session.get('role') != 'lawyer':
+    if "user_id" not in session or session.get("role") != "lawyer":
         return jsonify({"error": "Unauthorized"}), 401
     if not lawyer_owns_case(fir_no):
         return jsonify({"error": "Forbidden"}), 403
     data = request.get_json()
-    status = data.get('status', '').strip()
+    status = data.get("status", "").strip()
     if status not in VALID_CASE_STATUSES:
         return jsonify({"error": "Invalid status"}), 400
     if not update_fir_status(fir_no, status):
@@ -2258,71 +2967,86 @@ def update_case_status(fir_no):
 
 
 DEADLINE_TYPES = [
-    'Chargesheet Filing', 'Bail Application', 'Appeal Limitation',
-    'Revision Petition', 'Discharge Application', 'Custom'
+    "Chargesheet Filing",
+    "Bail Application",
+    "Appeal Limitation",
+    "Revision Petition",
+    "Discharge Application",
+    "Custom",
 ]
 
-@app.route('/api/case/<fir_no>/deadlines', methods=['GET'])
+
+@app.route("/api/case/<fir_no>/deadlines", methods=["GET"])
 def get_deadlines(fir_no):
-    if 'user_id' not in session or session.get('role') != 'lawyer':
+    if "user_id" not in session or session.get("role") != "lawyer":
         return jsonify({"error": "Unauthorized"}), 401
     if not lawyer_owns_case(fir_no):
         return jsonify({"error": "Forbidden"}), 403
     return jsonify(get_case_deadlines(fir_no))
 
-@app.route('/api/case/<fir_no>/deadlines', methods=['POST'])
+
+@app.route("/api/case/<fir_no>/deadlines", methods=["POST"])
 def add_deadline(fir_no):
-    if 'user_id' not in session or session.get('role') != 'lawyer':
+    if "user_id" not in session or session.get("role") != "lawyer":
         return jsonify({"error": "Unauthorized"}), 401
     if not lawyer_owns_case(fir_no):
         return jsonify({"error": "Forbidden"}), 403
     data = request.get_json()
-    deadline_type = data.get('deadline_type', '').strip()
-    due_date = data.get('due_date', '').strip()
-    note = data.get('note', '').strip()
+    deadline_type = data.get("deadline_type", "").strip()
+    due_date = data.get("due_date", "").strip()
+    note = data.get("note", "").strip()
     if not deadline_type or not due_date:
         return jsonify({"error": "Deadline type and due date are required"}), 400
     saved = add_case_deadline(fir_no, deadline_type, due_date, note)
-    return jsonify({"message": "Deadline added", "id": saved.get('id') if saved else None}), 201
+    return (
+        jsonify(
+            {"message": "Deadline added", "id": saved.get("id") if saved else None}
+        ),
+        201,
+    )
 
-@app.route('/api/case/<fir_no>/deadlines/<int:deadline_id>', methods=['PATCH'])
+
+@app.route("/api/case/<fir_no>/deadlines/<int:deadline_id>", methods=["PATCH"])
 def update_deadline(fir_no, deadline_id):
-    if 'user_id' not in session or session.get('role') != 'lawyer':
+    if "user_id" not in session or session.get("role") != "lawyer":
         return jsonify({"error": "Unauthorized"}), 401
     if not lawyer_owns_case(fir_no):
         return jsonify({"error": "Forbidden"}), 403
     data = request.get_json()
-    completed = bool(data.get('completed', True))
+    completed = bool(data.get("completed", True))
     mark_deadline_complete(fir_no, deadline_id, completed)
     return jsonify({"message": "Deadline updated"})
 
-@app.route('/api/case/<fir_no>/deadlines/<int:deadline_id>', methods=['DELETE'])
+
+@app.route("/api/case/<fir_no>/deadlines/<int:deadline_id>", methods=["DELETE"])
 def remove_deadline(fir_no, deadline_id):
-    if 'user_id' not in session or session.get('role') != 'lawyer':
+    if "user_id" not in session or session.get("role") != "lawyer":
         return jsonify({"error": "Unauthorized"}), 401
     if not lawyer_owns_case(fir_no):
         return jsonify({"error": "Forbidden"}), 403
     delete_case_deadline(fir_no, deadline_id)
     return jsonify({"message": "Deadline deleted"})
 
-@app.route('/api/lawyer/deadlines', methods=['GET'])
+
+@app.route("/api/lawyer/deadlines", methods=["GET"])
 def get_all_lawyer_deadlines():
     """Across all of the lawyer's cases — for the Home widget."""
-    if 'user_id' not in session or session.get('role') != 'lawyer':
+    if "user_id" not in session or session.get("role") != "lawyer":
         return jsonify({"error": "Unauthorized"}), 401
-    cases = get_firs_by_lawyer(session['user_id'])
-    fir_nos = [c.get('fir_no') for c in cases if c.get('fir_no')]
+    cases = get_firs_by_lawyer(session["user_id"])
+    fir_nos = [c.get("fir_no") for c in cases if c.get("fir_no")]
     return jsonify(get_upcoming_deadlines_for_firs(fir_nos))
 
-@app.route('/api/case/<fir_no>/client-visibility', methods=['PATCH'])
+
+@app.route("/api/case/<fir_no>/client-visibility", methods=["PATCH"])
 def update_client_visibility(fir_no):
-    if 'user_id' not in session or session.get('role') != 'lawyer':
+    if "user_id" not in session or session.get("role") != "lawyer":
         return jsonify({"error": "Unauthorized"}), 401
     if not lawyer_owns_case(fir_no):
         return jsonify({"error": "Forbidden"}), 403
     data = request.get_json()
-    visible = bool(data.get('visible', False))
-    note = data.get('note', '').strip()
+    visible = bool(data.get("visible", False))
+    note = data.get("note", "").strip()
     try:
         if not set_client_visibility(fir_no, visible, note):
             return jsonify({"error": "FIR not found"}), 404
@@ -2332,78 +3056,93 @@ def update_client_visibility(fir_no):
     return jsonify({"message": "Updated", "visible": visible})
 
 
-@app.route('/api/case/<fir_no>/client-status', methods=['GET'])
+@app.route("/api/case/<fir_no>/client-status", methods=["GET"])
 def get_client_status(fir_no):
     """Public — no login required, matches the citizen 'My Lawyer' lookup pattern."""
     fir = get_fir(fir_no)
-    if not fir or not fir.get('visible_to_client'):
+    if not fir or not fir.get("visible_to_client"):
         return jsonify({"error": "Status not available for this FIR"}), 404
-    return jsonify({
-        "fir_no": fir.get('fir_no'),
-        "status": fir.get('status'),
-        "next_hearing_date": fir.get('next_hearing_date'),
-        "client_note": fir.get('client_note') or "",
-        "client_note_updated_at": fir.get('client_note_updated_at')
-    })
-    
+    return jsonify(
+        {
+            "fir_no": fir.get("fir_no"),
+            "status": fir.get("status"),
+            "next_hearing_date": fir.get("next_hearing_date"),
+            "client_note": fir.get("client_note") or "",
+            "client_note_updated_at": fir.get("client_note_updated_at"),
+        }
+    )
 
-@app.route('/api/lawyer/profile', methods=['GET'])
+
+@app.route("/api/lawyer/profile", methods=["GET"])
 def get_lawyer_profile():
-    if 'user_id' not in session or session.get('role') != 'lawyer':
+    if "user_id" not in session or session.get("role") != "lawyer":
         return jsonify({"error": "Unauthorized"}), 401
-    user = users_collection.find_one({'_id': ObjectId(session['user_id'])})
+    user = users_collection.find_one({"_id": ObjectId(session["user_id"])})
     if not user:
         return jsonify({"error": "Not found"}), 404
-    return jsonify({
-        "fullname": user.get('fullname', ''),
-        "email": user.get('email', ''),
-        "unique_id": user.get('unique_id', ''),
-        "phone": user.get('phone', ''),
-        "office_address": user.get('office_address', ''),
-        "bio": user.get('bio', ''),
-        "years_experience": user.get('years_experience', ''),
-        "bar_enrollment_no": user.get('bar_enrollment_no', ''),
-        "practice_area": user.get('practice_area', ''),
-        "photo_url": user.get('photo_url', '')
-    })
+    return jsonify(
+        {
+            "fullname": user.get("fullname", ""),
+            "email": user.get("email", ""),
+            "unique_id": user.get("unique_id", ""),
+            "phone": user.get("phone", ""),
+            "office_address": user.get("office_address", ""),
+            "bio": user.get("bio", ""),
+            "years_experience": user.get("years_experience", ""),
+            "bar_enrollment_no": user.get("bar_enrollment_no", ""),
+            "practice_area": user.get("practice_area", ""),
+            "photo_url": user.get("photo_url", ""),
+        }
+    )
 
-@app.route('/api/lawyer/profile', methods=['PATCH'])
+
+@app.route("/api/lawyer/profile", methods=["PATCH"])
 def update_lawyer_profile():
-    if 'user_id' not in session or session.get('role') != 'lawyer':
+    if "user_id" not in session or session.get("role") != "lawyer":
         return jsonify({"error": "Unauthorized"}), 401
     data = request.get_json()
-    allowed_fields = ['phone', 'office_address', 'bio', 'years_experience', 'bar_enrollment_no', 'practice_area']
-    update = {k: str(data.get(k, '')).strip() for k in allowed_fields if k in data}
+    allowed_fields = [
+        "phone",
+        "office_address",
+        "bio",
+        "years_experience",
+        "bar_enrollment_no",
+        "practice_area",
+    ]
+    update = {k: str(data.get(k, "")).strip() for k in allowed_fields if k in data}
     if not update:
         return jsonify({"error": "No fields to update"}), 400
-    users_collection.update_one({'_id': ObjectId(session['user_id'])}, {'$set': update})
+    users_collection.update_one({"_id": ObjectId(session["user_id"])}, {"$set": update})
     return jsonify({"message": "Profile updated"})
 
-@app.route('/api/lawyer/profile/photo', methods=['POST'])
+
+@app.route("/api/lawyer/profile/photo", methods=["POST"])
 def upload_lawyer_photo():
-    if 'user_id' not in session or session.get('role') != 'lawyer':
+    if "user_id" not in session or session.get("role") != "lawyer":
         return jsonify({"error": "Unauthorized"}), 401
-    file = request.files.get('photo')
-    if not file or file.filename == '':
+    file = request.files.get("photo")
+    if not file or file.filename == "":
         return jsonify({"error": "No photo provided"}), 400
 
-    temp_dir = os.path.join(app.root_path, 'static', 'uploads', 'temp_avatars')
+    temp_dir = os.path.join(app.root_path, "static", "uploads", "temp_avatars")
     os.makedirs(temp_dir, exist_ok=True)
-    ext = os.path.splitext(secure_filename(file.filename))[1] or '.jpg'
+    ext = os.path.splitext(secure_filename(file.filename))[1] or ".jpg"
     temp_path = os.path.join(temp_dir, f"{session['user_id']}{ext}")
     file.save(temp_path)
 
     try:
-        url = upload_profile_photo(temp_path, session['user_id'])
+        url = upload_profile_photo(temp_path, session["user_id"])
     except Exception as e:
         print(f"Profile photo upload error: {e}")
         return jsonify({"error": "Upload failed"}), 500
 
-    users_collection.update_one({'_id': ObjectId(session['user_id'])}, {'$set': {'photo_url': url}})
+    users_collection.update_one(
+        {"_id": ObjectId(session["user_id"])}, {"$set": {"photo_url": url}}
+    )
     return jsonify({"message": "Photo updated", "photo_url": url})
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     init_fir_table()
     init_user_table()
     init_evidence_table()

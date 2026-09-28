@@ -344,9 +344,7 @@
                             class="mt-3 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl font-semibold text-sm transition">
                             Research
                         </button>
-                        <div id="researchResult"
-                            class="mt-6 hidden bg-slate-50 rounded-lg p-5 text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
-                        </div>
+                        <div id="researchResult" class="mt-6 hidden space-y-6"></div>
                     </div>
                 </div>
 
@@ -1031,6 +1029,102 @@
             if (tab === "bookmarks") renderBookmarks();
         }
 
+        function renderCaseCard(c, related = false) {
+            return `
+    <div class="bg-white border ${related ? 'border-slate-200' : 'border-blue-200'} rounded-xl p-5">
+        <div class="flex items-start justify-between gap-3">
+            <div>
+                <p class="text-sm font-bold text-blue-900">${escapeHtml(c.case)}</p>
+                <p class="text-xs text-slate-400">${escapeHtml(c.citation)} · ${escapeHtml(c.court)}${c.bench ? ' · ' + escapeHtml(c.bench) : ''} · ${c.year}</p>
+            </div>
+            <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${c.verification_status === 'Verified' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'}">${escapeHtml(c.verification_status)}</span>
+        </div>
+        <p class="text-xs text-slate-400 mt-2">Historical provision: Section ${escapeHtml(c.statute_then.section)} ${escapeHtml(c.statute_then.act)}</p>
+        <p class="text-sm text-slate-700 mt-3"><span class="font-semibold">Key Holding:</span> ${escapeHtml(c.key_holding)}</p>
+        <p class="text-sm text-slate-600 mt-2"><span class="font-semibold">Why Relevant:</span> ${escapeHtml(c.why_relevant)}</p>
+        ${c.later_development_text ? `<p class="text-sm text-orange-700 mt-2 italic">${escapeHtml(c.later_development_text)}</p>` : ''}
+        ${c.source_url ? `<a href="${escapeHtml(c.source_url)}" target="_blank" class="text-xs text-blue-600 hover:underline mt-2 inline-block">Source ↗</a>` : ''}
+    </div>`;
+        }
+
+        function renderResearchResult(data) {
+            const resultEl = document.getElementById("researchResult");
+            let html = "";
+
+            if (data.current_law) {
+                const cl = data.current_law;
+                html += `
+        <div class="border border-blue-200 bg-blue-50 rounded-xl p-5">
+            <h3 class="text-xs font-bold text-blue-900 uppercase tracking-wide mb-3">Current Law</h3>
+            <p class="text-sm font-semibold text-blue-900">Section ${escapeHtml(cl.current.section)} — ${escapeHtml(cl.current.act)}</p>
+            <p class="text-sm text-slate-600 mt-1">${escapeHtml(cl.current.subject)}</p>
+            <p class="text-xs text-slate-400 mt-3">Historical corresponding provision: Section ${escapeHtml(cl.historical.section)}, ${escapeHtml(cl.historical.act)}</p>
+        </div>`;
+            }
+
+            if (data.directly_relevant && data.directly_relevant.length) {
+                html += `<div><h3 class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">Directly Relevant Precedents</h3><div class="space-y-4">`;
+                data.directly_relevant.forEach(c => html += renderCaseCard(c));
+                html += `</div></div>`;
+            } else if (data.no_result_notice) {
+                html += `<div class="border border-orange-200 bg-orange-50 rounded-xl p-5 text-sm text-orange-800">${escapeHtml(data.no_result_notice)}</div>`;
+            }
+
+            if (data.related_authorities && data.related_authorities.length) {
+                html += `<div><h3 class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">Related Authorities</h3><div class="space-y-4">`;
+                data.related_authorities.forEach(c => html += renderCaseCard(c, true));
+                html += `</div></div>`;
+            }
+
+            if (data.principles && data.principles.length) {
+                html += `<div class="bg-white border border-slate-200 rounded-xl p-5">
+            <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">Key Legal Principles</h3><ul class="space-y-2">`;
+                data.principles.forEach(p => html += `<li class="text-sm text-slate-700"><span class="font-semibold">${escapeHtml(p.principle)}:</span> ${escapeHtml(p.explanation)}</li>`);
+                html += `</ul></div>`;
+            }
+
+            if (data.statutory_sections && data.statutory_sections.length) {
+                html += `<div class="bg-white border border-slate-200 rounded-xl p-5">
+            <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">Relevant Statutory Provisions</h3><div class="space-y-2">`;
+                data.statutory_sections.forEach(s => {
+                    html += `<div class="text-sm">
+                <span class="font-semibold text-blue-800">${escapeHtml(s.act)} § ${escapeHtml(s.section)}</span>
+                <span class="text-slate-500"> — ${escapeHtml(s.subject)}</span>
+                <span class="ml-2 text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${s.status === 'Current' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}">${escapeHtml(s.status)}</span>
+            </div>`;
+                });
+                html += `</div></div>`;
+            }
+
+            if (data.synthesis) {
+                const syn = data.synthesis;
+                html += `<div class="bg-slate-50 border border-slate-200 rounded-xl p-5">
+            <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">AI-Generated Research Synthesis</h3>
+            ${syn.summary ? `<p class="text-sm text-slate-700 mb-3 whitespace-pre-wrap">${escapeHtml(syn.summary)}</p>` : ''}
+            ${syn.current_position ? `<p class="text-sm text-slate-700 mb-2"><span class="font-semibold">Current-law position:</span> ${escapeHtml(syn.current_position)}</p>` : ''}
+            ${syn.historical_position ? `<p class="text-sm text-slate-700 mb-2"><span class="font-semibold">Historical-law position:</span> ${escapeHtml(syn.historical_position)}</p>` : ''}
+            ${syn.qualification ? `<p class="text-sm text-slate-700 mb-2"><span class="font-semibold">Important qualification:</span> ${escapeHtml(syn.qualification)}</p>` : ''}
+            <p class="text-xs text-slate-400 italic mt-3 border-t border-slate-200 pt-3">${escapeHtml(data.ai_notice)}</p>
+        </div>`;
+            }
+
+            if (data.sources && data.sources.length) {
+                html += `<div class="bg-white border border-slate-200 rounded-xl p-5">
+            <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">Sources & Verification</h3><div class="space-y-2">`;
+                data.sources.forEach(s => {
+                    const badge = s.verification_status === "Verified"
+                        ? `<span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-green-100 text-green-700">Verified</span>`
+                        : `<span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">Unverified</span>`;
+                    html += `<div class="text-sm flex items-center justify-between gap-3">
+                <span class="text-slate-700">${escapeHtml(s.case)} — ${escapeHtml(s.citation)}</span>${badge}
+            </div>`;
+                });
+                html += `</div></div>`;
+            }
+
+            resultEl.innerHTML = html || `<div class="text-sm text-slate-400 p-5">No results.</div>`;
+        }
+
         document.getElementById("researchBtn").addEventListener("click", async () => {
             const query = document.getElementById("researchQuery").value.trim();
             if (!query) return;
@@ -1039,7 +1133,7 @@
             btn.disabled = true;
             btn.textContent = "Researching…";
             resultEl.classList.remove("hidden");
-            resultEl.textContent = "Searching case law and statutes…";
+            resultEl.innerHTML = `<div class="text-sm text-slate-400 p-5">Searching case law and statutes…</div>`;
 
             try {
                 const res = await fetch("/judge/precedents", {
@@ -1048,9 +1142,13 @@
                     body: JSON.stringify({ query })
                 });
                 const data = await res.json();
-                resultEl.textContent = data.answer || "No results found.";
+                if (data.error) {
+                    resultEl.innerHTML = `<div class="text-sm text-red-500 p-5">${escapeHtml(data.error)}</div>`;
+                } else {
+                    renderResearchResult(data);
+                }
             } catch (err) {
-                resultEl.textContent = "Something went wrong. Please try again.";
+                resultEl.innerHTML = `<div class="text-sm text-red-500 p-5">Something went wrong. Please try again.</div>`;
             } finally {
                 btn.disabled = false;
                 btn.textContent = "Research";

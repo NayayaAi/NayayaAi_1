@@ -488,6 +488,13 @@
 
         const API_BASE = "/judge/docket";
         let editingId = null;
+        let editingOriginalDate = null;
+
+        function nowLocalInput() {
+            const d = new Date();
+            d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+            return d.toISOString().slice(0, 16);
+        }
         let allFirs = [];
 
         async function loadFirOptions() {
@@ -653,6 +660,8 @@
 
         function openModal(entry = null) {
             editingId = entry ? entry.id : null;
+            editingOriginalDate = entry ? entry.hearing_date : null;
+            document.getElementById("hearingDateInput").min = entry ? "" : nowLocalInput();
             document.getElementById("modalTitle").textContent = entry ? "Edit Hearing" : "New Hearing";
             document.getElementById("caseIdInput").value = entry ? entry.case_id : "";
             document.getElementById("hearingDateInput").value = entry ? entry.hearing_date.replace(" ", "T") : "";
@@ -702,9 +711,35 @@
         document.getElementById("urgencyFilter").addEventListener("change", loadDocket);
 
         document.getElementById("saveEntryBtn").addEventListener("click", async () => {
+            const warn = document.getElementById("conflictWarning");
+            const showWarn = (text) => { warn.textContent = text; warn.classList.remove("hidden"); };
+
+            const caseId = document.getElementById("caseIdInput").value.trim();
+            const hearingRaw = document.getElementById("hearingDateInput").value; // "YYYY-MM-DDTHH:MM"
+
+            if (!caseId) return showWarn("Case ID is required.");
+            if (!hearingRaw) return showWarn("Hearing date & time is required.");
+
+            const hearingDate = hearingRaw.replace("T", " ");
+
+            // Past-date check: new entries, or edits where the date was changed
+            const dateChanged = editingId === null || hearingDate !== editingOriginalDate;
+            if (dateChanged && new Date(hearingRaw) < new Date()) {
+                return showWarn("Hearing date cannot be in the past.");
+            }
+
+            // Duplicate check: only when creating a new entry
+            if (editingId === null) {
+                const listRes = await fetch(API_BASE);
+                const existing = await listRes.json();
+                if (existing.some(e => (e.case_id || "").toLowerCase() === caseId.toLowerCase())) {
+                    return showWarn(`Case ${caseId} is already in your docket.`);
+                }
+            }
+
             const payload = {
-                case_id: document.getElementById("caseIdInput").value,
-                hearing_date: document.getElementById("hearingDateInput").value.replace("T", " "),
+                case_id: caseId,
+                hearing_date: hearingDate,
                 case_type: document.getElementById("caseTypeInput").value,
                 urgency: document.getElementById("urgencyInput").value,
                 status: document.getElementById("statusInput").value,
@@ -718,12 +753,9 @@
                 method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
             });
 
-            if (res.status === 409) {
-                const err = await res.json();
-                const warn = document.getElementById("conflictWarning");
-                warn.textContent = err.message;
-                warn.classList.remove("hidden");
-                return;
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                return showWarn(err.message || err.error || "Could not save hearing.");
             }
 
             closeModal();

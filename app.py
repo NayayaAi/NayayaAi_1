@@ -73,6 +73,7 @@ from main.storage_service import (
     upload_profile_photo,
 )
 from main.judge_routes import judge_bp
+from main.admin_routes import admin_bp
 
 # ---------------- OLLAMA SETUP ----------------
 import requests
@@ -123,6 +124,7 @@ app = Flask(__name__)
 app.secret_key = "nyaya_ai_ultra_secure_key"
 
 app.register_blueprint(judge_bp)
+app.register_blueprint(admin_bp)
 
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
@@ -488,6 +490,8 @@ def home():
             return redirect(url_for("citizen_dashboard"))
         if role == "lawyer":
             return redirect(url_for("lawyer_dashboard"))
+        if role == "admin":
+            return redirect("/admin/dashboard")
         return render_template("index.html")
     return render_template("landing.html")
 
@@ -2187,6 +2191,103 @@ def ask_law():
 
 fir_collection = db["fir_records"]
 evidence_collection = db["evidence_files"]
+evidence_access_log = db["evidence_access_log"]
+admin_alerts = db["admin_alerts"]
+
+def police_required(f):
+    """Restrict a route to logged-in users with role == 'police'."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if 'user_id' not in session:
+            return jsonify({"error": "Not authenticated"}), 401
+
+        user = users_collection.find_one({'_id': ObjectId(session['user_id'])})
+        if not user:
+            session.clear()
+            return jsonify({"error": "Not authenticated"}), 401
+
+        if user.get('role') != 'police':
+            return jsonify({"error": "Forbidden — police access only"}), 403
+
+        request.current_user = user
+        return f(*args, **kwargs)
+    return decorated
+
+def admin_required(f):
+    """Restrict a route to logged-in users with role == 'admin'."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if 'user_id' not in session:
+            return jsonify({"error": "Not authenticated"}), 401
+
+        user = users_collection.find_one({'_id': ObjectId(session['user_id'])})
+        if not user:
+            session.clear()
+            return jsonify({"error": "Not authenticated"}), 401
+
+        if user.get('role') != 'admin':
+            return jsonify({"error": "Forbidden — admin access only"}), 403
+
+        request.current_user = user
+        return f(*args, **kwargs)
+    return decorated
+
+EVIDENCE_REPEAT_LIMIT = 5      # views of the same file...
+EVIDENCE_REPEAT_WINDOW = 10    # ...within this many minutes
+
+
+def check_repeated_access(fir_no, filename, user, now):
+    since = now - timedelta(minutes=EVIDENCE_REPEAT_WINDOW)
+    uid = str(user.get("_id"))
+    count = evidence_access_log.count_documents({
+        "fir_no": fir_no, "filename": filename, "user_id": uid,
+        "action": "viewed_file", "timestamp": {"$gte": since},
+    })
+    if count < EVIDENCE_REPEAT_LIMIT:
+        return
+    # one alert per user+file per window
+    if admin_alerts.find_one({
+        "type": "repeated_evidence_access", "user_id": uid,
+        "fir_no": fir_no, "filename": filename, "created_at": {"$gte": since},
+    }):
+        return
+    who = user.get("fullname") or user.get("email")
+    admin_alerts.insert_one({
+        "type": "repeated_evidence_access",
+        "severity": "high",
+        "status": "open",
+        "user_id": uid,
+        "username": who,
+        "officer_unique_id": user.get("unique_id"),
+        "fir_no": fir_no,
+        "filename": filename,
+        "count": count,
+        "window_minutes": EVIDENCE_REPEAT_WINDOW,
+        "ip_address": request.headers.get("X-Forwarded-For", request.remote_addr),
+        "message": f"{who} opened '{filename}' ({fir_no}) {count} times in {EVIDENCE_REPEAT_WINDOW} min.",
+        "created_at": now,
+    })
+
+
+def log_evidence_view(fir_no, action, user, filename=None):
+    """Record who viewed/downloaded/uploaded evidence, and raise alerts on repeated access."""
+    try:
+        now = datetime.now(timezone.utc)
+        evidence_access_log.insert_one({
+            "fir_no": fir_no,
+            "filename": filename,
+            "action": action,  # "viewed_list" | "viewed_file" | "uploaded" | "locker_opened"
+            "user_id": str(user.get("_id")),
+            "username": user.get("fullname") or user.get("email"),
+            "officer_unique_id": user.get("unique_id"),
+            "ip_address": request.headers.get("X-Forwarded-For", request.remote_addr),
+            "timestamp": now,
+        })
+        if action == "viewed_file" and filename:
+            check_repeated_access(fir_no, filename, user, now)
+    except Exception as e:
+        print(f"Failed to log evidence access: {e}")
+
 
 
 @app.route("/api/fir-records/<fir_no>/assign-lawyer", methods=["POST"])
@@ -2194,10 +2295,20 @@ def assign_lawyer(fir_no):
     if "user_id" not in session or session.get("role") != "lawyer":
         return jsonify({"error": "Unauthorized"}), 401
     fir_no = fir_no.strip()
+
+    fir = get_fir(fir_no)
+    if not fir:
+        return jsonify({"error": "FIR not found"}), 404
+
+    current = fir.get("assigned_lawyer_id")
+    if current and str(current) == str(session["user_id"]):
+        return jsonify({"error": f"FIR {fir_no} is already added to your cases."}), 409
+    if current:
+        return jsonify({"error": "This FIR is already assigned to another lawyer."}), 409
+
     if not assign_lawyer_to_fir(fir_no, session["user_id"]):
         return jsonify({"error": "FIR not found"}), 404
     return jsonify({"message": "Case added to your dashboard", "fir_no": fir_no})
-
 
 # Folder to store generated PDFs
 PDF_FOLDER = "generated_firs"
@@ -2637,7 +2748,7 @@ def verify_locker_access():
     pin = data.get("pin")
 
     # match with your frontend PIN
-    if pin == "secure@123":  # or "1234" if you want simple
+    if pin == "secure@123":  
         return jsonify({"success": True})
     else:
         return jsonify({"success": False, "message": "Wrong Password ❌"}), 401
@@ -2647,6 +2758,7 @@ def verify_locker_access():
 
 
 @app.route("/upload-evidence", methods=["POST"])
+@police_required
 def upload_evidence_file():
     fir_no = request.form.get("fir_no")
     file = request.files.get("file")
@@ -2682,31 +2794,38 @@ def upload_evidence_file():
             }
         )
 
-    return jsonify(
-        {"message": "File uploaded successfully", "file": filename, "fir_no": fir_no}
-    )
-
-
-# endpoint to list all evidence files for a FIR
-@app.route("/get-evidence/<fir_no>", methods=["GET"])
+    log_evidence_view(fir_no=fir_no, action="uploaded", user=request.current_user)
+     
+    return jsonify({
+        "message": "File uploaded successfully",
+        "file": filename,
+        "fir_no": fir_no
+    })
+#endpoint to list all evidence files for a FIR
+@app.route('/get-evidence/<fir_no>', methods=['GET'])
+@police_required
 def get_evidence(fir_no):
+    log_evidence_view(fir_no=fir_no, action="viwed_list", user=request.current_user)
     docs = evidence_collection.find({"fir_no": fir_no}, {"_id": 0, "filename": 1})
     return jsonify([doc["filename"] for doc in docs])
-
-
-# endpoint to serve evidence files
-@app.route("/evidence-file/<fir_no>/<filename>")
+#endpoint to serve evidence files
+@app.route('/evidence-file/<fir_no>/<filename>')
+@police_required
 def get_file(fir_no, filename):
-    return send_from_directory(os.path.join(UPLOAD_FOLDER, fir_no), filename)
+    log_evidence_view(fir_no=fir_no, action="viewed_file", user=request.current_user, filename=filename)
+    return send_from_directory(
+        os.path.join(UPLOAD_FOLDER, fir_no),
+        filename
+    )
 
-
-@app.route("/api/evidence", methods=["GET"])
+@app.route('/api/evidence', methods=['GET'])
+@police_required
 def api_get_evidence():
     """Get evidence files for a specific FIR number."""
     fir_no = request.args.get("fir_no", "").strip()
     if not fir_no:
         return jsonify([])
-
+    log_evidence_view(fir_no=fir_no, action="viewed_list", user=request.current_user)
     docs = evidence_collection.find({"fir_no": fir_no}, {"_id": 0})
     result = []
     for doc in docs:
@@ -2739,24 +2858,36 @@ def api_get_evidence():
     return jsonify(result)
 
 
-@app.route("/api/evidence/log-access", methods=["POST"])
+@app.route('/api/evidence/log-access', methods=['POST'])
+@police_required
 def log_evidence_access():
-    """Log evidence locker access (stub — returns 200 silently)."""
-    # Optionally store to DB later; for now just acknowledge
+    """Explicit locker-opened ping from the frontend sidebar click."""
+    data = request.get_json(silent=True) or {}
+    fir_no = data.get("fir_no", "")
+    log_evidence_view(fir_no=fir_no, action="locker_opened", user=request.current_user)
     return jsonify({"logged": True}), 200
 
-
-@app.route("/get-all-evidence", methods=["GET"])
+@app.route('/get-all-evidence', methods=['GET'])
+@police_required
 def get_all_evidence():
     """Return all evidence grouped by FIR number from MongoDB."""
+    log_evidence_view(fir_no="", action="viwed_list", user=request.current_user)
     result = {}
     for doc in evidence_collection.find({}, {"_id": 0, "fir_no": 1, "filename": 1}):
         fir_no = doc["fir_no"]
         result.setdefault(fir_no, []).append(doc["filename"])
     return jsonify(result)
 
+@app.route('/api/evidence/access-log/<fir_no>', methods=['GET'])
+@admin_required
+def get_evidence_access_log(fir_no):
+    """Admin-only: the audit trail of who accessed evidence for a given FIR."""
+    logs = list(evidence_access_log.find({"fir_no": fir_no}, {"_id": 0}).sort("timestamp", -1))
+    for entry in logs:
+        entry["timestamp"] = str(entry.get("timestamp", ""))
+    return jsonify(logs)
 
-@app.route("/fir/view/<fir_no>", methods=["GET"])
+@app.route('/fir/view/<fir_no>', methods=['GET'])
 def view_fir(fir_no):
     """Render a FIR as a readable HTML page (opens in new tab)."""
     fir = get_fir(fir_no)
@@ -2887,6 +3018,12 @@ def add_hearing(fir_no):
     note = data.get("note", "").strip()
     if not hearing_date:
         return jsonify({"error": "Hearing date required"}), 400
+    try:
+        hd = datetime.strptime(hearing_date, "%Y-%m-%d").date()
+    except ValueError:
+        return jsonify({"error": "Invalid date format"}), 400
+    if hd < datetime.now().date():
+        return jsonify({"error": "Hearing date cannot be in the past."}), 400
     add_case_hearing(fir_no, hearing_date, note)
 
     # Sync next_hearing_date to the earliest upcoming hearing for this case

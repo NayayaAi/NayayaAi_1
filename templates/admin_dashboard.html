@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NyayaAI | Admin Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Playfair+Display:wght@700&display=swap"
+        rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            scroll-behavior: smooth;
+            transition: margin-left 0.3s ease;
+        }
+
+        .font-serif {
+            font-family: 'Playfair Display', serif;
+        }
+
+        .hero-gradient {
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #2563eb 100%);
+        }
+
+        /* Sidebar hover behavior (same as police dashboard) */
+        #sidebarHoverArea:hover+#sidebar,
+        #sidebar:hover {
+            transform: translateX(0) !important;
+        }
+
+        #sidebar {
+            overflow-y: auto;
+            max-height: 100vh;
+            padding-bottom: 1rem;
+        }
+
+        #sidebar:hover~main {
+            margin-left: 16rem;
+        }
+
+        section {
+            scroll-margin-top: 100px;
+        }
+    </style>
+</head>
+
+<body class="bg-white flex min-h-screen">
+
+    <!-- Sidebar hover trigger (small edge strip) -->
+    <div id="sidebarHoverArea" class="fixed left-0 top-0 h-full w-4 z-30 bg-transparent"></div>
+
+    <!-- Sidebar Navigation -->
+    <aside id="sidebar"
+        class="w-64 bg-blue-900 text-white fixed h-full z-40 transition-transform duration-300 ease-in-out transform -translate-x-full">
+        <div class="p-6 border-b border-blue-800">
+            <div class="flex items-center space-x-2">
+                <div class="bg-blue-600 p-1.5 rounded-lg text-white">
+                    <i data-lucide="scale"></i>
+                </div>
+                <span class="text-2xl font-serif font-bold text-white">NyayaAI</span>
+            </div>
+        </div>
+
+        <nav class="mt-8 px-4">
+            <div class="space-y-2">
+                <a href="#"
+                    class="sidebar-link flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors"
+                    data-section="overview">
+                    <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+                    <span>Overview</span>
+                </a>
+
+                <a href="#"
+                    class="sidebar-link flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors"
+                    data-section="alerts">
+                    <i data-lucide="bell-ring" class="w-5 h-5"></i>
+                    <span>Alerts</span>
+                    <span id="alertBadge"
+                        class="ml-auto bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full hidden">0</span>
+                </a>
+
+                <a href="#"
+                    class="sidebar-link flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors"
+                    data-section="users">
+                    <i data-lucide="users" class="w-5 h-5"></i>
+                    <span>User Management</span>
+                </a>
+
+                <a href="#"
+                    class="sidebar-link flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors"
+                    data-section="audit">
+                    <i data-lucide="scroll-text" class="w-5 h-5"></i>
+                    <span>Audit Log</span>
+                </a>
+
+            </div>
+        </nav>
+
+        <div class="absolute bottom-0 left-0 right-0 p-4 border-t border-blue-800">
+            <div class="text-xs text-blue-300 text-center">
+                Admin Control Panel
+            </div>
+        </div>
+    </aside>
+
+    <!-- Mobile Menu Button -->
+    <button id="mobileMenuBtn"
+        class="md:hidden fixed top-4 left-4 z-50 bg-blue-900 text-white p-2 rounded-lg shadow-lg">
+        <i data-lucide="menu" class="w-6 h-6"></i>
+    </button>
+
+    <!-- Main Content -->
+    <main class="flex-1 transition-all duration-300 ease-in-out">
+
+        <!-- Top nav -->
+        <nav
+            class="fixed w-full z-50 bg-white/80 backdrop-blur-md border-b border-slate-100 px-8 py-4 flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <div class="bg-blue-600 p-1.5 rounded-lg text-white">
+                    <i data-lucide="scale"></i>
+                </div>
+                <span class="text-2xl font-serif font-bold text-blue-950">NyayaAI</span>
+                <span class="ml-2 text-xs bg-blue-100 text-blue-700 font-semibold px-2 py-1 rounded-full">Admin
+                    Portal</span>
+            </div>
+            <div class="flex items-center gap-4 text-sm">
+                <span class="font-semibold text-slate-700">{{ admin_name }}</span>
+                <a href="/logout" class="text-blue-600 hover:text-blue-800 font-semibold">Sign out</a>
+            </div>
+        </nav>
+
+        <!-- New alert banner (fixed under top nav) -->
+        <div id="alertBanner"
+            class="hidden fixed left-0 right-0 z-40 bg-red-600 text-white px-8 py-2.5 text-sm font-semibold items-center justify-between"
+            style="top: 65px;">
+            <span id="alertBannerText"></span>
+            <button onclick="showSection('alerts')" class="underline">View alerts</button>
+        </div>
+
+        <!-- ═══ OVERVIEW ═══ -->
+        <section id="overview" class="min-h-screen bg-slate-50">
+            <div class="hero-gradient pt-32 pb-16 px-6">
+                <div class="max-w-6xl mx-auto">
+                    <h1 class="text-4xl md:text-5xl font-serif font-bold text-white mb-3">Admin Overview</h1>
+                    <p class="text-blue-100 font-light">Monitor users, cases and evidence access across NyayaAI.</p>
+                </div>
+            </div>
+            <div class="max-w-6xl mx-auto px-6 -mt-8 pb-16">
+                <div id="statCards" class="grid grid-cols-2 md:grid-cols-4 gap-5 mb-8"></div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="md:col-span-2 bg-white rounded-xl border border-slate-100 shadow-sm p-5">
+                        <h3 class="text-sm font-bold text-blue-900 mb-3">FIRs per District (top 10)</h3>
+                        <div class="relative h-64"><canvas id="districtChart"></canvas></div>
+                    </div>
+                    <div class="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
+                        <h3 class="text-sm font-bold text-blue-900 mb-3">Cases by Status</h3>
+                        <div class="relative h-64"><canvas id="statusChart"></canvas></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══ ALERTS ═══ -->
+        <section id="alerts" class="hidden min-h-screen bg-slate-50 pt-28 pb-16">
+            <div class="max-w-6xl mx-auto px-6">
+                <div class="flex items-center justify-between mb-6 gap-4">
+                    <div>
+                        <h2 class="text-3xl font-serif font-bold text-blue-900">Security Alerts</h2>
+                        <p class="text-slate-500 text-sm mt-1">Repeated evidence access: 5+ views of the same file within
+                            10 minutes</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <select id="alertStatus" onchange="loadAlerts()"
+                            class="border-2 border-slate-200 rounded-lg px-3 py-2 text-sm bg-white outline-none focus:border-blue-500">
+                            <option value="open">Open</option>
+                            <option value="resolved">Resolved</option>
+                        </select>
+                        <button onclick="loadAlerts()"
+                            class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition">Refresh</button>
+                    </div>
+                </div>
+                <div id="alertsList" class="space-y-3"></div>
+            </div>
+        </section>
+
+        <!-- ═══ USERS ═══ -->
+        <section id="users" class="hidden min-h-screen bg-slate-50 pt-28 pb-16">
+            <div class="max-w-6xl mx-auto px-6">
+                <div class="mb-6">
+                    <h2 class="text-3xl font-serif font-bold text-blue-900">User Management</h2>
+                    <p class="text-slate-500 text-sm mt-1">Search users, lock or unlock accounts</p>
+                </div>
+                <div class="flex gap-3 mb-4 flex-wrap">
+                    <input id="userSearch" oninput="debouncedUsers()" placeholder="Search name, email, unique ID…"
+                        class="flex-1 min-w-[220px] border-2 border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500 bg-white">
+                    <select id="userRole" onchange="loadUsers()"
+                        class="border-2 border-slate-200 rounded-lg px-3 py-2 text-sm bg-white outline-none focus:border-blue-500">
+                        <option value="">All roles</option>
+                        <option>citizen</option>
+                        <option>police</option>
+                        <option>lawyer</option>
+                        <option>judge</option>
+                        <option>admin</option>
+                    </select>
+                </div>
+                <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
+                    <table class="min-w-full text-sm text-left">
+                        <thead class="bg-blue-50 text-blue-900 border-b border-blue-100">
+                            <tr>
+                                <th class="px-4 py-3 font-semibold">Name</th>
+                                <th class="px-4 py-3 font-semibold">Email</th>
+                                <th class="px-4 py-3 font-semibold">ID</th>
+                                <th class="px-4 py-3 font-semibold">Role</th>
+                                <th class="px-4 py-3 font-semibold">Status</th>
+                                <th class="px-4 py-3 font-semibold">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usersBody" class="divide-y divide-slate-100"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══ AUDIT ═══ -->
+        <section id="audit" class="hidden min-h-screen bg-slate-50 pt-28 pb-16">
+            <div class="max-w-6xl mx-auto px-6">
+                <div class="mb-6">
+                    <h2 class="text-3xl font-serif font-bold text-blue-900">Audit Log</h2>
+                    <p class="text-slate-500 text-sm mt-1">Who accessed evidence, and when</p>
+                </div>
+                <div class="flex gap-3 mb-4 flex-wrap">
+                    <input id="auditFir" placeholder="FIR number"
+                        class="border-2 border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500 bg-white">
+                    <input id="auditUser" placeholder="User name"
+                        class="border-2 border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500 bg-white">
+                    <button onclick="loadAudit()"
+                        class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition">Search</button>
+                </div>
+                <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
+                    <table class="min-w-full text-sm text-left">
+                        <thead class="bg-blue-50 text-blue-900 border-b border-blue-100">
+                            <tr>
+                                <th class="px-4 py-3 font-semibold">Time</th>
+                                <th class="px-4 py-3 font-semibold">User</th>
+                                <th class="px-4 py-3 font-semibold">Action</th>
+                                <th class="px-4 py-3 font-semibold">FIR</th>
+                                <th class="px-4 py-3 font-semibold">File</th>
+                                <th class="px-4 py-3 font-semibold">IP</th>
+                            </tr>
+                        </thead>
+                        <tbody id="auditBody" class="divide-y divide-slate-100"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <footer class="bg-blue-950 py-10 text-white text-center">
+            <div class="max-w-6xl mx-auto px-6">
+                <h2 class="text-2xl font-serif font-bold mb-2">NyayaAI</h2>
+                <div class="text-sm opacity-50">&copy; 2026 Team NyayaAI. All Rights Reserved.</div>
+            </div>
+        </footer>
+    </main>
+
+    <script>
+        lucide.createIcons();
+
+        const esc = (s) => s == null ? '' : String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        const fmt = (ts) => ts ? new Date(ts + 'Z').toLocaleString() : '-';   // server timestamps are UTC
+        const api = async (url, opts) => {
+            const res = await fetch(url, opts);
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || 'Request failed');
+            return data;
+        };
+
+        // ── Navigation ──
+        function showSection(id) {
+            document.querySelectorAll('main > section').forEach(s => s.classList.add('hidden'));
+            const target = document.getElementById(id);
+            if (target) target.classList.remove('hidden');
+
+            document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('bg-blue-800'));
+            document.querySelector(`[data-section="${id}"]`)?.classList.add('bg-blue-800');
+
+            if (id === 'overview') { loadStats(); loadCharts(); }
+            if (id === 'alerts') loadAlerts();
+            if (id === 'users') loadUsers();
+            if (id === 'audit') loadAudit();
+            window.scrollTo({ top: 0 });
+        }
+
+        function initSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+
+            mobileMenuBtn.addEventListener('click', () => sidebar.classList.toggle('-translate-x-full'));
+
+            document.addEventListener('click', (e) => {
+                if (window.innerWidth < 768 && !sidebar.contains(e.target) && !mobileMenuBtn.contains(e.target)) {
+                    sidebar.classList.add('-translate-x-full');
+                }
+            });
+
+            document.querySelectorAll('.sidebar-link').forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    showSection(link.getAttribute('data-section'));
+                    if (window.innerWidth < 768) sidebar.classList.add('-translate-x-full');
+                });
+            });
+        }
+
+        // ── Stats (polled every 30s for alert badge/banner) ──
+        let lastOpenAlerts = null;
+        async function loadStats() {
+            try {
+                const s = await api('/admin/api/stats');
+                const card = (n, label, color) => `
+                    <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-100">
+                        <div class="text-3xl font-bold ${color}">${n ?? '-'}</div>
+                        <div class="text-xs text-slate-400 font-semibold uppercase tracking-wide mt-1">${label}</div>
+                    </div>`;
+                const r = s.users_by_role;
+                document.getElementById('statCards').innerHTML =
+                    card(s.open_alerts, 'Open Alerts', 'text-red-600') +
+                    card(s.evidence_views_today, 'Evidence Views Today', 'text-blue-600') +
+                    card(s.firs, 'Total FIRs', 'text-blue-900') +
+                    card(s.complaints, 'Citizen Complaints', 'text-blue-900') +
+                    card(r.police, 'Police', 'text-slate-700') +
+                    card(r.lawyer, 'Lawyers', 'text-slate-700') +
+                    card(r.judge, 'Judges', 'text-slate-700') +
+                    card(r.citizen, 'Citizens', 'text-slate-700');
+
+                const ab = document.getElementById('alertBadge');
+                ab.textContent = s.open_alerts;
+                ab.classList.toggle('hidden', !s.open_alerts);
+
+                const banner = document.getElementById('alertBanner');
+                if (lastOpenAlerts !== null && s.open_alerts > lastOpenAlerts) {
+                    document.getElementById('alertBannerText').textContent =
+                        `⚠ ${s.open_alerts - lastOpenAlerts} new security alert(s): repeated evidence access detected.`;
+                    banner.classList.remove('hidden');
+                    banner.classList.add('flex');
+                }
+                if (!s.open_alerts) {
+                    banner.classList.add('hidden');
+                    banner.classList.remove('flex');
+                }
+                lastOpenAlerts = s.open_alerts;
+            } catch (e) { console.error(e); }
+        }
+        setInterval(loadStats, 30000);
+
+        // ── Charts ──
+        let districtChart = null, statusChart = null;
+        async function loadCharts() {
+            try {
+                const c = await api('/admin/api/charts');
+                if (districtChart) districtChart.destroy();
+                if (statusChart) statusChart.destroy();
+
+                districtChart = new Chart(document.getElementById('districtChart'), {
+                    type: 'bar',
+                    data: {
+                        labels: c.districts.labels,
+                        datasets: [{ label: 'FIRs', data: c.districts.values, backgroundColor: '#2563eb', borderRadius: 6 }]
+                    },
+                    options: {
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+                    }
+                });
+
+                statusChart = new Chart(document.getElementById('statusChart'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: c.statuses.labels,
+                        datasets: [{
+                            data: c.statuses.values,
+                            backgroundColor: ['#2563eb', '#f59e0b', '#ef4444', '#10b981', '#8b5cf6', '#64748b']
+                        }]
+                    },
+                    options: { maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+                });
+            } catch (e) { console.error('Charts error:', e); }
+        }
+
+        // ── Alerts ──
+        async function loadAlerts() {
+            const status = document.getElementById('alertStatus').value;
+            const list = document.getElementById('alertsList');
+            try {
+                const alerts = await api('/admin/api/alerts?status=' + status);
+                if (!alerts.length) {
+                    list.innerHTML = `<p class="text-slate-400 text-sm py-8 text-center">No ${status} alerts.</p>`;
+                    return;
+                }
+                list.innerHTML = alerts.map(a => `
+                    <div class="bg-white border ${a.status === 'open' ? 'border-red-200' : 'border-slate-200'} rounded-xl p-5 flex items-start justify-between gap-4">
+                        <div>
+                            <p class="text-sm font-bold text-red-700">Repeated evidence access</p>
+                            <p class="text-sm text-slate-700 mt-1">${esc(a.message)}</p>
+                            <p class="text-xs text-slate-400 mt-2">
+                                User: ${esc(a.username)} (${esc(a.officer_unique_id)}) · FIR: ${esc(a.fir_no)} · IP: ${esc(a.ip_address)} · ${fmt(a.created_at)}
+                            </p>
+                        </div>
+                        ${a.status === 'open' ? `<button onclick="resolveAlert('${a._id}')" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-semibold shrink-0">Mark resolved</button>` : ''}
+                    </div>`).join('');
+            } catch (e) {
+                list.innerHTML = `<p class="text-red-500 text-sm py-8 text-center">${esc(e.message)}</p>`;
+            }
+        }
+        async function resolveAlert(id) {
+            try {
+                await api(`/admin/api/alerts/${id}/resolve`, { method: 'POST' });
+            } catch (e) { alert(e.message); return; }
+            loadAlerts(); loadStats();
+        }
+
+        // ── Users ──
+        let userTimer = null;
+        function debouncedUsers() { clearTimeout(userTimer); userTimer = setTimeout(loadUsers, 300); }
+        async function loadUsers() {
+            const params = new URLSearchParams();
+            const q = document.getElementById('userSearch').value.trim();
+            const role = document.getElementById('userRole').value;
+            if (q) params.append('q', q);
+            if (role) params.append('role', role);
+            const body = document.getElementById('usersBody');
+            try {
+                const rows = await api('/admin/api/users?' + params);
+                body.innerHTML = rows.length ? rows.map(u => {
+                    const locked = u.locked_until && new Date(u.locked_until + 'Z') > new Date();
+                    const status = locked ? 'locked' : 'active';
+                    const pill = locked ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700';
+                    return `<tr class="hover:bg-blue-50 transition-colors">
+                        <td class="px-4 py-3 font-semibold text-slate-800">${esc(u.fullname)}</td>
+                        <td class="px-4 py-3 text-slate-500">${esc(u.email)}</td>
+                        <td class="px-4 py-3 font-mono text-xs">${esc(u.unique_id)}</td>
+                        <td class="px-4 py-3">${esc(u.role)}</td>
+                        <td class="px-4 py-3"><span class="px-2.5 py-1 rounded-full text-xs font-bold ${pill}">${status}</span></td>
+                        <td class="px-4 py-3">
+                            ${locked
+                            ? `<button onclick="userAction('${u._id}','unlock')" class="text-blue-600 text-xs font-semibold hover:underline">Unlock</button>`
+                            : `<button onclick="userAction('${u._id}','lock')" class="text-red-600 text-xs font-semibold hover:underline">Lock</button>`}
+                        </td></tr>`;
+                }).join('') : `<tr><td colspan="6" class="px-4 py-8 text-center text-slate-400">No users found</td></tr>`;
+            } catch (e) {
+                body.innerHTML = `<tr><td colspan="6" class="px-4 py-8 text-center text-red-500">${esc(e.message)}</td></tr>`;
+            }
+        }
+        async function userAction(id, action) {
+            if (action === 'lock' && !confirm('Really lock this user?')) return;
+            try {
+                await api(`/admin/api/users/${id}/${action}`, { method: 'POST' });
+            } catch (e) { alert(e.message); return; }
+            loadUsers(); loadStats();
+        }
+
+        // ── Audit ──
+        async function loadAudit() {
+            const params = new URLSearchParams();
+            const fir = document.getElementById('auditFir').value.trim();
+            const user = document.getElementById('auditUser').value.trim();
+            if (fir) params.append('fir_no', fir);
+            if (user) params.append('user', user);
+            const body = document.getElementById('auditBody');
+            try {
+                const rows = await api('/admin/api/audit?' + params);
+                body.innerHTML = rows.length ? rows.map(r => `
+                    <tr class="hover:bg-blue-50 transition-colors">
+                        <td class="px-4 py-3 text-xs text-slate-500">${fmt(r.timestamp)}</td>
+                        <td class="px-4 py-3">${esc(r.username)} <span class="text-xs text-slate-400">${esc(r.officer_unique_id)}</span></td>
+                        <td class="px-4 py-3 text-xs font-semibold">${esc(r.action)}</td>
+                        <td class="px-4 py-3 font-mono text-xs">${esc(r.fir_no)}</td>
+                        <td class="px-4 py-3 text-xs">${esc(r.filename || '-')}</td>
+                        <td class="px-4 py-3 text-xs text-slate-400">${esc(r.ip_address)}</td>
+                    </tr>`).join('') : `<tr><td colspan="6" class="px-4 py-8 text-center text-slate-400">No log entries</td></tr>`;
+            } catch (e) {
+                body.innerHTML = `<tr><td colspan="6" class="px-4 py-8 text-center text-red-500">${esc(e.message)}</td></tr>`;
+            }
+        }
+
+        // ── Init ──
+        document.addEventListener('DOMContentLoaded', () => {
+            initSidebar();
+            showSection('overview');
+        });
+    </script>
+</body>
+
+</html>

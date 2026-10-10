@@ -1,5 +1,6 @@
 .env
 .venv/
+venv/
 generated_firs/
 __pycache__/
 *.pyc

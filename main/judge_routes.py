@@ -1,3 +1,4 @@
+from datetime import datetime
 from flask import Blueprint, request, jsonify, render_template, session
 from main.storage_service import (
     add_docket_entry, get_docket_for_judge, get_docket_entry,
@@ -11,6 +12,14 @@ def _require_judge():
     if session.get("role") != "judge":
         return jsonify({"error": "unauthorized"}), 403
     return None
+
+
+def _parse_hearing_date(value):
+    """Returns datetime or None if invalid. Accepts 'YYYY-MM-DD HH:MM' or ISO 'T' format."""
+    try:
+        return datetime.fromisoformat(str(value).strip())
+    except (ValueError, TypeError):
+        return None
 
 
 @judge_bp.route("/dashboard")
@@ -39,9 +48,29 @@ def create_docket_entry():
     if auth_fail:
         return auth_fail
 
-    data = request.get_json()
+    data = request.get_json() or {}
     judge_id = session.get("user_id")
-    hearing_date = data["hearing_date"]
+
+    case_id = (data.get("case_id") or "").strip()
+    if not case_id:
+        return jsonify({"error": "invalid", "message": "Case ID is required."}), 400
+
+    hearing_date = data.get("hearing_date")
+    hd = _parse_hearing_date(hearing_date)
+    if hd is None:
+        return jsonify({"error": "invalid", "message": "Invalid hearing date."}), 400
+
+    # No past dates
+    if hd < datetime.now():
+        return jsonify({"error": "past_date", "message": "Hearing date cannot be in the past."}), 400
+
+    # No duplicate case in this judge's docket
+    existing = get_docket_for_judge(judge_id)
+    if any((e.get("case_id") or "").strip().lower() == case_id.lower() for e in existing):
+        return jsonify({
+            "error": "duplicate",
+            "message": f"Case {case_id} is already in your docket."
+        }), 409
 
     conflict = check_docket_conflict(judge_id, hearing_date)
     if conflict:
@@ -52,7 +81,7 @@ def create_docket_entry():
 
     entry = add_docket_entry(
         judge_id=judge_id,
-        case_id=data["case_id"],
+        case_id=case_id,
         hearing_date=hearing_date,
         case_type=data.get("case_type", ""),
         urgency=data.get("urgency", "normal"),
@@ -68,13 +97,20 @@ def edit_docket_entry(entry_id):
         return auth_fail
 
     judge_id = session.get("user_id")
-    data = request.get_json()
+    data = request.get_json() or {}
 
     entry = get_docket_entry(entry_id)
     if not entry or entry["judge_id"] != judge_id:
         return jsonify({"error": "not_found"}), 404
 
     if "hearing_date" in data and data["hearing_date"] != entry["hearing_date"]:
+        hd = _parse_hearing_date(data["hearing_date"])
+        if hd is None:
+            return jsonify({"error": "invalid", "message": "Invalid hearing date."}), 400
+        # Past-date check only when the date is actually being changed
+        if hd < datetime.now():
+            return jsonify({"error": "past_date", "message": "Hearing date cannot be in the past."}), 400
+
         conflict = check_docket_conflict(judge_id, data["hearing_date"], exclude_id=entry_id)
         if conflict:
             return jsonify({

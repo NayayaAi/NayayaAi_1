@@ -683,6 +683,7 @@
                 <button onclick="cwAddHearing()"
                   class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-sm transition">Add</button>
               </div>
+              <p id="cw-hearing-msg" class="hidden text-sm mb-3 font-semibold"></p>
               <div id="cw-hearings-list" class="space-y-2"></div>
               <p id="cw-hearings-empty" class="hidden text-sm text-slate-400 text-center py-8">No hearings scheduled
                 yet.</p>
@@ -850,6 +851,8 @@
         document.getElementById('cw-draft-result').innerHTML = '';
 
         cwSwitchTab('overview');
+        document.getElementById('cw-hearing-date').min = new Date().toLocaleDateString('en-CA');
+        document.getElementById('cw-hearing-msg').classList.add('hidden');
         await cwLoadOverview(firNo);
         await cwLoadDocuments(firNo);
         await cwLoadHearings(firNo);
@@ -1055,7 +1058,15 @@
         if (!cwCurrentFir) return;
         const date = document.getElementById('cw-hearing-date').value;
         const note = document.getElementById('cw-hearing-note').value.trim();
+        const msg = document.getElementById('cw-hearing-msg');
         if (!date) return;
+
+        const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD, local time
+        if (date < today) {
+          msg.textContent = 'Hearing date cannot be in the past.';
+          msg.className = 'text-sm mb-3 font-semibold text-red-600';
+          return;
+        }
 
         try {
           const res = await fetch(`/api/case/${encodeURIComponent(cwCurrentFir)}/hearings`, {
@@ -1063,13 +1074,16 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ hearing_date: date, note })
           });
-          if (!res.ok) throw new Error('Failed to add hearing');
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Failed to add hearing');
 
+          msg.classList.add('hidden');
           document.getElementById('cw-hearing-date').value = '';
           document.getElementById('cw-hearing-note').value = '';
           await cwLoadHearings(cwCurrentFir);
         } catch (e) {
-          console.error('Add hearing error:', e);
+          msg.textContent = e.message;
+          msg.className = 'text-sm mb-3 font-semibold text-red-600';
         }
       }
 

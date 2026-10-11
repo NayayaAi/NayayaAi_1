@@ -134,6 +134,8 @@ app.config.update(
 )
 
 limiter = Limiter(get_remote_address, app=app, default_limits=[])
+if os.getenv("DISABLE_RATE_LIMIT") == "1":
+    limiter.enabled = False
 
 ALLOWED_ORIGINS = {
     "https://yourdomain.com",

@@ -3,3 +3,6 @@
 generated_firs/
 __pycache__/
 *.pyc
+tests/screenshots/
+.pytest_cache/
+__pycache__/

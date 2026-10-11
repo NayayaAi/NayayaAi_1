@@ -7,10 +7,13 @@ werkzeug>=3.1.0
 # Database
 pymongo
 bcrypt
+supabase
 
 # Authentication & security
 PyJWT
 python-dotenv
+Authlib
+flask-limiter
 
 # AI / LLM
 groq
@@ -36,7 +39,32 @@ requests
 # Document generation
 reportlab
 
-# Computer vision — optional (app runs in demo mode without these)
+# Computer vision — needed by Missing Persons.
+#
+# Without these the app still runs, but `/upload_missing_person` cannot do its
+# face check and registering a case fails. Browsing existing cases still works.
 opencv-python
-# face-recognition   # requires dlib; install separately if needed
-# dlib               # platform-specific build — see dlib-*.whl in repo root
+
+# dlib, as a prebuilt wheel. `dlib` from PyPI compiles from source and needs
+# cmake, a C++ toolchain and several minutes; `dlib-bin` ships the same library
+# as a manylinux wheel and installs in seconds. Install it BEFORE
+# face-recognition, which declares a `dlib` dependency that would otherwise
+# trigger the source build.
+dlib-bin
+
+# Install these two with --no-deps, so pip does not pull `dlib` from source on
+# top of the wheel above:
+#
+#   pip install dlib-bin
+#   pip install --no-deps face_recognition face_recognition_models
+#
+face_recognition
+face_recognition_models
+
+# face_recognition_models reads its 129 MB of .dat files through `pkg_resources`,
+# which setuptools removed in 81. With a newer setuptools the package imports
+# fine but raises "Please install `face_recognition_models`" — a misleading error,
+# since the models are present and it is the loader that is broken. Pinned rather
+# than patched, because patching means editing a file inside site-packages that
+# any reinstall silently reverts.
+setuptools<81

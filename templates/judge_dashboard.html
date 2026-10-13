@@ -651,7 +651,10 @@
       <td class="px-4 py-3"><span class="px-2.5 py-1 rounded-full text-xs font-bold ${STATUS_PILL[e.status] || 'bg-slate-100 text-slate-600'}">${escapeHtml(e.status)}</span></td>
       <td class="px-4 py-3 text-slate-500 text-xs">${escapeHtml(e.remarks || '-')}</td>
       <td class="px-4 py-3">
-        <button onclick="editEntry(${e.id})" class="text-blue-600 hover:underline text-xs font-semibold mr-3">Edit</button>
+        ${(e.case_status || '').toLowerCase() === 'closed'
+          ? `<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-slate-800 text-white mr-3">Case Closed</span>`
+          : `<button onclick="closeCase('${escapeHtml(e.case_id)}')" class="text-emerald-700 hover:underline text-xs font-semibold mr-3">Close Case</button>
+             <button onclick="editEntry(${e.id})" class="text-blue-600 hover:underline text-xs font-semibold mr-3">Edit</button>`}
         <button onclick="deleteEntry(${e.id})" class="text-red-600 hover:underline text-xs font-semibold">Delete</button>
       </td>
     </tr>
@@ -686,6 +689,19 @@
             const entries = await res.json();
             const entry = entries.find(e => e.id === id);
             if (entry) openModal(entry);
+        }
+
+        async function closeCase(caseId) {
+            if (!confirm(`Close case ${caseId}? It will be marked Closed on the lawyer, citizen, police and admin dashboards, and pending hearings will be cancelled.`)) return;
+            const note = prompt("Closure note / order summary (optional):") || "";
+            const res = await fetch(`/judge/case/${encodeURIComponent(caseId)}/close`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ note })
+            });
+            const data = await res.json();
+            if (!res.ok) { alert(data.message || data.error || "Could not close case."); return; }
+            loadDocket();
         }
 
         async function deleteEntry(id) {

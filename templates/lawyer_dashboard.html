@@ -70,6 +70,11 @@
       color: #b91c1c;
     }
 
+    .status-closed {
+      background: #e2e8f0;
+      color: #334155;
+    }
+
     .status-saved-to-police-records,
     .status-active {
       background: #d1fae5;
@@ -887,8 +892,10 @@
           document.getElementById('cw-client').textContent = `Client: ${data.complainant_name || '—'}`;
           document.getElementById('cw-status-pill').innerHTML =
             `<span class="status-pill status-${(data.status || 'active').toLowerCase().replace(/\s+/g, '-')}">${data.status || 'Active'}</span>`;
-          document.getElementById('cw-status-select').value = '';
-          document.getElementById('cw-status-select').value = '';
+          const _sel = document.getElementById('cw-status-select');
+          _sel.value = '';
+          _sel.disabled = (data.status || '').toLowerCase() === 'closed';
+          _sel.title = _sel.disabled ? 'Case closed by the court' : '';
           document.getElementById('cw-client-note').value = data.client_note || '';
           cwUpdateVisibilityBadge(!!data.visible_to_client);
           document.getElementById('cw-dist').textContent = data.dist || '—';

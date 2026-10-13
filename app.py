@@ -20,7 +20,6 @@ from datetime import datetime, timezone
 from flask_wtf.csrf import CSRFProtect, CSRFError
 from reportlab.lib.styles import getSampleStyleSheet
 from ai_engine import analyze_complaint_for_sections
-from sections_ai import suggest_sections
 from rag_engine import search_law
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from flask import jsonify
@@ -75,6 +74,7 @@ from main.storage_service import (
 )
 from main.judge_routes import judge_bp
 from main.admin_routes import admin_bp
+from main.password_reset_routes import reset_bp
 
 # ---------------- OLLAMA SETUP ----------------
 import requests
@@ -126,6 +126,7 @@ app.secret_key = "nyaya_ai_ultra_secure_key"
 
 app.register_blueprint(judge_bp)
 app.register_blueprint(admin_bp)
+app.register_blueprint(reset_bp)
 
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
@@ -135,103 +136,23 @@ app.config.update(
 )
 
 limiter = Limiter(get_remote_address, app=app, default_limits=[])
-if os.getenv("DISABLE_RATE_LIMIT") == "1":
-    limiter.enabled = False
-
-# Rate limits for /signup and /login.
-#
-# Both are keyed on the *client IP*, and that is what makes the numbers what
-# they are. A police station reaches this server from one public address: every
-# officer on the handset app and every officer on the console share whatever
-# budget is set here. The original 5-per-hour and 10-per-15-minutes were sized
-# as though one IP meant one person, and a station's second shift signing in
-# after the first simply got HTTP 429 with no explanation of why.
-#
-# Brute-force protection has not been given up, and never rested here anyway:
-# MAX_FAILED_ATTEMPTS locks a single account for LOCKOUT_SECONDS after five wrong
-# passwords, which is per-account and unaffected by how many people share the
-# address. These ceilings only stop a flood.
-#
-# Override per deployment when a station is larger than the defaults assume:
-#
-#   SIGNUP_RATE_LIMIT="200 per hour"  LOGIN_RATE_LIMIT="300 per 15 minutes"
-SIGNUP_RATE_LIMIT = os.environ.get("SIGNUP_RATE_LIMIT", "60 per hour")
-LOGIN_RATE_LIMIT = os.environ.get("LOGIN_RATE_LIMIT", "100 per 15 minutes")
 
 ALLOWED_ORIGINS = {
     "https://yourdomain.com",
     "http://127.0.0.1:5000",
 }
 
-# The Flutter app's own origins, which are not the website's.
-#
-# A handset does not reach this server on the same host the browser does: the
-# Android emulator aliases the developer machine to 10.0.2.2, a USB-attached
-# phone reaches it through `adb reverse` on its own loopback, and a device on
-# the LAN uses whatever address the laptop has that day. Extra origins can be
-# added per deployment without editing this file:
-#
-#   APP_ALLOWED_ORIGINS=http://192.168.1.7:5000,https://api.nyayaai.example
-_env_origins = os.environ.get("APP_ALLOWED_ORIGINS", "")
-ALLOWED_ORIGINS |= {
-    "http://10.0.2.2:5000",     # Android emulator -> host loopback
-    "http://localhost:5000",    # desktop / Chrome builds
-}
-ALLOWED_ORIGINS |= {o.strip() for o in _env_origins.split(",") if o.strip()}
-
-# Header the Flutter client sets on every request. See below for why it is a
-# CSRF defence and not merely a label.
-APP_CLIENT_HEADER = "X-NyayaAI-Client"
-
-
-def fir_dirname(fir_no):
-    """The single path segment an FIR number's files live under.
-
-    An FIR number is not a filename. Indian stations number FIRs "41/2026", and
-    a slash in the middle of one turns every `os.path.join(FOLDER, fir_no)` into
-    a nested path and every `/<fir_no>/<filename>` route into one that cannot
-    match. The number is stored verbatim in Mongo either way -- this only names
-    the directory on disk.
-
-    `secure_filename` leaves an alphanumeric number untouched, so every FIR
-    filed before this existed still resolves to the folder it is already in.
-    """
-    return secure_filename(str(fir_no or "")) or "_unnamed"
-
 
 def require_same_origin(view):
-    """Reject cross-site state-changing requests.
-
-    Two ways past it, and the second one is the reason the Flutter app can sign
-    in at all:
-
-    1. **A browser on an allowed origin.** Browsers attach `Origin` to every
-       POST/PUT/PATCH/DELETE, including plain form submissions, so an attacker's
-       page cannot forge one. This is the website's path.
-
-    2. **A client that sets [APP_CLIENT_HEADER].** A native app is not a browser
-       and sends no `Origin`, which the old check read as "forged" and answered
-       403 to -- so `/login` and `/signup` were unreachable from the app and it
-       could never get past its sign-in screen.
-
-       Trusting a custom header is not a hole. A cross-origin page cannot set
-       one without triggering a CORS preflight, and this server answers no
-       preflight and returns no `Access-Control-Allow-Headers`, so the browser
-       refuses to send the real request. The header is therefore proof the
-       caller is not a hostile page, which is exactly what `Origin` was being
-       asked to prove.
-    """
-
     @wraps(view)
     def wrapped(*args, **kwargs):
         if request.method in ("POST", "PUT", "PATCH", "DELETE"):
-            if not request.headers.get(APP_CLIENT_HEADER):
-                origin = request.headers.get("Origin") or request.headers.get("Referer")
-                if not origin:
-                    return jsonify({"error": "Request rejected."}), 403
-                origin_root = "/".join(origin.split("/")[:3])
-                if origin_root not in ALLOWED_ORIGINS:
-                    return jsonify({"error": "Request rejected."}), 403
+            origin = request.headers.get("Origin") or request.headers.get("Referer")
+            if not origin:
+                return jsonify({"error": "Request rejected."}), 403
+            origin_root = "/".join(origin.split("/")[:3])
+            if origin_root not in ALLOWED_ORIGINS:
+                return jsonify({"error": "Request rejected."}), 403
         return view(*args, **kwargs)
 
     return wrapped
@@ -355,6 +276,12 @@ def lawyer_owns_case(fir_no):
     return str(fir.get("assigned_lawyer_id")) == str(session.get("user_id"))
 
 
+def case_is_closed(fir_no):
+    """True if a judge (or anyone) has closed this case."""
+    fir = get_fir(fir_no)
+    return bool(fir) and (fir.get("status") or "").lower() == "closed"
+
+
 # 2. DATABASE CONNECTIONS
 DB_PATH = os.path.join(app.root_path, "IndiaLaw.db")
 try:
@@ -452,33 +379,6 @@ SAMPLE_POLICE_STATIONS = {
 }
 
 LEGAL_ACTS = ["IPC", "CRPC", "NIA", "IEA", "HMA", "CPC", "IDA", "MVA"]
-
-# The eight act tables in IndiaLaw.db were imported from two different sources
-# and do NOT share a column naming scheme:
-#
-#   IPC / CRPC / NIA / IEA / HMA  ->  section_title, section_desc
-#   CPC / IDA / MVA               ->  title,         description
-#
-# Every law route used to hardcode the first shape, so `/api/sections/CPC`,
-# `/api/section-detail/MVA/...` and friends answered 500 "no such column:
-# section_title" for all three of the second kind -- 491 of the 1,968 sections
-# in the database were unreachable, and `/api/search-sections` silently skipped
-# them because its per-act failure is caught and continued past.
-#
-# (The section number column is `Section` in IPC and `section` elsewhere, which
-# needs no mapping: SQLite identifiers are case-insensitive.)
-ACT_COLUMNS = {
-    "CPC": ("title", "description"),
-    "IDA": ("title", "description"),
-    "MVA": ("title", "description"),
-}
-
-
-def act_columns(act):
-    """(title column, description column) for an act table. Defaults to the
-    five-act shape, so a table added later needs an entry here only if it does
-    not follow it."""
-    return ACT_COLUMNS.get(act, ("section_title", "section_desc"))
 
 
 def init_fir_table():
@@ -1065,12 +965,9 @@ def get_sections(act):
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
 
-        title_col, desc_col = act_columns(act)
-
         # Build WHERE clause
         if search:
-            where = (f"WHERE lower(Section) LIKE ? OR lower({title_col}) LIKE ? "
-                     f"OR lower({desc_col}) LIKE ?")
+            where = "WHERE lower(Section) LIKE ? OR lower(section_title) LIKE ? OR lower(section_desc) LIKE ?"
             params = (f"%{search}%", f"%{search}%", f"%{search}%")
         else:
             where = ""
@@ -1082,8 +979,8 @@ def get_sections(act):
 
         # Paginated rows — fetch description too
         cursor.execute(
-            f"SELECT Section, {title_col}, {desc_col} FROM {act} {where} ORDER BY rowid LIMIT ? OFFSET ?",
-            params + (limit, offset)
+            f"SELECT Section, section_title, section_desc FROM {act} {where} ORDER BY rowid LIMIT ? OFFSET ?",
+            params + (limit, offset),
         )
         rows = cursor.fetchall()
         conn.close()
@@ -1116,10 +1013,9 @@ def get_section_detail(act, section_no):
     try:
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
-        title_col, desc_col = act_columns(act)
         cursor.execute(
-            f"SELECT Section, {title_col}, {desc_col} FROM {act} WHERE Section = ? LIMIT 1",
-            (section_no,)
+            f"SELECT Section, section_title, section_desc FROM {act} WHERE Section = ? LIMIT 1",
+            (section_no,),
         )
         row = cursor.fetchone()
         conn.close()
@@ -1140,14 +1036,8 @@ def predict_outcome():
     if not situation:
         return jsonify({"prediction": "❌ Please describe the situation."}), 400
     results = search_case_outcome(situation, top_n=5)
-    html    = format_outcome_html(results)
-    # `prediction` is the rendered HTML the website drops straight into the page,
-    # and it stays first so nothing there changes. `results` is the same search
-    # before it was turned into Tailwind markup, added for the Flutter app: a
-    # native client cannot use a <div class='bg-purple-50'>, and screen-scraping
-    # the markup would make every styling change on the website a crash on the
-    # handset.
-    return jsonify({"prediction": html, "results": results})
+    html = format_outcome_html(results)
+    return jsonify({"prediction": html})
 
 
 BARE_ACTS_INFO = {
@@ -1294,21 +1184,12 @@ from groq import Groq
 
 # ── ADD THIS after load_dotenv() ──
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
-# Separate key for the Flutter app, so its usage never draws on the website's key.
-GROQ_API_KEY_APP = os.environ.get("GROQ_API_KEY_APP", "")
-
-def _groq_key():
-    """The app's key for requests carrying the app header; the website's key otherwise."""
-    from flask import has_request_context
-    if GROQ_API_KEY_APP and has_request_context() and request.headers.get(APP_CLIENT_HEADER):
-        return GROQ_API_KEY_APP
-    return GROQ_API_KEY
 
 
 def ask_groq(prompt, max_tokens=2000, reasoning_effort="low"):
     """Fast legal AI using Groq — 300-800 tokens/sec, free tier."""
     try:
-        client_groq = Groq(api_key=_groq_key())
+        client_groq = Groq(api_key=GROQ_API_KEY)
         chat_completion = client_groq.chat.completions.create(
             messages=[
                 {
@@ -2214,13 +2095,12 @@ def search_sections():
         try:
             conn = sqlite3.connect(DB_PATH)
             cursor = conn.cursor()
-            title_col, desc_col = act_columns(act)
             cursor.execute(
                 f"""
-                SELECT Section, {title_col}
+                SELECT Section, section_title 
                 FROM {act}
-                WHERE lower({title_col}) LIKE ?
-                OR lower({desc_col}) LIKE ?
+                WHERE lower(section_title) LIKE ? 
+                OR lower(section_desc) LIKE ?
                 LIMIT 5
                 """,
                 (f"%{query.lower()}%", f"%{query.lower()}%"),
@@ -2303,14 +2183,8 @@ def ask_law():
         section = item.get("section", "N/A")
         title = item.get("title", "N/A")
         description = item.get("description", "N/A")
-        # The act the row came from, not a guess. This was hardcoded to "IPC",
-        # which was true while `search_law` only ever read law_data.csv (84 IPC
-        # sections) and became a lie the moment it could also answer out of
-        # IndiaLaw.db -- a CrPC or MVA section printed as "IPC Section 154" is
-        # worse than no answer, because it is a wrong one an officer can act on.
-        act         = item.get("act") or "IPC"
 
-        answer += f"📘 {act} Section {section}\n"
+        answer += f"📘 IPC Section {section}\n"
         answer += f"📌 Title: {title}\n\n"
         answer += f"📝 Explanation:\n{description}\n\n"
         answer += "━━━━━━━━━━━━━━━━━━━━━━\n\n"
@@ -2463,7 +2337,7 @@ def get_fir_records():
         )
 
 
-@app.route('/api/fir-records/<path:fir_no>', methods=['GET'])
+@app.route("/api/fir-records/<fir_no>", methods=["GET"])
 def get_fir_record(fir_no):
     """Get specific FIR"""
     try:
@@ -2481,61 +2355,29 @@ def get_fir_record(fir_no):
         )
 
 
-@app.route('/api/suggest-sections', methods=['POST'])
-@require_same_origin
-@limiter.limit("30 per minute")
-def suggest_sections_route():
-    """Suggest acts and sections for a complaint narrative, with a reason each.
-
-    Read-only: it proposes, it does not file. `/generate_fir` still writes
-    whatever the officer ended up with, and still falls back to its own keyword
-    matcher when the field arrives empty -- this endpoint changes neither.
-
-    Police only, and this gate is real, unlike the one on `/generate_fir`. There
-    is no reason for an unauthenticated caller to be able to spend the station's
-    Groq quota, and the rate limit above is per IP -- which for a police station
-    is the whole station, so it is set high enough for a counter with several
-    officers filing at once.
-    """
-    if 'user_id' not in session:
-        return jsonify({"error": "Please log in."}), 401
-    if session.get('role') not in ('police', 'admin', 'officer'):
-        return jsonify({"error": "Police login required."}), 403
-
-    data = request.get_json(silent=True) or {}
-    # `statement` is what FORM IF-1 calls the narrative and what `/generate_fir`
-    # reads; `narrative` is accepted as well so a caller that thinks in plainer
-    # words is not met with an empty answer it cannot explain.
-    narrative = (data.get("statement") or data.get("narrative") or "").strip()
-
-    if len(narrative) < 20:
-        # Not an error -- an officer who has typed two words has not finished,
-        # and a red banner for that is a red banner they learn to ignore.
-        return jsonify({
-            "suggestions": [],
-            "source": "none",
-            "note": "",
-            "message": "Write a little more of the narrative first."
-        })
-
-    result = suggest_sections(narrative[:4000], ask_groq=ask_groq)
-
-    # `dropped` stays out of the reply. It records sections the model named that
-    # are not in IndiaLaw.db, which is something whoever runs this server should
-    # see in the log; it is not something to put in front of an officer.
-    return jsonify({
-        "suggestions": result["suggestions"],
-        "source": result["source"],
-        "note": result["note"],
-    })
+def next_fir_no():
+    """Next serial FIR number: FIR-0001, FIR-0002, ..."""
+    nums = []
+    for f in get_all_firs():
+        m = re.match(r"^FIR-(\d+)$", (f.get("fir_no") or "").strip(), re.IGNORECASE)
+        if m:
+            nums.append(int(m.group(1)))
+    return f"FIR-{(max(nums) + 1 if nums else 1):04d}"
 
 
-@app.route('/generate_fir', methods=['POST'])
+@app.route("/api/next-fir-no", methods=["GET"])
+def api_next_fir_no():
+    return jsonify({"fir_no": next_fir_no()})
+
+
+@app.route("/generate_fir", methods=["POST"])
 def generate_fir():
 
     data = request.get_json()
     if not data:
         return jsonify({"error": "No JSON received"}), 400
+
+    data["fir_no"] = next_fir_no()  # server decides the number
 
     errors = validate_fir_data(data)
     if errors:
@@ -2599,16 +2441,7 @@ MESSAGE: FIR has been successfully registered and saved to police records.
         # Generate PDF
         # -------------------------
 
-        # secure_filename, because an FIR number is not a filename.
-        #
-        # Indian stations number FIRs "41/2026", and `FIR_41/2026.pdf` is a path
-        # into a directory that does not exist -- so `pdf.build()` threw
-        # FileNotFoundError, the whole handler 500'd, and an officer filing a
-        # correctly-numbered FIR was told "Failed to save FIR to database" with
-        # no record written. The number itself is stored unchanged in `fir_no`
-        # below; only the file on disk is sanitised, and it is a scratch file
-        # that is uploaded to Supabase and addressed by `fir_id` from then on.
-        pdf_filename = f"FIR_{secure_filename(str(data.get('fir_no') or ''))}.pdf"
+        pdf_filename = f"FIR_{data.get('fir_no')}.pdf"
         pdf_path = os.path.join(PDF_FOLDER, pdf_filename)
 
         styles = getSampleStyleSheet()
@@ -2735,7 +2568,7 @@ def generate_unique_id(role):
 
 @app.route("/signup", methods=["GET", "POST"])
 @require_same_origin
-@limiter.limit(SIGNUP_RATE_LIMIT)
+@limiter.limit("5 per hour")
 def signup():
     if request.method == "POST":
         data = request.get_json()
@@ -2829,7 +2662,7 @@ def signup():
 
 @app.route("/login", methods=["GET", "POST"])
 @require_same_origin
-@limiter.limit(LOGIN_RATE_LIMIT)
+@limiter.limit("10 per 15 minutes")
 def login():
     if request.method == "POST":
         data = request.get_json()
@@ -2966,10 +2799,8 @@ def upload_evidence_file():
 
     filename = secure_filename(file.filename)
 
-    # create FIR-wise folder. Named through fir_dirname so an FIR numbered
-    # "41/2026" does not silently become a `41/` directory with a `2026/` inside
-    # it that no route can serve back.
-    fir_folder = os.path.join(UPLOAD_FOLDER, fir_dirname(fir_no))
+    # create FIR-wise folder
+    fir_folder = os.path.join(UPLOAD_FOLDER, fir_no)
     os.makedirs(fir_folder, exist_ok=True)
 
     file_path = os.path.join(fir_folder, filename)
@@ -2996,19 +2827,19 @@ def upload_evidence_file():
         "fir_no": fir_no
     })
 #endpoint to list all evidence files for a FIR
-@app.route('/get-evidence/<path:fir_no>', methods=['GET'])
+@app.route('/get-evidence/<fir_no>', methods=['GET'])
 @police_required
 def get_evidence(fir_no):
     log_evidence_view(fir_no=fir_no, action="viwed_list", user=request.current_user)
     docs = evidence_collection.find({"fir_no": fir_no}, {"_id": 0, "filename": 1})
     return jsonify([doc["filename"] for doc in docs])
 #endpoint to serve evidence files
-@app.route('/evidence-file/<path:fir_no>/<filename>')
+@app.route('/evidence-file/<fir_no>/<filename>')
 @police_required
 def get_file(fir_no, filename):
     log_evidence_view(fir_no=fir_no, action="viewed_file", user=request.current_user, filename=filename)
     return send_from_directory(
-        os.path.join(UPLOAD_FOLDER, fir_dirname(fir_no)),
+        os.path.join(UPLOAD_FOLDER, fir_no),
         filename
     )
 
@@ -3081,7 +2912,7 @@ def get_evidence_access_log(fir_no):
         entry["timestamp"] = str(entry.get("timestamp", ""))
     return jsonify(logs)
 
-@app.route('/fir/view/<path:fir_no>', methods=['GET'])
+@app.route('/fir/view/<fir_no>', methods=['GET'])
 def view_fir(fir_no):
     """Render a FIR as a readable HTML page (opens in new tab)."""
     fir = get_fir(fir_no)
@@ -3147,7 +2978,7 @@ def view_fir(fir_no):
     )
 
 
-@app.route('/fir/download/<path:fir_no>', methods=['GET'])
+@app.route("/fir/download/<fir_no>", methods=["GET"])
 def download_fir(fir_no):
     """Download the generated PDF for a FIR from Supabase."""
     try:
@@ -3207,6 +3038,8 @@ def add_hearing(fir_no):
         return jsonify({"error": "Unauthorized"}), 401
     if not lawyer_owns_case(fir_no):
         return jsonify({"error": "Forbidden"}), 403
+    if case_is_closed(fir_no):
+        return jsonify({"error": "This case is closed. No further changes allowed."}), 409
     data = request.get_json()
     hearing_date = data.get("hearing_date", "").strip()
     note = data.get("note", "").strip()
@@ -3288,6 +3121,8 @@ def update_case_status(fir_no):
         return jsonify({"error": "Unauthorized"}), 401
     if not lawyer_owns_case(fir_no):
         return jsonify({"error": "Forbidden"}), 403
+    if case_is_closed(fir_no):
+        return jsonify({"error": "This case is closed. No further changes allowed."}), 409
     data = request.get_json()
     status = data.get("status", "").strip()
     if status not in VALID_CASE_STATUSES:
@@ -3322,6 +3157,8 @@ def add_deadline(fir_no):
         return jsonify({"error": "Unauthorized"}), 401
     if not lawyer_owns_case(fir_no):
         return jsonify({"error": "Forbidden"}), 403
+    if case_is_closed(fir_no):
+        return jsonify({"error": "This case is closed. No further changes allowed."}), 409
     data = request.get_json()
     deadline_type = data.get("deadline_type", "").strip()
     due_date = data.get("due_date", "").strip()

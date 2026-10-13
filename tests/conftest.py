@@ -5,11 +5,9 @@ from selenium.webdriver.chrome.options import Options
 
 BASE_URL = os.getenv("NYAYA_BASE_URL", "http://127.0.0.1:5000")
 
-
 @pytest.fixture
 def base_url():
     return BASE_URL
-
 
 @pytest.fixture
 def driver():
@@ -20,7 +18,6 @@ def driver():
     d = webdriver.Chrome(options=opts)
     yield d
     d.quit()
-
 
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_makereport(item, call):

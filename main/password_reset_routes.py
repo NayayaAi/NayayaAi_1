@@ -1,22 +1,17 @@
-# Forgot / reset password flow (email link, 15 min expiry, single use)
-#
-# .env (optional - without SMTP_* the reset link is printed in the Flask terminal):
-#   APP_BASE_URL=http://127.0.0.1:5000
-#   SMTP_HOST=smtp.gmail.com
-#   SMTP_PORT=587
-#   SMTP_USER=youraddress@gmail.com
-#   SMTP_PASS=your_gmail_app_password
-#   MAIL_FROM=NyayaAI <youraddress@gmail.com>
 
 import hashlib
+import html
 import os
 import re
 import secrets
 import smtplib
+import threading
 from datetime import datetime, timedelta
 from email.message import EmailMessage
+from email.utils import parseaddr
 
 import bcrypt
+import requests
 from flask import Blueprint, jsonify, render_template, request
 
 from main.database import mongo_db, users_collection
@@ -56,33 +51,119 @@ def _same_origin_ok():
     return "/".join(origin.split("/")[:3]) == "/".join(request.host_url.split("/")[:3])
 
 
-def _send_reset_email(to_email: str, name: str, link: str):
-    """Sends the email via SMTP, or prints the link in the terminal (dev mode)."""
-    host = os.environ.get("SMTP_HOST")
-    user = os.environ.get("SMTP_USER")
-    pwd = os.environ.get("SMTP_PASS")
+def _smtp_settings():
+    host = (os.environ.get("SMTP_HOST") or "").strip()
+    user = (os.environ.get("SMTP_USER") or "").strip()
+    pwd = (os.environ.get("SMTP_PASS") or "").replace(" ", "")  # Google shows app passwords with spaces
+    port = int(os.environ.get("SMTP_PORT", 587))
+    sender = (os.environ.get("MAIL_FROM") or user).strip()
+    return host, port, user, pwd, sender
 
-    if not (host and user and pwd):
-        print("\n" + "=" * 60)
-        print(f"[DEV MODE] Password reset link for {to_email}:")
-        print(link)
-        print("=" * 60 + "\n")
-        return
 
+def _build_message(to_email: str, name: str, link: str, sender: str) -> EmailMessage:
+    safe_name = html.escape(name)
     msg = EmailMessage()
     msg["Subject"] = "Reset your NyayaAI password"
-    msg["From"] = os.environ.get("MAIL_FROM", user)
+    msg["From"] = sender
     msg["To"] = to_email
     msg.set_content(
         f"Hello {name},\n\n"
         f"We received a request to reset your NyayaAI password.\n"
         f"Open this link within {TOKEN_TTL_MINUTES} minutes:\n\n{link}\n\n"
-        f"If you did not request this, ignore this email - your password stays unchanged.\n"
+        f"If you did not request this, ignore this email - your password stays unchanged.\n\n"
+        f"- NyayaAI\n"
     )
-    with smtplib.SMTP(host, int(os.environ.get("SMTP_PORT", 587)), timeout=15) as s:
-        s.starttls()
-        s.login(user, pwd)
-        s.send_message(msg)
+    msg.add_alternative(
+        f"""\
+<div style="font-family:Arial,Helvetica,sans-serif;max-width:480px;margin:auto;padding:24px;color:#1f2937">
+  <h2 style="margin:0 0 12px;color:#111827">Reset your password</h2>
+  <p>Hello {safe_name},</p>
+  <p>We received a request to reset your NyayaAI password. This link works for
+     <b>{TOKEN_TTL_MINUTES} minutes</b> and can be used only once.</p>
+  <p style="margin:24px 0">
+    <a href="{link}" style="background:#1d4ed8;color:#ffffff;padding:12px 22px;border-radius:6px;
+       text-decoration:none;font-weight:bold;display:inline-block">Reset Password</a>
+  </p>
+  <p style="font-size:13px;color:#6b7280">Button not working? Copy this link into your browser:<br>
+     <a href="{link}" style="color:#1d4ed8;word-break:break-all">{link}</a></p>
+  <p style="font-size:13px;color:#6b7280">If you did not request this, ignore this email.
+     Your password stays unchanged.</p>
+</div>""",
+        subtype="html",
+    )
+    return msg
+
+
+def _deliver(to_email: str, name: str, link: str):
+    """Runs in a background thread so the page replies instantly (and response time never
+    reveals whether an account exists)."""
+    host, port, user, pwd, sender = _smtp_settings()
+    try:
+        msg = _build_message(to_email, name, link, sender)
+        if port == 465:
+            with smtplib.SMTP_SSL(host, port, timeout=20) as s:
+                s.login(user, pwd)
+                s.send_message(msg)
+        else:
+            with smtplib.SMTP(host, port, timeout=20) as s:
+                s.starttls()
+                s.login(user, pwd)
+                s.send_message(msg)
+        print(f"[MAIL] Password reset email sent to {to_email}")
+    except Exception as e:
+        print(f"[MAIL ERROR] Could not send reset email to {to_email}: {e}")
+
+
+def _deliver_brevo(to_email: str, name: str, link: str):
+    """Sends through Brevo's HTTPS API (port 443). Runs in a background thread."""
+    api_key = os.environ.get("BREVO_API_KEY", "").strip()
+    sender_raw = os.environ.get("MAIL_FROM") or os.environ.get("SMTP_USER", "")
+    sender_name, sender_email = parseaddr(sender_raw)
+    try:
+        msg = _build_message(to_email, name, link, sender_raw)
+        text_part = msg.get_body(preferencelist=("plain",)).get_content()
+        html_part = msg.get_body(preferencelist=("html",)).get_content()
+        r = requests.post(
+            "https://api.brevo.com/v3/smtp/email",
+            headers={"api-key": api_key, "accept": "application/json", "content-type": "application/json"},
+            json={
+                "sender": {"name": sender_name or "NyayaAI", "email": sender_email},
+                "to": [{"email": to_email, "name": name}],
+                "subject": "Reset your NyayaAI password",
+                "htmlContent": html_part,
+                "textContent": text_part,
+            },
+            timeout=20,
+        )
+        if r.status_code in (200, 201):
+            print(f"[MAIL] Password reset email sent to {to_email} (Brevo)")
+        else:
+            print(f"[MAIL ERROR] Brevo rejected the email to {to_email}: {r.status_code} {r.text}")
+    except Exception as e:
+        print(f"[MAIL ERROR] Could not send reset email to {to_email} (Brevo): {e}")
+
+
+def _send_reset_email(to_email: str, name: str, link: str):
+    """Sends the reset link to the user's inbox via SMTP.
+    Terminal printing is only a fallback for local development (APP_ENV != production)."""
+    if os.environ.get("BREVO_API_KEY", "").strip():
+        threading.Thread(target=_deliver_brevo, args=(to_email, name, link), daemon=True).start()
+        return
+
+    host, port, user, pwd, sender = _smtp_settings()
+
+    if host and user and pwd:
+        threading.Thread(target=_deliver, args=(to_email, name, link), daemon=True).start()
+        return
+
+    if os.environ.get("APP_ENV", "development").lower() == "production":
+        print("[MAIL ERROR] No email provider configured (BREVO_API_KEY or SMTP_*) - reset email NOT sent.")
+        return
+
+    print("\n" + "=" * 60)
+    print(f"[DEV MODE - SMTP not configured] Password reset link for {to_email}:")
+    print(link)
+    print("=" * 60 + "\n")
 
 
 @reset_bp.route("/forgot-password", methods=["GET"])
@@ -105,11 +186,13 @@ def forgot_submit():
     try:
         user = users_collection.find_one({"email": email})
         if not user:
+            print(f"[RESET] No account with email {email} - no email sent.")
             return jsonify(generic), 200
 
         one_hour_ago = datetime.utcnow() - timedelta(hours=1)
         if resets.count_documents({"user_id": user["_id"], "created_at": {"$gt": one_hour_ago}}) >= MAX_REQUESTS_PER_HOUR:
-            return jsonify(generic), 200  # silently throttled
+            print(f"[RESET] Rate limit hit for {email} - no email sent.")
+            return jsonify(generic), 200  # throttled
 
         token = secrets.token_urlsafe(32)
         resets.insert_one({
@@ -120,7 +203,7 @@ def forgot_submit():
             "used": False,
         })
 
-        base = os.environ.get("APP_BASE_URL", "http://127.0.0.1:5000").rstrip("/")
+        base = (os.environ.get("APP_BASE_URL") or request.host_url).rstrip("/")
         _send_reset_email(email, user.get("fullname", "there"), f"{base}/reset-password/{token}")
     except Exception as e:
         print(f"forgot-password error: {e}")

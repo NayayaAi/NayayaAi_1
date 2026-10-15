@@ -82,7 +82,8 @@
                 class="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors">
                 <i data-lucide="gavel" class="w-5 h-5"></i><span>Law Library</span>
             </a>
-            <a href="#" class="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors">
+            <a href="#" id="navOrders"
+                class="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-800 transition-colors">
                 <i data-lucide="file-text" class="w-5 h-5"></i><span>Orders & Drafts</span>
             </a>
         </nav>
@@ -290,6 +291,96 @@
         </section>
         <!-- ═══════════ END CASE WORKSPACE PAGE ═══════════ -->
 
+        <!-- ═══════════ ORDERS & DRAFTS PAGE ═══════════ -->
+        <section id="orders-page" class="hidden">
+            <section class="px-10 py-10">
+                <div class="flex items-center justify-between mb-5">
+                    <h2 class="text-2xl font-serif font-bold text-blue-900 flex items-center gap-2">
+                        <i data-lucide="file-text" class="w-5 h-5 text-blue-600"></i> Orders &amp; Drafts
+                    </h2>
+                    <div class="flex items-center gap-3">
+                        <select id="ordFilter" onchange="loadOrders()"
+                            class="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
+                            <option value="">All</option>
+                            <option value="draft">Drafts</option>
+                            <option value="finalised">Finalised</option>
+                        </select>
+                        <button onclick="openOrderEditor()"
+                            class="bg-blue-700 hover:bg-blue-800 text-white px-5 py-2 rounded-lg font-semibold text-sm flex items-center gap-2">
+                            <i data-lucide="plus" class="w-4 h-4"></i> New Order
+                        </button>
+                    </div>
+                </div>
+
+                <!-- List -->
+                <div id="ordList" class="bg-white rounded-xl border border-slate-100 shadow-sm divide-y divide-slate-100">
+                    <div class="px-6 py-8 text-center text-slate-400 text-sm">Loading…</div>
+                </div>
+
+                <!-- Editor -->
+                <div id="ordEditor" class="hidden mt-8 bg-white rounded-xl border border-slate-200 shadow-sm">
+                    <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+                        <h3 id="ordEditorTitle" class="text-lg font-bold text-blue-900">New Order</h3>
+                        <button onclick="closeOrderEditor()"
+                            class="text-slate-400 hover:text-red-500 text-2xl font-bold leading-none">×</button>
+                    </div>
+                    <div class="p-6 space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Case</label>
+                                <select id="ordCase" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"></select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Order Type</label>
+                                <select id="ordType" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"></select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Title</label>
+                                <input id="ordTitle" type="text" placeholder="Auto-filled if blank"
+                                    class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
+                            </div>
+                        </div>
+
+                        <div id="ordAiBox" class="bg-blue-50 border border-blue-100 rounded-lg p-4">
+                            <label class="block text-xs font-semibold text-blue-700 uppercase mb-1">AI Draft Assistant
+                                (optional)</label>
+                            <div class="flex flex-col md:flex-row gap-3">
+                                <input id="ordInstructions" type="text"
+                                    placeholder="e.g. Grant bail on surety of ₹50,000, next hearing in 2 weeks"
+                                    class="flex-1 border border-blue-200 rounded-lg px-3 py-2 text-sm bg-white">
+                                <button id="ordGenBtn" onclick="generateOrderDraft()"
+                                    class="bg-purple-600 hover:bg-purple-700 text-white px-5 py-2 rounded-lg font-semibold text-sm whitespace-nowrap">
+                                    ✨ Generate Draft
+                                </button>
+                            </div>
+                            <p class="text-xs text-slate-400 mt-2">AI output is a starting draft. Review every line before
+                                finalising.</p>
+                        </div>
+
+                        <textarea id="ordContent" rows="18" placeholder="Order text…"
+                            class="w-full border border-slate-200 rounded-lg px-4 py-3 text-sm font-serif leading-relaxed"></textarea>
+                        <p id="ordMsg" class="text-sm hidden"></p>
+
+                        <div class="flex flex-wrap gap-3">
+                            <button id="ordSaveBtn" onclick="saveOrder(false)"
+                                class="bg-blue-700 hover:bg-blue-800 text-white px-6 py-2.5 rounded-lg font-semibold text-sm">Save
+                                Draft</button>
+                            <button id="ordFinaliseBtn" onclick="saveOrder(true)"
+                                class="bg-green-600 hover:bg-green-700 text-white px-6 py-2.5 rounded-lg font-semibold text-sm">Finalise
+                                Order</button>
+                            <button id="ordDeleteBtn" onclick="deleteOrder(editingOrder.id); closeOrderEditor()"
+                                class="hidden border-2 border-red-200 text-red-600 hover:bg-red-50 px-6 py-2.5 rounded-lg font-semibold text-sm">Delete
+                                Draft</button>
+                            <button id="ordPdfBtn" onclick="downloadOrderPdf()"
+                                class="hidden border-2 border-blue-200 text-blue-700 hover:bg-blue-50 px-6 py-2.5 rounded-lg font-semibold text-sm">Download
+                                PDF</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </section>
+        <!-- ═══════════ END ORDERS & DRAFTS PAGE ═══════════ -->
+
         <!-- ═══════════ LAW LIBRARY PAGE ═══════════ -->
         <section id="library-page" class="hidden">
             <section class="px-10 py-10">
@@ -461,6 +552,7 @@
         </div>
     </div>
 
+    <script src="{{ url_for('static', filename='js/judge_orders.js') }}"></script>
     <script>
         lucide.createIcons();
 
@@ -470,6 +562,8 @@
             document.getElementById("docket-page").classList.toggle("hidden", page !== "docket");
             document.getElementById("workspace-page").classList.toggle("hidden", page !== "workspace");
             document.getElementById("library-page").classList.toggle("hidden", page !== "library");
+            document.getElementById("orders-page").classList.toggle("hidden", page !== "orders");
+            document.getElementById("navOrders").classList.toggle("bg-blue-800", page === "orders");
             document.getElementById("navHome").classList.toggle("bg-blue-800", page === "home");
             document.getElementById("navDocket").classList.toggle("bg-blue-800", page === "docket");
             document.getElementById("navWorkspace").classList.toggle("bg-blue-800", page === "workspace");
@@ -485,6 +579,7 @@
         document.getElementById("navDocket").addEventListener("click", (e) => { e.preventDefault(); showPage("docket"); });
         document.getElementById("navWorkspace").addEventListener("click", (e) => { e.preventDefault(); showPage("workspace"); loadWorkspace(); });
         document.getElementById("navLibrary").addEventListener("click", (e) => { e.preventDefault(); showPage("library"); });
+        document.getElementById("navOrders").addEventListener("click", (e) => { e.preventDefault(); showPage("orders"); loadOrders(); });
 
         const API_BASE = "/judge/docket";
         let editingId = null;

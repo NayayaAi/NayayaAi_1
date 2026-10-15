@@ -2017,6 +2017,7 @@ def verify_locker_access():
 #upload evidence files related to a FIR (images, videos, documents)
 
 @app.route('/upload-evidence', methods=['POST'])
+@police_required
 def upload_evidence_file():
     fir_no = request.form.get("fir_no")
     file = request.files.get("file")

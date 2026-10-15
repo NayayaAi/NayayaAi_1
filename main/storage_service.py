@@ -213,3 +213,33 @@ def delete_docket_entry(entry_id, judge_id):
     result = supabase.table("case_docket").delete() \
         .eq("id", entry_id).eq("judge_id", judge_id).execute()
     return len(result.data) > 0
+
+
+# ==================== CASE CLOSURE (judge) ====================
+def get_fir_statuses(fir_nos):
+    """Return {fir_no: status} for the given FIR numbers."""
+    if not fir_nos:
+        return {}
+    result = supabase.table("firs").select("fir_no,status").in_("fir_no", list(fir_nos)).execute()
+    return {r["fir_no"]: (r.get("status") or "Active") for r in result.data}
+
+
+def close_case(fir_no, judge_id, note=""):
+    """
+    Close a case everywhere. firs.status is the single source of truth that the
+    lawyer, citizen, police and admin dashboards all read.
+    Also cancels every still-pending hearing for this case in all dockets.
+    Returns True if the FIR row was updated.
+    """
+    from datetime import datetime, timezone
+    result = supabase.table("firs").update({
+        "status": "Closed",
+        "closed_at": datetime.now(timezone.utc).isoformat(),
+        "closed_by": str(judge_id),
+        "closure_note": note,
+    }).eq("fir_no", fir_no).execute()
+    if not result.data:
+        return False
+    supabase.table("case_docket").update({"status": "cancelled"}) \
+        .eq("case_id", fir_no).in_("status", ["scheduled", "adjourned"]).execute()
+    return True

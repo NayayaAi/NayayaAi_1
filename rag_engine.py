@@ -5,6 +5,8 @@ import pandas as pd
 import os
 import re
 
+from sections_ai import find_section
+
 DB_PATH = "law_vector_db"
 
 # -----------------------------
@@ -13,10 +15,28 @@ DB_PATH = "law_vector_db"
 # Matches "section 420", "sec 420", "u/s 420", "420 IPC", "420A", etc.
 _SECTION_PATTERNS = [
     re.compile(r'\b(?:section|sec\.?|u/s)\s*[:\-]?\s*(\d+[a-zA-Z]?)\b', re.IGNORECASE),
-    re.compile(r'\b(\d+[a-zA-Z]?)\s*(?:ipc|crpc|bns|bnss|iea)\b', re.IGNORECASE),
+    # All eight act codes, not just the criminal three: "MVA 184" and "CPC 9"
+    # are questions an officer asks, and without the act here they were not
+    # recognised as naming a section at all.
+    re.compile(r'\b(\d+[a-zA-Z]?)\s*(?:ipc|crpc|bns|bnss|iea|bsa|cpc|mva|nia|hma|ida)\b', re.IGNORECASE),
     # act name BEFORE the number, e.g. "ipc 420", "crpc 154", "IPC-420"
-    re.compile(r'\b(?:ipc|crpc|bns|bnss|iea)\s*[:\-]?\s*(\d+[a-zA-Z]?)\b', re.IGNORECASE),
+    re.compile(r'\b(?:ipc|crpc|bns|bnss|iea|bsa|cpc|mva|nia|hma|ida)\s*[:\-]?\s*(\d+[a-zA-Z]?)\b', re.IGNORECASE),
 ]
+
+# Which act the question names, if any. `search_law` uses it to disambiguate a
+# bare section number: there is a section 154 in IPC, CrPC, IEA, CPC and MVA,
+# and "what does CrPC 154 say" must not be answered with the IPC one.
+_ACT_IN_QUERY = [
+    ("CRPC", re.compile(r"\b(?:crpc|cr\.?p\.?c|bnss|code of criminal procedure)\b", re.I)),
+    ("IEA", re.compile(r"\b(?:iea|bsa|evidence act|indian evidence)\b", re.I)),
+    ("CPC", re.compile(r"\b(?:cpc|c\.?p\.?c|code of civil procedure)\b", re.I)),
+    ("MVA", re.compile(r"\b(?:mva|motor vehicle)", re.I)),
+    ("NIA", re.compile(r"\b(?:nia|negotiable instrument)", re.I)),
+    ("HMA", re.compile(r"\b(?:hma|hindu marriage)", re.I)),
+    ("IDA", re.compile(r"\b(?:ida|industrial dispute)", re.I)),
+    ("IPC", re.compile(r"\b(?:ipc|i\.?p\.?c|bns|indian penal code|penal code)\b", re.I)),
+]
+
 
 def extract_section_number(query: str):
     """Return the section number if the query explicitly names one, else None."""
@@ -24,6 +44,19 @@ def extract_section_number(query: str):
         m = pattern.search(query)
         if m:
             return m.group(1).upper()
+    return None
+
+
+def extract_act(query: str):
+    """Return the act code the query names, else None.
+
+    IPC is tested last: "IPC" is a substring of nothing, but a question like
+    "difference between IPC 302 and CrPC 154" should resolve to the more
+    specific act mentioned rather than to whichever pattern ran first.
+    """
+    for code, pattern in _ACT_IN_QUERY:
+        if pattern.search(query or ""):
+            return code
     return None
 
 
@@ -130,18 +163,47 @@ def search_law(query, min_similarity=0.35):
     """
 
     # --- Exact section short-circuit ---
+    #
+    # Two stores, and the order matters. `law_data.csv` holds 84 IPC sections
+    # with hand-written plain-language descriptions, which read better than the
+    # bare statutory text, so a question about one of those is answered from it.
+    # `IndiaLaw.db` holds 1,968 sections across all eight acts and answers
+    # everything else -- including "what does CrPC 154 say", which used to fall
+    # through to a semantic search over the 84 IPC rows and come back with
+    # whatever was nearest in vector space.
     section_no = extract_section_number(query)
-    if section_no and section_no in SECTION_LOOKUP:
-        match = SECTION_LOOKUP[section_no]
-        return [{
-            "score": 1.0,
-            "section": match["section"],
-            "title": match["title"],
-            "description": match["description"]
-        }]
-    # If a section number was named but not found in the CSV, fall through
-    # to semantic search rather than returning nothing -- could be a typo
-    # or an act your CSV doesn't cover.
+    act_named = extract_act(query)
+
+    if section_no:
+        # The CSV is IPC-only, so it is the right store only when the question
+        # is about IPC or names no act at all.
+        if act_named in (None, "IPC") and section_no in SECTION_LOOKUP:
+            match = SECTION_LOOKUP[section_no]
+            return [{
+                "score": 1.0,
+                "act": "IPC",
+                "section": match["section"],
+                "title": match["title"],
+                "description": match["description"]
+            }]
+
+        rows = find_section(section_no, act=act_named)
+        if rows:
+            # A bare number matches in several acts. Returning all of them is
+            # the honest answer -- the officer who typed "154" gets to see that
+            # IPC, CrPC, IEA, CPC and MVA each have one, rather than being
+            # handed whichever the code looked at first.
+            return [{
+                "score": 1.0,
+                "act": row["act"],
+                "section": row["section"],
+                "title": row["title"],
+                "description": row["description"],
+            } for row in rows[:3]]
+
+    # A section number that exists in neither store falls through to semantic
+    # search rather than returning nothing -- it could be a typo, or a question
+    # that happens to contain a number.
 
     db = FAISS.load_local(
         DB_PATH,
@@ -184,6 +246,10 @@ def search_law(query, min_similarity=0.35):
 
         best_results.append({
             "score": similarity_score,
+            # The FAISS index is built from law_data.csv, which is IPC and only
+            # IPC. Stated on every row rather than assumed by the caller, so a
+            # later index over more acts does not silently mislabel them.
+            "act": "IPC",
             "section": section,
             "title": title,
             "description": description
